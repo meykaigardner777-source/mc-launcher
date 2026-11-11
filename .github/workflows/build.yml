@@ -9,10 +9,10 @@ jobs:
   build-windows-arm64:
     runs-on: windows-latest
     steps:
-      - name: Check out code
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -20,11 +20,12 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Build Native ARM64 Executable
-        run: npx electron-builder --win --arm64
+      - name: Build ARM64 Executable
+        run: npm run pack:arm
 
-      - name: Upload Finished Launcher
+      - name: Upload Launcher Executable
         uses: actions/upload-artifact@v4
         with:
           name: Aetheria-Launcher-ARM64
           path: dist/*.exe
+          if-no-files-found: error
