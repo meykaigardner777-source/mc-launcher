@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Aetheria Launcher</title>
+  <style>
+    :root {
+      --bg: #090a0f;
+      --card: rgba(22, 27, 46, 0.6);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #6366f1;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    /* Titlebar */
+    .titlebar {
+      height: 38px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: drag;
+    }
+    .window-controls { display: flex; gap: 8px; -webkit-app-region: no-drag; }
+    .win-btn {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      font-size: 14px; width: 24px; height: 24px; border-radius: 4px;
+    }
+    .win-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    /* App Frame */
+    .app-body { display: flex; flex: 1; height: calc(100vh - 38px); }
+    .sidebar {
+      width: 200px;
+      background: rgba(13, 16, 28, 0.8);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 10px;
+      gap: 6px;
+    }
+    .nav-btn {
+      background: none; border: none; color: var(--text-muted); padding: 10px 14px;
+      text-align: left; font-size: 13px; font-weight: 500; border-radius: 8px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .nav-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+    .nav-btn.active { background: rgba(99, 102, 241, 0.15); color: var(--accent); font-weight: 600; }
+    .main-content { flex: 1; padding: 32px; overflow-y: auto; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px; margin-bottom: 16px;
+    }
+    .btn {
+      background: var(--accent); color: #fff; border: none; padding: 10px 20px;
+      border-radius: 8px; font-weight: 600; cursor: pointer;
+    }
+    .btn:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+
+  <!-- Custom Titlebar -->
+  <div class="titlebar">
+    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; color: var(--text-muted);">
+      AETHERIA // ARM64 NATIVE
+    </span>
+    <div class="window-controls">
+      <button class="win-btn" onclick="minimizeWindow()">&#8211;</button>
+      <button class="win-btn" onclick="closeWindow()">&#10005;</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <button class="nav-btn active" onclick="showTab('home')">Overview</button>
+      <button class="nav-btn" onclick="showTab('instances')">Instances</button>
+      <button class="nav-btn" onclick="showTab('mods')">Mod Hub</button>
+      <button class="nav-btn" onclick="showTab('settings')">Settings</button>
+    </nav>
+
+    <!-- Main Viewport -->
+    <main class="main-content">
+      <section id="panel-home" class="panel active">
+        <h1 style="margin-bottom: 8px;">Welcome to Aetheria</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 24px;">
+          Compiled for Windows on ARM (Qualcomm Snapdragon X)
+        </p>
+        <div class="card">
+          <h3 style="margin-bottom: 8px; font-size: 15px;">Launch Minecraft</h3>
+          <p id="status-text" style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+            Ready to initialize default profile.
+          </p>
+          <button class="btn" onclick="launchMinecraft()">Play Minecraft</button>
+        </div>
+      </section>
+
+      <section id="panel-instances" class="panel">
+        <h2>Instances</h2>
+        <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">No local instances found.</p>
+      </section>
+
+      <section id="panel-mods" class="panel">
+        <h2>Mod Hub</h2>
+        <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">Connect to Modrinth to explore mods.</p>
+      </section>
+
+      <section id="panel-settings" class="panel">
+        <h2>Settings</h2>
+        <div class="card" style="margin-top: 16px;">
+          <label style="display: block; font-size: 13px; margin-bottom: 8px;">Memory Allocation (MB)</label>
+          <input type="number" id="ram" value="4096" style="background:#000; border:1px solid var(--border); color:#fff; padding:8px; border-radius:6px; width:200px;">
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    function showTab(name) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`panel-${name}`).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    function minimizeWindow() {
+      ipcRenderer.send('window-min');
+    }
+
+    function closeWindow() {
+      ipcRenderer.send('window-close');
+    }
+
+    function launchMinecraft() {
+      document.getElementById('status-text').innerText = "Starting game process...";
+      ipcRenderer.send('launch-game', {
+        minMem: 2048,
+        maxMem: parseInt(document.getElementById('ram').value) || 4096
+      });
+    }
+
+    ipcRenderer.on('launch-status', (event, message) => {
+      document.getElementById('status-text').innerText = message;
+    });
+  </script>
+</body>
+</html>
