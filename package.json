@@ -1,8 +1,8 @@
 {
   "name": "aetheria-launcher",
-  "version": "1.1.0",
-  "description": "Native Windows on ARM64 Minecraft Desktop Launcher",
-  "author": "YourName",
+  "version": "1.2.0",
+  "description": "Monochrome ARM64 Native Minecraft Desktop Launcher",
+  "author": "Aetheria",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
