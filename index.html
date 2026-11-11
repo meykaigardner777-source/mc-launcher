@@ -11,8 +11,9 @@
     :root {
       color-scheme: dark;
       --bg: #09090b;
-      --card: #121215;
-      --card-hover: #18181b;
+      --card: rgba(18, 18, 21, 0.72);
+      --card-solid: #121215;
+      --card-hover: rgba(24, 24, 27, 0.88);
       --border: #27272a;
       --border-hover: #3f3f46;
       --border-focus: #52525b;
@@ -43,14 +44,25 @@
       flex-direction: column;
       overflow: hidden;
       border: 1px solid var(--border);
+      position: relative;
+    }
+
+    /* Animated Canvas Background Layer */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.85;
     }
 
     /* Custom Anti-Glare Dark Scrollbars */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
-    ::-webkit-scrollbar-corner { background: var(--bg); }
 
     /* Top Drag Header Bar */
     .titlebar {
@@ -60,8 +72,8 @@
       justify-content: space-between;
       padding: 0 16px;
       border-bottom: 1px solid var(--border);
-      background: rgba(9, 9, 11, 0.95);
-      backdrop-filter: blur(12px);
+      background: rgba(9, 9, 11, 0.85);
+      backdrop-filter: blur(20px);
       -webkit-app-region: drag;
       z-index: 1000;
     }
@@ -88,7 +100,6 @@
       border-radius: 4px;
       font-size: 0.65rem;
       font-weight: 700;
-      letter-spacing: 0.06em;
     }
 
     /* Top-Right Header Action Group */
@@ -99,16 +110,15 @@
       -webkit-app-region: no-drag;
     }
 
-    /* Animated Navigation Dropdown (Anchored Top-Right) */
-    .nav-wrapper {
-      position: relative;
-    }
+    /* Top-Right Anchored Navigation Dropdown */
+    .nav-wrapper { position: relative; }
 
     .nav-trigger {
       display: flex;
       align-items: center;
       gap: 9px;
-      background: var(--card);
+      background: rgba(24, 24, 27, 0.7);
+      backdrop-filter: blur(12px);
       border: 1px solid var(--border);
       color: var(--text);
       padding: 6px 14px;
@@ -125,24 +135,22 @@
       transform: translateY(-1px);
     }
 
-    .nav-trigger:active {
-      transform: translateY(1px) scale(0.98);
-    }
+    .nav-trigger:active { transform: translateY(1px) scale(0.98); }
 
     .nav-dropdown {
       position: absolute;
       top: calc(100% + 8px);
       right: 0;
       width: 190px;
-      background: rgba(18, 18, 21, 0.98);
-      backdrop-filter: blur(20px);
+      background: rgba(18, 18, 21, 0.96);
+      backdrop-filter: blur(24px);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 6px;
       display: flex;
       flex-direction: column;
       gap: 3px;
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75);
       z-index: 2000;
       opacity: 0;
       transform: translateY(-8px) scale(0.97);
@@ -182,26 +190,13 @@
     }
 
     /* Window Controls */
-    .win-controls {
-      display: flex;
-      gap: 4px;
-    }
-
+    .win-controls { display: flex; gap: 4px; }
     .win-btn {
-      width: 28px;
-      height: 28px;
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 13px;
-      transition: all 0.15s ease;
+      width: 28px; height: 28px; background: transparent; border: none;
+      color: var(--text-muted); border-radius: 4px; display: flex;
+      align-items: center; justify-content: center; cursor: pointer;
+      font-size: 13px; transition: all 0.15s ease;
     }
-
     .win-btn:hover { background: #1c1c20; color: var(--text); }
     .win-btn.close:hover { background: var(--danger); color: #fff; }
 
@@ -210,6 +205,8 @@
       flex: 1;
       overflow-y: auto;
       padding: 32px 42px;
+      position: relative;
+      z-index: 1;
     }
 
     .panel {
@@ -224,9 +221,10 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Cards & Components */
+    /* Cards */
     .card {
       background: var(--card);
+      backdrop-filter: blur(16px);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 24px;
@@ -234,15 +232,13 @@
       transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
     }
 
-    .card:hover {
-      border-color: var(--border-hover);
-    }
+    .card:hover { border-color: var(--border-hover); }
 
     .panel-header { margin-bottom: 24px; }
     .panel-header h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
     .panel-header p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
 
-    /* Tactile Buttons */
+    /* Buttons */
     .btn {
       background: #ffffff;
       color: #09090b;
@@ -255,20 +251,12 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
       transition: all 0.2s var(--ease);
     }
-
-    .btn:hover {
-      background: #e4e4e7;
-      transform: translateY(-1px);
-    }
-
-    .btn:active {
-      transform: translateY(1px) scale(0.98);
-    }
-
+    .btn:hover { background: #e4e4e7; transform: translateY(-1px); }
+    .btn:active { transform: translateY(1px) scale(0.98); }
     .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
     .btn-secondary {
-      background: #18181b;
+      background: rgba(24, 24, 27, 0.8);
       color: var(--text);
       border: 1px solid var(--border);
       padding: 8px 16px;
@@ -278,19 +266,17 @@
       cursor: pointer;
       transition: all 0.2s var(--ease);
     }
-
     .btn-secondary:hover {
       background: #222227;
       border-color: var(--border-focus);
       transform: translateY(-1px);
     }
-
     .btn-secondary:active { transform: translateY(1px); }
 
-    /* Inputs & Select Elements */
+    /* Inputs */
     .input-field, .select-field {
       width: 100%;
-      background: #09090b;
+      background: rgba(9, 9, 11, 0.8);
       border: 1px solid var(--border);
       padding: 10px 14px;
       border-radius: var(--radius);
@@ -299,16 +285,10 @@
       outline: none;
       transition: border-color 0.2s ease;
     }
-
     .input-field:focus, .select-field:focus { border-color: var(--border-focus); }
 
-    /* Mod Hub Chips */
-    .chip-group {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
+    /* Chips */
+    .chip-group { display: flex; gap: 8px; margin-bottom: 16px; }
     .chip-btn {
       background: var(--card);
       border: 1px solid var(--border);
@@ -320,16 +300,14 @@
       cursor: pointer;
       transition: all 0.2s var(--ease);
     }
-
     .chip-btn:hover { color: var(--text); border-color: var(--border-hover); }
-
     .chip-btn.active {
       background: #ffffff;
       color: #09090b;
       border-color: #ffffff;
     }
 
-    /* Mod / Resource Pack / Shader Previews */
+    /* Items */
     .mod-item {
       display: flex;
       justify-content: space-between;
@@ -341,21 +319,34 @@
       margin-bottom: 12px;
       transition: all 0.25s var(--ease);
     }
-
     .mod-item:hover {
       transform: translateY(-2px);
       border-color: var(--border-focus);
       background: var(--card-hover);
     }
-
     .mod-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 8px;
-      background: #000;
+      width: 48px; height: 48px; border-radius: 8px;
+      background: #000; border: 1px solid var(--border);
+      object-fit: cover; flex-shrink: 0;
+    }
+
+    /* Account Profile Display */
+    .acc-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: var(--card);
       border: 1px solid var(--border);
-      object-fit: cover;
-      flex-shrink: 0;
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      transition: all 0.2s var(--ease);
+    }
+    .acc-card:hover { border-color: var(--border-hover); }
+    .acc-avatar {
+      width: 44px; height: 44px; border-radius: 6px;
+      background: #000; border: 1px solid var(--border);
+      image-rendering: pixelated;
     }
 
     .switch-row {
@@ -391,6 +382,9 @@
 </head>
 <body>
 
+  <!-- Dynamic Ambient Canvas Layer -->
+  <canvas id="bg-canvas"></canvas>
+
   <!-- Chromeless Titlebar -->
   <header class="titlebar">
     <div class="brand-group">
@@ -398,7 +392,7 @@
       <span class="brand-badge">ARM64 NATIVE</span>
     </div>
 
-    <!-- Top-Right Section: Nav Dropdown & Window Controls -->
+    <!-- Top-Right Section -->
     <div class="top-right-group">
       <div class="nav-wrapper">
         <button class="nav-trigger" id="dropdown-btn" onclick="toggleNav()">
@@ -408,6 +402,7 @@
         <div class="nav-dropdown" id="dropdown-menu">
           <button class="nav-option active" onclick="switchTab('home', 'Overview')">Overview</button>
           <button class="nav-option" onclick="switchTab('mods', 'Mod Hub')">Mod Hub</button>
+          <button class="nav-option" onclick="switchTab('manager', 'Installed')">Mod Manager</button>
           <button class="nav-option" onclick="switchTab('skins', 'Skin Studio')">Skin Studio</button>
           <button class="nav-option" onclick="switchTab('vault', 'Vault')">Vault</button>
           <button class="nav-option" onclick="switchTab('accounts', 'Accounts')">Accounts</button>
@@ -440,9 +435,9 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 16px;">
-          <!-- Version Selector (Live Mojang Updates) -->
+          <!-- Real-Time Auto-Updating Version Selector -->
           <div style="text-align: right;">
-            <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">TARGET VERSION</label>
+            <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">VERSION SELECTOR</label>
             <select id="version-selector" class="select-field" style="width: 140px; padding: 8px 12px; cursor: pointer;" onchange="changeVersion(this.value)">
               <option value="1.20.4">1.20.4</option>
             </select>
@@ -474,14 +469,13 @@
       </div>
     </section>
 
-    <!-- PANEL: MOD HUB -->
+    <!-- PANEL: MOD HUB (BROWSE) -->
     <section id="panel-mods" class="panel">
       <div class="panel-header">
         <h2>Mod Hub</h2>
-        <p>Explore mods, shaders, and resource packs optimized for your selected version</p>
+        <p>Explore mods, shaders, and resource packs for your selected version</p>
       </div>
 
-      <!-- Type Filter Chips -->
       <div class="chip-group">
         <button class="chip-btn active" id="chip-mod" onclick="setModType('mod')">Mods</button>
         <button class="chip-btn" id="chip-resourcepack" onclick="setModType('resourcepack')">Resource Packs</button>
@@ -489,12 +483,31 @@
       </div>
 
       <div style="display: flex; gap: 10px; margin-bottom: 22px;">
-        <input type="text" id="mod-query" class="input-field" placeholder="Search (e.g. Sodium, Iris, Bare Bones, BSL)..." onkeydown="if(event.key==='Enter') queryModrinth()" />
+        <input type="text" id="mod-query" class="input-field" placeholder="Search (e.g. Sodium, Iris, Bare Bones, Complementary)..." onkeydown="if(event.key==='Enter') queryModrinth()" />
         <button class="btn-secondary" onclick="queryModrinth()">Search</button>
       </div>
 
       <div id="mod-list">
-        <p style="font-size: 0.8rem; color: var(--text-muted);">Enter a title or tag to browse releases.</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Enter a keyword and press search.</p>
+      </div>
+    </section>
+
+    <!-- PANEL: MOD MANAGER (INSTALLED CONTENT) -->
+    <section id="panel-manager" class="panel">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Mod Manager</h2>
+          <p>Toggle, enable, and delete local extensions</p>
+        </div>
+        <div class="chip-group" style="margin-bottom: 0;">
+          <button class="chip-btn active" id="mgr-chip-mods" onclick="loadManager('mods')">Mods</button>
+          <button class="chip-btn" id="mgr-chip-resourcepacks" onclick="loadManager('resourcepacks')">Packs</button>
+          <button class="chip-btn" id="mgr-chip-shaderpacks" onclick="loadManager('shaderpacks')">Shaders</button>
+        </div>
+      </div>
+
+      <div id="manager-list">
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Scanning installed items...</p>
       </div>
     </section>
 
@@ -502,15 +515,25 @@
     <section id="panel-skins" class="panel">
       <div class="panel-header">
         <h2>Skin Studio</h2>
-        <p>Preview and upload your character texture to Mojang</p>
+        <p>Search skins, render 3D/2D layouts, and sync with your Mojang account</p>
       </div>
+
+      <!-- Player Skin Lookup -->
+      <div class="card" style="margin-bottom: 20px;">
+        <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Inspect Player Skin by Username</h3>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="skin-search-user" class="input-field" placeholder="Enter username (e.g. Notch, Technoblade)..." onkeydown="if(event.key==='Enter') searchPlayerSkin()" />
+          <button class="btn-secondary" onclick="searchPlayerSkin()">Fetch Skin</button>
+        </div>
+      </div>
+
       <div style="display: flex; gap: 32px; align-items: flex-start;">
-        <div style="width: 160px; height: 240px; background: #09090b; border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; justify-content: center;">
+        <div style="width: 160px; height: 240px; background: rgba(9, 9, 11, 0.8); border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; justify-content: center;">
           <canvas id="skin-canvas" width="128" height="256" style="image-rendering: pixelated;"></canvas>
         </div>
         <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
           <div class="card">
-            <label style="display:block; font-size: 0.8rem; font-weight: 600; margin-bottom: 10px;">Skin Image File</label>
+            <label style="display:block; font-size: 0.8rem; font-weight: 600; margin-bottom: 10px;">Select Local Skin File (.png)</label>
             <button class="btn-secondary" onclick="chooseSkinFile()">Browse PNG File...</button>
             <span id="skin-file-name" style="display:block; font-size:0.75rem; color:var(--text-muted); margin-top: 8px;">No file selected</span>
           </div>
@@ -520,7 +543,7 @@
               <input type="checkbox" id="skin-slim" />
             </div>
           </div>
-          <button class="btn" onclick="uploadSkin()">Apply to Mojang Profile</button>
+          <button class="btn" onclick="uploadSkin()">Apply to Active Mojang Profile</button>
         </div>
       </div>
     </section>
@@ -559,7 +582,7 @@
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
           <h2>Accounts</h2>
-          <p>Manage authentication profiles</p>
+          <p>Manage authentication profiles and player identities</p>
         </div>
         <button class="btn" onclick="addMicrosoftAccount()">Sign In with Microsoft</button>
       </div>
@@ -573,7 +596,7 @@
       </div>
 
       <div class="card">
-        <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Authenticated Microsoft Profiles</h3>
+        <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Connected Profiles</h3>
         <div id="accounts-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
       </div>
     </section>
@@ -582,8 +605,27 @@
     <section id="panel-settings" class="panel">
       <div class="panel-header">
         <h2>Settings</h2>
-        <p>Memory, runtime paths, and execution properties</p>
+        <p>Visual theme, animated presets, and memory management</p>
       </div>
+
+      <!-- 10 Monochrome Animated Presets Selector -->
+      <div class="card">
+        <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Animated Background Presets</h3>
+        <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">Ambient Canvas Engine</label>
+        <select id="cfg-bg-preset" class="select-field" onchange="setBgPreset(this.value)">
+          <option value="waves">1. Obsidian Waves (Fluid Harmonic Motion)</option>
+          <option value="starfield">2. Starfield Warp (3D Celestial Drift)</option>
+          <option value="matrix">3. Digital Rain (Monochrome Cyber Cascade)</option>
+          <option value="plexus">4. Geometric Mesh (Connecting Kinetic Nodes)</option>
+          <option value="pulse">5. Minimal Pulse (Concentric Dissipating Rings)</option>
+          <option value="mist">6. Monochrome Mist (Horizontal Vapor Drift)</option>
+          <option value="grid">7. Horizon Grid (3D Retro Perspective)</option>
+          <option value="voxels">8. Voxel Rain (Isometric Cube Matrix)</option>
+          <option value="constellation">9. Constellation (Orbital Dot Net)</option>
+          <option value="none">10. Pitch Void (Static Pitch Black)</option>
+        </select>
+      </div>
+
       <div class="card">
         <h3 style="font-size: 0.9rem; margin-bottom: 16px;">Java Virtual Machine</h3>
         <div style="margin-bottom: 14px;">
@@ -605,6 +647,7 @@
           <input type="text" id="cfg-jvm-flags" class="input-field" />
         </div>
       </div>
+
       <div class="card">
         <div class="switch-row">
           <span style="font-size: 0.85rem;">Hide launcher on game start</span>
@@ -618,12 +661,180 @@
 
   <div id="toast"></div>
 
+  <!-- Ambient Animation Engine Script -->
+  <script>
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    let currentPreset = 'waves';
+    let animId = null;
+    let width, height;
+
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // 10 Monochrome Procedural Animators
+    let tick = 0;
+    const stars = Array.from({ length: 90 }, () => ({ x: Math.random() * width, y: Math.random() * height, z: Math.random() * width }));
+    const nodes = Array.from({ length: 45 }, () => ({ x: Math.random() * width, y: Math.random() * height, vx: (Math.random() - 0.5) * 0.6, vy: (Math.random() - 0.5) * 0.6 }));
+    const rain = Array.from({ length: 50 }, () => ({ x: Math.random() * width, y: Math.random() * height, speed: 2 + Math.random() * 4, len: 10 + Math.random() * 20 }));
+    const voxels = Array.from({ length: 30 }, () => ({ x: Math.random() * width, y: Math.random() * height, size: 8 + Math.random() * 12, speed: 0.5 + Math.random() }));
+
+    function renderAnimation() {
+      tick++;
+      ctx.clearRect(0, 0, width, height);
+
+      if (currentPreset === 'none') {
+        // Static Pitch Void
+        return;
+      }
+
+      if (currentPreset === 'waves') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        ctx.lineWidth = 1.2;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.04 + i * 0.02})`;
+          for (let x = 0; x <= width; x += 30) {
+            const y = height * 0.5 + Math.sin(x * 0.003 + tick * 0.015 + i) * 60 + Math.cos(x * 0.002 + i) * 30;
+            if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+      } else if (currentPreset === 'starfield') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        stars.forEach(s => {
+          s.z -= 1.5;
+          if (s.z <= 0) { s.z = width; s.x = Math.random() * width; s.y = Math.random() * height; }
+          const k = 128 / s.z;
+          const px = (s.x - width / 2) * k + width / 2;
+          const py = (s.y - height / 2) * k + height / 2;
+          if (px >= 0 && px <= width && py >= 0 && py <= height) {
+            const size = (1 - s.z / width) * 2;
+            ctx.fillStyle = `rgba(255, 255, 255, ${1 - s.z / width})`;
+            ctx.fillRect(px, py, size, size);
+          }
+        });
+      } else if (currentPreset === 'matrix') {
+        ctx.fillStyle = 'rgba(9, 9, 11, 0.2)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        rain.forEach(r => {
+          ctx.fillRect(r.x, r.y, 1.5, r.len);
+          r.y += r.speed;
+          if (r.y > height) { r.y = -20; r.x = Math.random() * width; }
+        });
+      } else if (currentPreset === 'plexus') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        nodes.forEach((n, i) => {
+          n.x += n.vx; n.y += n.vy;
+          if (n.x < 0 || n.x > width) n.vx *= -1;
+          if (n.y < 0 || n.y > height) n.vy *= -1;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.fillRect(n.x - 1.5, n.y - 1.5, 3, 3);
+          for (let j = i + 1; j < nodes.length; j++) {
+            const dx = nodes[j].x - n.x;
+            const dy = nodes[j].y - n.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 120) {
+              ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 * (1 - dist / 120)})`;
+              ctx.beginPath();
+              ctx.moveTo(n.x, n.y);
+              ctx.lineTo(nodes[j].x, nodes[j].y);
+              ctx.stroke();
+            }
+          }
+        });
+      } else if (currentPreset === 'pulse') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        for (let r = 0; r < 5; r++) {
+          const radius = ((tick * 1.5 + r * 140) % (width * 0.8));
+          const alpha = Math.max(0, 0.25 * (1 - radius / (width * 0.8)));
+          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+          ctx.beginPath();
+          ctx.arc(width / 2, height / 2, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (currentPreset === 'mist') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        for (let m = 0; m < 3; m++) {
+          ctx.fillStyle = `rgba(255, 255, 255, ${0.015 + m * 0.01})`;
+          const offset = (tick * (0.4 + m * 0.2)) % width;
+          ctx.beginPath();
+          ctx.arc(offset, height * 0.4 + m * 80, 200 + m * 50, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (currentPreset === 'grid') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+        const horizon = height * 0.55;
+        for (let x = -width; x < width * 2; x += 60) {
+          ctx.beginPath();
+          ctx.moveTo(width / 2, horizon);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+        for (let y = horizon; y < height; y += (y - horizon) * 0.25 + 6) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+      } else if (currentPreset === 'voxels') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        voxels.forEach(v => {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.strokeRect(v.x, v.y, v.size, v.size);
+          v.y += v.speed;
+          if (v.y > height) { v.y = -20; v.x = Math.random() * width; }
+        });
+      } else if (currentPreset === 'constellation') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        ctx.rotate(tick * 0.001);
+        for (let c = 0; c < 36; c++) {
+          const angle = c * (Math.PI / 18);
+          const dist = 180 + Math.sin(c + tick * 0.02) * 50;
+          const x = Math.cos(angle) * dist;
+          const y = Math.sin(angle) * dist;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+        }
+        ctx.restore();
+      }
+
+      animId = requestAnimationFrame(renderAnimation);
+    }
+
+    function setBgPreset(name) {
+      currentPreset = name;
+      currentConfig.bgPreset = name;
+      ipcRenderer.invoke('save-config', currentConfig);
+      if (animId) cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(renderAnimation);
+    }
+  </script>
+
+  <!-- Application Logic -->
   <script>
     const { ipcRenderer } = require('electron');
 
     let currentConfig = {};
     let selectedSkinData = null;
     let activeModType = 'mod';
+    let activeMgrType = 'mods';
 
     function toast(text) {
       const el = document.getElementById('toast');
@@ -632,7 +843,6 @@
       setTimeout(() => el.style.display = 'none', 3500);
     }
 
-    // Top-Right Dropdown Navigation
     function toggleNav() {
       const menu = document.getElementById('dropdown-menu');
       const arrow = document.getElementById('dropdown-arrow');
@@ -664,6 +874,7 @@
       document.getElementById('dropdown-arrow').style.transform = 'rotate(0deg)';
 
       if (name === 'vault') loadVault();
+      if (name === 'manager') loadManager(activeMgrType);
     }
 
     function minWin() { ipcRenderer.send('window-min'); }
@@ -671,7 +882,6 @@
     function closeWin() { ipcRenderer.send('window-close'); }
     function openDir(dir) { ipcRenderer.send('open-path', dir); }
 
-    // Init & Live Version Sync
     window.addEventListener('DOMContentLoaded', async () => {
       currentConfig = await ipcRenderer.invoke('get-config');
       document.getElementById('cfg-java').value = currentConfig.customJavaPath || '';
@@ -680,12 +890,20 @@
       document.getElementById('cfg-jvm-flags').value = currentConfig.jvmArgs || '';
       document.getElementById('cfg-close-launch').checked = !!currentConfig.closeOnLaunch;
       document.getElementById('cfg-offline-user').value = currentConfig.offlineUsername || 'Player';
+      document.getElementById('cfg-bg-preset').value = currentConfig.bgPreset || 'waves';
 
+      setBgPreset(currentConfig.bgPreset || 'waves');
       renderAccounts();
       checkJdkStatus();
       syncVersions();
+
+      // Automatically render active account skin on start
+      if (currentConfig.activeAccount) {
+        loadAccountSkinAuto(currentConfig.activeAccount.name);
+      }
     });
 
+    // Version Sync
     async function syncVersions() {
       const manifest = await ipcRenderer.invoke('get-mc-versions');
       const selector = document.getElementById('version-selector');
@@ -707,10 +925,10 @@
       currentConfig.selectedVersion = ver;
       document.getElementById('version-badge').innerText = ver;
       await ipcRenderer.invoke('save-config', currentConfig);
-      toast(`Target version set to ${ver}`);
+      toast(`Version targeted: ${ver}`);
     }
 
-    // Diagnostics & Auto-Installer
+    // Diagnostics
     async function checkJdkStatus() {
       const diag = document.getElementById('diag-java');
       const btn = document.getElementById('btn-install-jdk');
@@ -746,14 +964,202 @@
         toast('Microsoft OpenJDK 21 installed successfully!');
         checkJdkStatus();
       } catch (err) {
-        alert('JDK install error: ' + err.message);
+        alert('JDK setup error: ' + err.message);
       } finally {
         btn.disabled = false;
         box.style.display = 'none';
       }
     }
 
-    // Mod Hub: Filters & Visual Previews
+    // Installed Mod Manager Logic
+    async function loadManager(type = 'mods') {
+      activeMgrType = type;
+      ['mods', 'resourcepacks', 'shaderpacks'].forEach(t => {
+        const el = document.getElementById(`mgr-chip-${t}`);
+        if (el) el.classList.toggle('active', t === type);
+      });
+
+      const list = document.getElementById('manager-list');
+      list.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">Scanning folder...</span>';
+
+      const items = await ipcRenderer.invoke('get-installed-content', type);
+      list.innerHTML = '';
+      if (!items.length) {
+        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No installed ${type} found.</span>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'mod-item';
+        row.innerHTML = `
+          <div>
+            <strong>${item.name}</strong>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:2px;">${item.sizeMb} MB &bull; ${item.isEnabled ? 'Active' : 'Disabled'}</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-secondary" onclick="toggleItem('${item.folder}', '${item.fileName}')">
+              ${item.isEnabled ? 'Disable' : 'Enable'}
+            </button>
+            <button class="btn-secondary" style="color:var(--danger);" onclick="deleteItem('${item.folder}', '${item.fileName}')">
+              Delete
+            </button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    async function toggleItem(folder, fileName) {
+      await ipcRenderer.invoke('toggle-content-item', { folder, fileName });
+      loadManager(activeMgrType);
+    }
+
+    async function deleteItem(folder, fileName) {
+      if (confirm(`Delete ${fileName}?`)) {
+        await ipcRenderer.invoke('delete-content-item', { folder, fileName });
+        loadManager(activeMgrType);
+      }
+    }
+
+    // Skin Canvas Renderer
+    function drawSkinToCanvas(imgSrc) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.getElementById('skin-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Head Base & Overlay
+        ctx.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
+        ctx.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
+        // Body
+        ctx.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
+        // Arms
+        ctx.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
+        ctx.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
+        // Legs
+        ctx.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
+        ctx.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
+      };
+      img.src = imgSrc;
+    }
+
+    async function loadAccountSkinAuto(username) {
+      try {
+        const res = await ipcRenderer.invoke('fetch-player-skin', username);
+        if (res && res.skinUrl) {
+          drawSkinToCanvas(res.skinUrl);
+          document.getElementById('skin-slim').checked = !!res.isSlim;
+          document.getElementById('skin-file-name').innerText = `Active Account Skin: ${username}`;
+        }
+      } catch (e) {}
+    }
+
+    async function searchPlayerSkin() {
+      const u = document.getElementById('skin-search-user').value.trim();
+      if (!u) return;
+
+      toast(`Fetching skin for ${u}...`);
+      try {
+        const res = await ipcRenderer.invoke('fetch-player-skin', u);
+        drawSkinToCanvas(res.skinUrl);
+        document.getElementById('skin-slim').checked = !!res.isSlim;
+        document.getElementById('skin-file-name').innerText = `Loaded Skin: ${res.username}`;
+        toast(`Skin for ${res.username} loaded!`);
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function chooseSkinFile() {
+      const res = await ipcRenderer.invoke('select-skin-dialog');
+      if (!res) return;
+
+      selectedSkinData = res;
+      document.getElementById('skin-file-name').innerText = res.filePath;
+      drawSkinToCanvas(res.dataUrl);
+    }
+
+    async function uploadSkin() {
+      if (!currentConfig.activeAccount) return alert('Select an active Microsoft account first.');
+      if (!selectedSkinData) return alert('Select a skin PNG file first.');
+
+      toast('Uploading skin to Mojang servers...');
+      try {
+        await ipcRenderer.invoke('upload-skin', {
+          token: currentConfig.activeAccount.token,
+          filePath: selectedSkinData.filePath,
+          isSlim: document.getElementById('skin-slim').checked
+        });
+        toast('Skin updated successfully!');
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    // Accounts
+    function renderAccounts() {
+      const container = document.getElementById('accounts-container');
+      container.innerHTML = '';
+
+      const accs = currentConfig.accounts || [];
+      if (!accs.length) {
+        container.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No Microsoft profiles connected.</span>';
+        return;
+      }
+
+      accs.forEach(acc => {
+        const isCurrent = currentConfig.activeAccount && currentConfig.activeAccount.id === acc.id;
+        const row = document.createElement('div');
+        row.className = 'acc-card';
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; gap:14px;">
+            <img class="acc-avatar" src="https://mc-heads.net/avatar/${acc.name}/64" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'44\\' height=\\'44\\'><rect width=\\'44\\' height=\\'44\\' fill=\\'%2318181b\\'/></svg>'" />
+            <div>
+              <strong style="font-size:0.9rem;">${acc.name}</strong>
+              <span style="font-size:0.75rem; color:var(--text-muted); display:block;">UUID: ${acc.id}</span>
+            </div>
+          </div>
+          <button class="btn-secondary" onclick="setActiveAccount('${acc.id}')">
+            ${isCurrent ? 'Active Profile' : 'Select'}
+          </button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function setActiveAccount(id) {
+      currentConfig.activeAccount = currentConfig.accounts.find(a => a.id === id);
+      ipcRenderer.invoke('save-config', currentConfig);
+      renderAccounts();
+      if (currentConfig.activeAccount) {
+        loadAccountSkinAuto(currentConfig.activeAccount.name);
+      }
+      toast('Profile switched.');
+    }
+
+    async function addMicrosoftAccount() {
+      toast('Opening Microsoft authentication window...');
+      try {
+        const acc = await ipcRenderer.invoke('start-microsoft-login');
+        currentConfig.activeAccount = acc;
+        renderAccounts();
+        loadAccountSkinAuto(acc.name);
+        toast(`Signed in as ${acc.name}!`);
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function saveOfflineName() {
+      const name = document.getElementById('cfg-offline-user').value.trim() || 'Player';
+      currentConfig.offlineUsername = name;
+      await ipcRenderer.invoke('save-config', currentConfig);
+      toast(`Offline player set to ${name}`);
+    }
+
+    // Mod Hub
     function setModType(type) {
       activeModType = type;
       document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
@@ -770,7 +1176,7 @@
       const hits = await ipcRenderer.invoke('search-modrinth', { query: q, type: activeModType, version: ver });
       list.innerHTML = '';
       if (!hits.length) {
-        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No matching releases found for Minecraft ${ver}.</span>`;
+        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No releases found for Minecraft ${ver}.</span>`;
         return;
       }
 
@@ -808,9 +1214,9 @@
       }
     }
 
-    // Launch Pipeline
+    // Play Minecraft
     function playGame() {
-      toast('Starting game execution pipeline...');
+      toast('Starting execution pipeline...');
       const playBtn = document.getElementById('play-button');
       playBtn.disabled = true;
 
@@ -831,117 +1237,6 @@
       document.getElementById('play-button').disabled = false;
       toast(res.message);
     });
-
-    // Settings
-    async function saveSettings() {
-      currentConfig.customJavaPath = document.getElementById('cfg-java').value.trim();
-      currentConfig.minRam = parseInt(document.getElementById('cfg-min-ram').value, 10) || 2048;
-      currentConfig.maxRam = parseInt(document.getElementById('cfg-max-ram').value, 10) || 4096;
-      currentConfig.jvmArgs = document.getElementById('cfg-jvm-flags').value.trim();
-      currentConfig.closeOnLaunch = document.getElementById('cfg-close-launch').checked;
-
-      await ipcRenderer.invoke('save-config', currentConfig);
-      toast('Preferences saved.');
-    }
-
-    async function saveOfflineName() {
-      const name = document.getElementById('cfg-offline-user').value.trim() || 'Player';
-      currentConfig.offlineUsername = name;
-      await ipcRenderer.invoke('save-config', currentConfig);
-      toast(`Offline player set to ${name}`);
-    }
-
-    // Accounts
-    async function addMicrosoftAccount() {
-      toast('Opening Microsoft authentication window...');
-      try {
-        const acc = await ipcRenderer.invoke('start-microsoft-login');
-        currentConfig.activeAccount = acc;
-        renderAccounts();
-        toast(`Signed in as ${acc.name}!`);
-      } catch (e) {
-        alert(e.message);
-      }
-    }
-
-    function renderAccounts() {
-      const container = document.getElementById('accounts-container');
-      container.innerHTML = '';
-
-      const accs = currentConfig.accounts || [];
-      if (!accs.length) {
-        container.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No Microsoft accounts signed in. (Using Offline Mode)</span>';
-        return;
-      }
-
-      accs.forEach(acc => {
-        const isCurrent = currentConfig.activeAccount && currentConfig.activeAccount.id === acc.id;
-        const div = document.createElement('div');
-        div.style.display = 'flex';
-        div.style.justifyContent = 'space-between';
-        div.style.alignItems = 'center';
-        div.style.padding = '8px 0';
-        div.innerHTML = `
-          <div>
-            <strong>${acc.name}</strong>
-            <span style="font-size:0.75rem; color:var(--text-muted); display:block;">UUID: ${acc.id}</span>
-          </div>
-          <button class="btn-secondary" onclick="setActiveAccount('${acc.id}')">
-            ${isCurrent ? 'Active' : 'Select'}
-          </button>
-        `;
-        container.appendChild(div);
-      });
-    }
-
-    function setActiveAccount(id) {
-      currentConfig.activeAccount = currentConfig.accounts.find(a => a.id === id);
-      ipcRenderer.invoke('save-config', currentConfig);
-      renderAccounts();
-      toast('Profile switched.');
-    }
-
-    // Skins
-    async function chooseSkinFile() {
-      const res = await ipcRenderer.invoke('select-skin-dialog');
-      if (!res) return;
-
-      selectedSkinData = res;
-      document.getElementById('skin-file-name').innerText = res.filePath;
-
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.getElementById('skin-canvas');
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        ctx.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
-        ctx.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
-        ctx.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
-        ctx.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
-        ctx.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
-        ctx.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
-        ctx.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
-      };
-      img.src = res.dataUrl;
-    }
-
-    async function uploadSkin() {
-      if (!currentConfig.activeAccount) return alert('Select an active Microsoft account first.');
-      if (!selectedSkinData) return alert('Select a skin PNG file first.');
-
-      toast('Uploading skin to Mojang servers...');
-      try {
-        await ipcRenderer.invoke('upload-skin', {
-          token: currentConfig.activeAccount.token,
-          filePath: selectedSkinData.filePath,
-          isSlim: document.getElementById('skin-slim').checked
-        });
-        toast('Skin updated successfully!');
-      } catch (err) {
-        alert(err.message);
-      }
-    }
 
     // Vault
     async function loadVault() {
@@ -992,6 +1287,18 @@
       } catch (e) {
         alert('Backup error: ' + e.message);
       }
+    }
+
+    // Settings
+    async function saveSettings() {
+      currentConfig.customJavaPath = document.getElementById('cfg-java').value.trim();
+      currentConfig.minRam = parseInt(document.getElementById('cfg-min-ram').value, 10) || 2048;
+      currentConfig.maxRam = parseInt(document.getElementById('cfg-max-ram').value, 10) || 4096;
+      currentConfig.jvmArgs = document.getElementById('cfg-jvm-flags').value.trim();
+      currentConfig.closeOnLaunch = document.getElementById('cfg-close-launch').checked;
+
+      await ipcRenderer.invoke('save-config', currentConfig);
+      toast('Preferences saved.');
     }
   </script>
 </body>
