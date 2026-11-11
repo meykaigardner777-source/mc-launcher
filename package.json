@@ -1,7 +1,7 @@
 {
   "name": "aetheria-launcher",
   "version": "1.0.0",
-  "description": "Native ARM64 Minecraft Desktop Launcher",
+  "description": "Native Windows on ARM64 Minecraft Desktop Launcher",
   "author": "YourName",
   "main": "main.js",
   "scripts": {
