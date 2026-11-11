@@ -6,13 +6,14 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "pack:arm": "electron-builder --win --arm64"
+    "pack:arm": "electron-builder --win --arm64 --publish never"
   },
   "devDependencies": {
     "electron": "30.0.6",
     "electron-builder": "24.13.3"
   },
   "build": {
+    "publish": null,
     "appId": "com.aetheria.launcher",
     "productName": "Aetheria Launcher",
     "win": {
