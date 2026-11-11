@@ -5,6 +5,9 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-windows-arm64:
     runs-on: windows-latest
@@ -23,9 +26,10 @@ jobs:
       - name: Build ARM64 Executable
         run: npm run pack:arm
 
-      - name: Upload Launcher Executable
-        uses: actions/upload-artifact@v4
+      - name: Publish to GitHub Releases
+        uses: ncipollo/release-action@v1
         with:
-          name: Aetheria-Launcher-ARM64
-          path: dist/*.exe
-          if-no-files-found: error
+          artifacts: "dist/*.exe"
+          tag: "v1.0.0"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
