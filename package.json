@@ -1,0 +1,25 @@
+{
+  "name": "aetheria-launcher",
+  "version": "1.0.0",
+  "description": "Native ARM64 Minecraft Desktop Launcher",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^30.0.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.aetheria.launcher",
+    "productName": "Aetheria Launcher",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
