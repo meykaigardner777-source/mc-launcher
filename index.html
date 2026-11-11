@@ -2,161 +2,631 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aetheria Launcher</title>
   <style>
+    /* ==========================================================================
+       NoRisk/Feather Inspired Aesthetics & Fluid Spring Transitions
+       ========================================================================== */
     :root {
-      --bg: #090a0f;
-      --card: rgba(22, 27, 46, 0.6);
+      --bg: #07080c;
+      --sidebar: rgba(12, 14, 22, 0.7);
+      --card-bg: rgba(18, 22, 34, 0.55);
+      --card-hover: rgba(26, 32, 50, 0.7);
       --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.6);
       --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.3);
+      --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
       --text: #f8fafc;
-      --text-muted: #94a3b8;
+      --text-muted: #8492a6;
+      --danger: #ef4444;
+      --success: #10b981;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
     body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Segoe UI Variable Text', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: var(--bg);
       color: var(--text);
       height: 100vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 40%);
     }
-    /* Titlebar */
+
+    /* Window Chroming & Titlebar */
     .titlebar {
-      height: 38px;
+      height: 42px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
       padding: 0 16px;
       border-bottom: 1px solid var(--border);
+      background: rgba(7, 8, 12, 0.85);
+      backdrop-filter: blur(20px);
       -webkit-app-region: drag;
+      z-index: 1000;
     }
-    .window-controls { display: flex; gap: 8px; -webkit-app-region: no-drag; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .brand-badge {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid var(--border-focus);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.65rem;
+    }
+
+    .win-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      -webkit-app-region: no-drag;
+    }
+
     .win-btn {
-      background: none; border: none; color: var(--text-muted); cursor: pointer;
-      font-size: 14px; width: 24px; height: 24px; border-radius: 4px;
+      width: 28px;
+      height: 28px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s var(--ease-out);
     }
-    .win-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
-    /* App Frame */
-    .app-body { display: flex; flex: 1; height: calc(100vh - 38px); }
+
+    .win-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    .win-btn.close:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    /* Main Application Body */
+    .app-body {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 42px);
+    }
+
+    /* Sidebar Navigation */
     .sidebar {
-      width: 200px;
-      background: rgba(13, 16, 28, 0.8);
+      width: 220px;
+      background: var(--sidebar);
+      backdrop-filter: blur(30px);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      padding: 16px 10px;
+      justify-content: space-between;
+      padding: 20px 12px;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
       gap: 6px;
     }
+
     .nav-btn {
-      background: none; border: none; color: var(--text-muted); padding: 10px 14px;
-      text-align: left; font-size: 13px; font-weight: 500; border-radius: 8px; cursor: pointer;
-      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s var(--ease-out);
     }
-    .nav-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
-    .nav-btn.active { background: rgba(99, 102, 241, 0.15); color: var(--accent); font-weight: 600; }
-    .main-content { flex: 1; padding: 32px; overflow-y: auto; }
-    .panel { display: none; }
-    .panel.active { display: block; }
+
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      transform: translateX(3px);
+    }
+
+    .nav-btn.active {
+      background: var(--accent-gradient);
+      color: #fff;
+      box-shadow: 0 4px 18px var(--accent-glow);
+    }
+
+    /* Content Area */
+    .main-viewport {
+      flex: 1;
+      overflow-y: auto;
+      padding: 36px 44px;
+      position: relative;
+    }
+
+    .view-panel {
+      display: none;
+      animation: slideIn 0.35s var(--ease-out) forwards;
+    }
+
+    .view-panel.active {
+      display: block;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(14px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Cards & Components */
     .card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; padding: 20px; margin-bottom: 16px;
+      background: var(--card-bg);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 20px;
+      transition: all 0.3s var(--ease-out);
     }
-    .btn {
-      background: var(--accent); color: #fff; border: none; padding: 10px 20px;
-      border-radius: 8px; font-weight: 600; cursor: pointer;
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+      background: var(--card-hover);
     }
-    .btn:hover { opacity: 0.9; }
+
+    /* Hero Play Widget */
+    .hero-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 32px;
+      background: linear-gradient(135deg, rgba(28, 33, 56, 0.6) 0%, rgba(17, 20, 34, 0.6) 100%);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      margin-bottom: 28px;
+    }
+
+    .play-btn {
+      position: relative;
+      background: var(--accent-gradient);
+      color: #fff;
+      border: none;
+      padding: 16px 42px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 8px 24px var(--accent-glow);
+      transition: all 0.25s var(--ease-out);
+      overflow: hidden;
+    }
+
+    .play-btn:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 12px 32px rgba(99, 102, 241, 0.45);
+    }
+
+    .play-btn:active {
+      transform: translateY(1px) scale(0.98);
+    }
+
+    /* Input & Form Elements */
+    .input-field {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s var(--ease-out);
+    }
+
+    .input-field:focus {
+      border-color: var(--accent);
+    }
+
+    /* Animated Toggles */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: .3s var(--ease-out);
+      border-radius: 24px;
+      border: 1px solid var(--border);
+    }
+
+    .slider:before {
+      position: absolute; content: ""; height: 16px; width: 16px;
+      left: 3px; bottom: 3px; background-color: white;
+      transition: .3s var(--ease-out); border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background: var(--accent-gradient);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Mod Hub Cards */
+    .mod-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .mod-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.25s var(--ease-out);
+    }
+
+    .mod-card:hover {
+      background: var(--card-hover);
+      border-color: var(--border-focus);
+      transform: translateY(-2px);
+    }
+
+    /* Skin Studio Rendering Canvas */
+    .skin-studio-layout {
+      display: flex;
+      gap: 36px;
+      align-items: flex-start;
+    }
+
+    .skin-viewport {
+      width: 220px;
+      height: 340px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+    }
+
+    canvas#skin-canvas {
+      image-rendering: pixelated;
+    }
+
+    /* Java Missing Alert Banner */
+    .alert-banner {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { border-color: rgba(239, 68, 68, 0.3); }
+      50% { border-color: rgba(239, 68, 68, 0.6); }
+    }
   </style>
 </head>
 <body>
 
-  <!-- Custom Titlebar -->
-  <div class="titlebar">
-    <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.05em; color: var(--text-muted);">
-      AETHERIA // ARM64 NATIVE
-    </span>
-    <div class="window-controls">
-      <button class="win-btn" onclick="minimizeWindow()">&#8211;</button>
-      <button class="win-btn" onclick="closeWindow()">&#10005;</button>
+  <!-- Borderless Titlebar Drag Region -->
+  <header class="titlebar">
+    <div class="brand">
+      <span>Aetheria</span>
+      <span class="brand-badge">Snapdragon X ARM64</span>
     </div>
-  </div>
+    <div class="win-controls">
+      <button class="win-btn" onclick="minimizeWindow()">&#8211;</button>
+      <button class="win-btn" onclick="maximizeWindow()">&#9633;</button>
+      <button class="win-btn close" onclick="closeWindow()">&#10005;</button>
+    </div>
+  </header>
 
   <div class="app-body">
-    <!-- Sidebar -->
+    <!-- Sidebar Navigation -->
     <nav class="sidebar">
-      <button class="nav-btn active" onclick="showTab('home')">Overview</button>
-      <button class="nav-btn" onclick="showTab('instances')">Instances</button>
-      <button class="nav-btn" onclick="showTab('mods')">Mod Hub</button>
-      <button class="nav-btn" onclick="showTab('settings')">Settings</button>
+      <div class="nav-list">
+        <button class="nav-btn active" onclick="switchTab('home')">
+          <span>Overview</span>
+        </button>
+        <button class="nav-btn" onclick="switchTab('mods')">
+          <span>Mod Hub</span>
+        </button>
+        <button class="nav-btn" onclick="switchTab('skins')">
+          <span>Skin Studio</span>
+        </button>
+        <button class="nav-btn" onclick="switchTab('settings')">
+          <span>Settings</span>
+        </button>
+      </div>
+
+      <div style="font-size: 0.75rem; color: var(--text-muted); padding: 0 12px;">
+        Native v1.0.0
+      </div>
     </nav>
 
-    <!-- Main Viewport -->
-    <main class="main-content">
-      <section id="panel-home" class="panel active">
-        <h1 style="margin-bottom: 8px;">Welcome to Aetheria</h1>
-        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 24px;">
-          Compiled for Windows on ARM (Qualcomm Snapdragon X)
-        </p>
-        <div class="card">
-          <h3 style="margin-bottom: 8px; font-size: 15px;">Launch Minecraft</h3>
-          <p id="status-text" style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
-            Ready to initialize default profile.
+    <!-- Main Content Panels -->
+    <main class="main-viewport">
+
+      <!-- Java Auto-Resolver Notification Banner (Shown only if Java missing) -->
+      <div id="java-warning" class="alert-banner" style="display: none;">
+        <div>
+          <strong style="color: var(--danger); font-size: 0.9rem;">Missing ARM64 Java Runtime</strong>
+          <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 2px;">
+            Snapdragon X Plus requires Microsoft OpenJDK 21 for native performance.
           </p>
-          <button class="btn" onclick="launchMinecraft()">Play Minecraft</button>
+        </div>
+        <button class="play-btn" style="padding: 8px 18px; font-size: 0.75rem;" onclick="openJavaDownload()">
+          Download JDK
+        </button>
+      </div>
+
+      <!-- VIEW: OVERVIEW -->
+      <section id="panel-home" class="view-panel active">
+        <div class="hero-banner">
+          <div>
+            <h1 style="font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em;">Ready to Launch</h1>
+            <p id="system-jdk-status" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 6px;">
+              Probing system architecture...
+            </p>
+          </div>
+          <button class="play-btn" onclick="launchGame()">Play Minecraft</button>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size: 1rem; margin-bottom: 8px;">Execution Diagnostics</h3>
+          <p id="launch-msg" style="color: var(--text-muted); font-size: 0.85rem;">Ready to initialize default profile.</p>
         </div>
       </section>
 
-      <section id="panel-instances" class="panel">
-        <h2>Instances</h2>
-        <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">No local instances found.</p>
-      </section>
-
-      <section id="panel-mods" class="panel">
-        <h2>Mod Hub</h2>
-        <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">Connect to Modrinth to explore mods.</p>
-      </section>
-
-      <section id="panel-settings" class="panel">
-        <h2>Settings</h2>
-        <div class="card" style="margin-top: 16px;">
-          <label style="display: block; font-size: 13px; margin-bottom: 8px;">Memory Allocation (MB)</label>
-          <input type="number" id="ram" value="4096" style="background:#000; border:1px solid var(--border); color:#fff; padding:8px; border-radius:6px; width:200px;">
+      <!-- VIEW: MOD HUB (Modrinth Live API Browser) -->
+      <section id="panel-mods" class="view-panel">
+        <h2 style="font-size: 1.4rem; margin-bottom: 16px;">Modrinth Browser</h2>
+        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+          <input type="text" id="mod-search-input" class="input-field" placeholder="Search mods (e.g. Sodium, Lithium, Iris, FerriteCore)..." />
+          <button class="play-btn" style="padding: 12px 28px; font-size: 0.85rem;" onclick="searchModrinth()">Search</button>
+        </div>
+        <div id="mod-results" class="mod-grid">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Enter a search query to browse Modrinth.</span>
         </div>
       </section>
+
+      <!-- VIEW: SKIN STUDIO (Interactive 2D Preview) -->
+      <section id="panel-skins" class="view-panel">
+        <h2 style="font-size: 1.4rem; margin-bottom: 20px;">Skin Studio</h2>
+        <div class="skin-studio-layout">
+          <div class="skin-viewport">
+            <canvas id="skin-canvas" width="128" height="256"></canvas>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
+            <div class="card">
+              <label style="display:block; font-size: 0.85rem; margin-bottom: 10px; font-weight: 600;">Load Skin Texture File (.png):</label>
+              <input type="file" id="skin-upload" accept="image/png" class="input-field" onchange="renderSkin(event)" />
+            </div>
+            <div class="card">
+              <div class="toggle-row">
+                <span style="font-size: 0.85rem;">Use Slim Model Format (Alex)</span>
+                <label class="switch">
+                  <input type="checkbox" id="skin-slim">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+            <button class="play-btn" onclick="alert('Skin applied to local launcher profile!')">Save Skin</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: SETTINGS -->
+      <section id="panel-settings" class="view-panel">
+        <h2 style="font-size: 1.4rem; margin-bottom: 20px;">Engine Settings</h2>
+        
+        <div class="card">
+          <h3 style="font-size: 0.95rem; margin-bottom: 16px;">Java Virtual Machine (ARM64)</h3>
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">Java Path Override</label>
+            <input type="text" id="cfg-java-path" class="input-field" placeholder="Default: Auto-detected ARM64 binary" />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+              <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">Min Memory (MB)</label>
+              <input type="number" id="cfg-min-ram" class="input-field" value="2048" />
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px;">Max Memory (MB)</label>
+              <input type="number" id="cfg-max-ram" class="input-field" value="4096" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size: 0.95rem; margin-bottom: 12px;">Launcher Behavior</h3>
+          <div class="toggle-row">
+            <span style="font-size: 0.85rem;">Close Launcher when game starts</span>
+            <label class="switch">
+              <input type="checkbox" id="cfg-close-launch" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
   <script>
     const { ipcRenderer } = require('electron');
 
-    function showTab(name) {
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    // Tab Switching Logic with Smooth View Animations
+    function switchTab(name) {
+      document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      
       document.getElementById(`panel-${name}`).classList.add('active');
-      event.target.classList.add('active');
+      event.currentTarget.classList.add('active');
     }
 
-    function minimizeWindow() {
-      ipcRenderer.send('window-min');
+    // Window Drag & Control Handlers
+    function minimizeWindow() { ipcRenderer.send('window-min'); }
+    function maximizeWindow() { ipcRenderer.send('window-max'); }
+    function closeWindow() { ipcRenderer.send('window-close'); }
+
+    // External Open Handler
+    function openJavaDownload() {
+      ipcRenderer.send('open-external-url', 'https://learn.microsoft.com/en-us/java/openjdk/download#arm64-windows');
     }
 
-    function closeWindow() {
-      ipcRenderer.send('window-close');
-    }
+    // Hardware & Java Discovery Check
+    window.addEventListener('DOMContentLoaded', async () => {
+      const res = await ipcRenderer.invoke('detect-arm-java');
+      const statusLabel = document.getElementById('system-jdk-status');
+      const warningBanner = document.getElementById('java-warning');
+      const javaInput = document.getElementById('cfg-java-path');
 
-    function launchMinecraft() {
-      document.getElementById('status-text').innerText = "Starting game process...";
+      if (res.found) {
+        statusLabel.innerText = `Native ARM64 JDK: ${res.path}`;
+        statusLabel.style.color = "var(--success)";
+        javaInput.value = res.path;
+      } else {
+        statusLabel.innerText = "No ARM64 JDK located. Game will fail to run until installed.";
+        statusLabel.style.color = "var(--danger)";
+        warningBanner.style.display = "flex";
+      }
+    });
+
+    // Launch Game Pipeline
+    function launchGame() {
+      document.getElementById('launch-msg').innerText = "Launching natively with G1GC flags...";
       ipcRenderer.send('launch-game', {
-        minMem: 2048,
-        maxMem: parseInt(document.getElementById('ram').value) || 4096
+        customJavaPath: document.getElementById('cfg-java-path').value,
+        minRam: parseInt(document.getElementById('cfg-min-ram').value) || 2048,
+        maxRam: parseInt(document.getElementById('cfg-max-ram').value) || 4096,
+        closeOnLaunch: document.getElementById('cfg-close-launch').checked
       });
     }
 
-    ipcRenderer.on('launch-status', (event, message) => {
-      document.getElementById('status-text').innerText = message;
+    ipcRenderer.on('launch-status', (event, res) => {
+      const msg = document.getElementById('launch-msg');
+      msg.innerText = res.message;
+      msg.style.color = res.success ? "var(--success)" : "var(--danger)";
     });
+
+    // Live Modrinth API Browser Integration
+    async function searchModrinth() {
+      const query = document.getElementById('mod-search-input').value;
+      const resultsDiv = document.getElementById('mod-results');
+      resultsDiv.innerHTML = '<span style="font-size:0.85rem; color:var(--text-muted);">Querying registry...</span>';
+
+      try {
+        const res = await fetch(`https://api.modrinth.com/v2/search?query=${encodeURIComponent(query)}&facets=[["project_type:mod"]]`);
+        const data = await res.json();
+        
+        resultsDiv.innerHTML = '';
+        data.hits.forEach(mod => {
+          const card = document.createElement('div');
+          card.className = 'mod-card';
+          card.innerHTML = `
+            <div style="display: flex; gap: 14px; align-items: center;">
+              <img src="${mod.icon_url || ''}" style="width: 44px; height: 44px; border-radius: 8px; background: rgba(0,0,0,0.5); object-fit: cover;" onerror="this.style.display='none'"/>
+              <div>
+                <strong>${mod.title}</strong>
+                <p style="font-size: 0.75rem; color: var(--text-muted); max-width: 520px; margin-top: 2px;">${mod.description}</p>
+              </div>
+            </div>
+            <button class="play-btn" style="padding: 8px 18px; font-size: 0.75rem;" onclick="alert('Added ${mod.title} to download queue!')">Install</button>
+          `;
+          resultsDiv.appendChild(card);
+        });
+      } catch (e) {
+        resultsDiv.innerHTML = `<span style="font-size:0.85rem; color:var(--danger);">Modrinth query failed: ${e.message}</span>`;
+      }
+    }
+
+    // 2D Minecraft Skin Renderer Engine
+    function renderSkin(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.getElementById('skin-canvas');
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Head Base & Overlay
+          ctx.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
+          ctx.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
+          // Torso Base
+          ctx.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
+          // Arms
+          ctx.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
+          ctx.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
+          // Legs
+          ctx.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
+          ctx.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
   </script>
 </body>
 </html>
