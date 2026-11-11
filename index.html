@@ -6,7 +6,7 @@
   <title>Aetheria Launcher</title>
   <style>
     /* ==========================================================================
-       Monochrome Strict Dark System - Anti-Glare & Zero Native Flashes
+       Monochrome Strict Dark System - Kinetic Motion Engine
        ========================================================================== */
     :root {
       color-scheme: dark;
@@ -14,6 +14,7 @@
       --card: #121215;
       --card-hover: #18181b;
       --border: #27272a;
+      --border-hover: #3f3f46;
       --border-focus: #52525b;
       --text: #f4f4f5;
       --text-muted: #a1a1aa;
@@ -21,6 +22,7 @@
       --accent: #ffffff;
       --accent-bg: #27272a;
       --danger: #ef4444;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
       --radius: 8px;
     }
 
@@ -43,22 +45,23 @@
       border: 1px solid var(--border);
     }
 
-    /* Scrollbars (Dark, no native white bar flashes) */
+    /* Custom Anti-Glare Dark Scrollbars */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
     ::-webkit-scrollbar-corner { background: var(--bg); }
 
-    /* Top Drag Titlebar */
+    /* Top Drag Header Bar */
     .titlebar {
-      height: 44px;
+      height: 46px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 14px;
+      padding: 0 16px;
       border-bottom: 1px solid var(--border);
-      background: #09090b;
+      background: rgba(9, 9, 11, 0.95);
+      backdrop-filter: blur(12px);
       -webkit-app-region: drag;
       z-index: 1000;
     }
@@ -71,8 +74,8 @@
 
     .brand-title {
       font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
+      font-weight: 800;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--text);
     }
@@ -81,55 +84,77 @@
       background: #18181b;
       border: 1px solid var(--border);
       color: var(--text-muted);
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 4px;
       font-size: 0.65rem;
-      font-weight: 600;
-      letter-spacing: 0.05em;
+      font-weight: 700;
+      letter-spacing: 0.06em;
     }
 
-    /* Top Dropdown View Switcher */
+    /* Top-Right Header Action Group */
+    .top-right-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      -webkit-app-region: no-drag;
+    }
+
+    /* Animated Navigation Dropdown (Anchored Top-Right) */
     .nav-wrapper {
       position: relative;
-      -webkit-app-region: no-drag;
     }
 
     .nav-trigger {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 9px;
       background: var(--card);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: var(--radius);
       font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
-      transition: border-color 0.15s ease;
+      transition: all 0.25s var(--ease);
     }
 
     .nav-trigger:hover {
       border-color: var(--border-focus);
+      background: var(--card-hover);
+      transform: translateY(-1px);
+    }
+
+    .nav-trigger:active {
+      transform: translateY(1px) scale(0.98);
     }
 
     .nav-dropdown {
       position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
-      width: 180px;
-      background: var(--card);
+      top: calc(100% + 8px);
+      right: 0;
+      width: 190px;
+      background: rgba(18, 18, 21, 0.98);
+      backdrop-filter: blur(20px);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 4px;
-      display: none;
+      padding: 6px;
+      display: flex;
       flex-direction: column;
-      gap: 2px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      gap: 3px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
       z-index: 2000;
+      opacity: 0;
+      transform: translateY(-8px) scale(0.97);
+      pointer-events: none;
+      transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
     }
 
-    .nav-dropdown.open { display: flex; }
+    .nav-dropdown.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
 
     .nav-option {
       background: transparent;
@@ -141,12 +166,13 @@
       font-weight: 500;
       border-radius: 5px;
       cursor: pointer;
-      transition: all 0.12s ease;
+      transition: all 0.15s var(--ease);
     }
 
     .nav-option:hover {
-      background: var(--card-hover);
+      background: #202025;
       color: var(--text);
+      transform: translateX(2px);
     }
 
     .nav-option.active {
@@ -159,7 +185,6 @@
     .win-controls {
       display: flex;
       gap: 4px;
-      -webkit-app-region: no-drag;
     }
 
     .win-btn {
@@ -174,133 +199,193 @@
       justify-content: center;
       cursor: pointer;
       font-size: 13px;
+      transition: all 0.15s ease;
     }
 
     .win-btn:hover { background: #1c1c20; color: var(--text); }
     .win-btn.close:hover { background: var(--danger); color: #fff; }
 
-    /* Viewport Panels */
+    /* Viewport & Dynamic Panels */
     .viewport {
       flex: 1;
       overflow-y: auto;
-      padding: 28px 36px;
+      padding: 32px 42px;
     }
 
-    .panel { display: none; }
+    .panel {
+      display: none;
+      animation: panelIn 0.3s var(--ease) forwards;
+    }
+
     .panel.active { display: block; }
 
-    /* Cards & Headings */
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards & Components */
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px;
-      margin-bottom: 18px;
-    }
-
-    .panel-header {
+      padding: 24px;
       margin-bottom: 20px;
+      transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
     }
 
-    .panel-header h2 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      letter-spacing: -0.01em;
+    .card:hover {
+      border-color: var(--border-hover);
     }
 
-    .panel-header p {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
+    .panel-header { margin-bottom: 24px; }
+    .panel-header h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
+    .panel-header p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
 
-    /* Buttons */
+    /* Tactile Buttons */
     .btn {
       background: #ffffff;
       color: #09090b;
       border: none;
-      padding: 10px 18px;
+      padding: 10px 20px;
       border-radius: var(--radius);
       font-size: 0.85rem;
       font-weight: 600;
       cursor: pointer;
-      transition: opacity 0.15s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s var(--ease);
     }
-    .btn:hover { opacity: 0.9; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn:hover {
+      background: #e4e4e7;
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(1px) scale(0.98);
+    }
+
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
     .btn-secondary {
       background: #18181b;
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 8px 14px;
+      padding: 8px 16px;
       border-radius: var(--radius);
       font-size: 0.8rem;
       font-weight: 500;
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: all 0.2s var(--ease);
     }
-    .btn-secondary:hover { background: #222227; border-color: var(--border-focus); }
 
-    /* Inputs */
-    .input-field {
+    .btn-secondary:hover {
+      background: #222227;
+      border-color: var(--border-focus);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary:active { transform: translateY(1px); }
+
+    /* Inputs & Select Elements */
+    .input-field, .select-field {
       width: 100%;
       background: #09090b;
       border: 1px solid var(--border);
-      padding: 10px 12px;
+      padding: 10px 14px;
       border-radius: var(--radius);
       color: var(--text);
       font-size: 0.85rem;
       outline: none;
+      transition: border-color 0.2s ease;
     }
-    .input-field:focus { border-color: var(--border-focus); }
 
-    /* Modrinth & Vault Items */
+    .input-field:focus, .select-field:focus { border-color: var(--border-focus); }
+
+    /* Mod Hub Chips */
+    .chip-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .chip-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s var(--ease);
+    }
+
+    .chip-btn:hover { color: var(--text); border-color: var(--border-hover); }
+
+    .chip-btn.active {
+      background: #ffffff;
+      color: #09090b;
+      border-color: #ffffff;
+    }
+
+    /* Mod / Resource Pack / Shader Previews */
     .mod-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 14px 16px;
+      padding: 14px 18px;
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      margin-bottom: 10px;
+      margin-bottom: 12px;
+      transition: all 0.25s var(--ease);
+    }
+
+    .mod-item:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-focus);
+      background: var(--card-hover);
+    }
+
+    .mod-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      background: #000;
+      border: 1px solid var(--border);
+      object-fit: cover;
+      flex-shrink: 0;
     }
 
     .switch-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 0;
-    }
-
-    /* Skin Preview */
-    .skin-box {
-      width: 160px;
-      height: 240px;
-      background: #09090b;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      padding: 8px 0;
     }
 
     /* Toast */
     #toast {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
+      bottom: 24px;
+      right: 24px;
       background: #18181b;
       border: 1px solid var(--border-focus);
       color: var(--text);
-      padding: 12px 18px;
+      padding: 12px 20px;
       border-radius: var(--radius);
       font-size: 0.8rem;
       font-weight: 500;
       display: none;
       z-index: 99999;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+      animation: toastIn 0.25s var(--ease) forwards;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
@@ -310,13 +395,15 @@
   <header class="titlebar">
     <div class="brand-group">
       <span class="brand-title">Aetheria</span>
-      <span class="brand-badge">ARM64</span>
-      
-      <!-- Top Dropdown Navigation -->
+      <span class="brand-badge">ARM64 NATIVE</span>
+    </div>
+
+    <!-- Top-Right Section: Nav Dropdown & Window Controls -->
+    <div class="top-right-group">
       <div class="nav-wrapper">
         <button class="nav-trigger" id="dropdown-btn" onclick="toggleNav()">
           <span id="active-tab-title">Overview</span>
-          <span style="font-size: 0.65rem; color: var(--text-dim);">▼</span>
+          <span style="font-size: 0.65rem; color: var(--text-dim); transition: transform 0.2s;" id="dropdown-arrow">▼</span>
         </button>
         <div class="nav-dropdown" id="dropdown-menu">
           <button class="nav-option active" onclick="switchTab('home', 'Overview')">Overview</button>
@@ -327,38 +414,52 @@
           <button class="nav-option" onclick="switchTab('settings', 'Settings')">Settings</button>
         </div>
       </div>
-    </div>
 
-    <div class="win-controls">
-      <button class="win-btn" onclick="minWin()">&#8211;</button>
-      <button class="win-btn" onclick="maxWin()">&#9633;</button>
-      <button class="win-btn close" onclick="closeWin()">&#10005;</button>
+      <div class="win-controls">
+        <button class="win-btn" onclick="minWin()">&#8211;</button>
+        <button class="win-btn" onclick="maxWin()">&#9633;</button>
+        <button class="win-btn close" onclick="closeWin()">&#10005;</button>
+      </div>
     </div>
   </header>
 
-  <!-- Main Viewport -->
+  <!-- Viewport Panels -->
   <main class="viewport">
 
     <!-- PANEL: OVERVIEW -->
     <section id="panel-home" class="panel active">
-      <div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 32px 24px;">
-        <div>
-          <h1 style="font-size: 1.5rem; font-weight: 700;">Minecraft 1.20.4</h1>
-          <p id="hero-status" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 6px;">
-            Native Windows on ARM64 execution environment
+      <div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 34px 28px;">
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+            <h1 style="font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em;">Ready to Play</h1>
+            <span class="brand-badge" id="version-badge" style="font-size: 0.7rem;">SYNCED</span>
+          </div>
+          <p id="hero-status" style="font-size: 0.85rem; color: var(--text-muted);">
+            Native Windows ARM64 Execution Environment
           </p>
         </div>
-        <button class="btn" style="padding: 14px 36px; font-size: 0.95rem;" id="play-button" onclick="playGame()">
-          Play Game
-        </button>
+
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <!-- Version Selector (Live Mojang Updates) -->
+          <div style="text-align: right;">
+            <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">TARGET VERSION</label>
+            <select id="version-selector" class="select-field" style="width: 140px; padding: 8px 12px; cursor: pointer;" onchange="changeVersion(this.value)">
+              <option value="1.20.4">1.20.4</option>
+            </select>
+          </div>
+
+          <button class="btn" style="padding: 14px 42px; font-size: 0.95rem;" id="play-button" onclick="playGame()">
+            Play Minecraft
+          </button>
+        </div>
       </div>
 
       <!-- ARM64 Diagnostic Card -->
       <div class="card" id="jdk-card">
         <div style="display:flex; justify-content: space-between; align-items:center;">
           <div>
-            <h3 style="font-size: 0.95rem; font-weight: 600;">ARM64 Java Environment</h3>
-            <p id="diag-java" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Inspecting system runtimes...</p>
+            <h3 style="font-size: 0.95rem; font-weight: 600;">Hardware Diagnostics & Runtime</h3>
+            <p id="diag-java" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Inspecting ARM64 system binaries...</p>
           </div>
           <button class="btn-secondary" id="btn-install-jdk" style="display:none;" onclick="installArmJdk()">
             Auto-Install Microsoft OpenJDK 21
@@ -366,7 +467,7 @@
         </div>
         <div id="jdk-progress-box" style="display:none; margin-top:14px;">
           <div style="height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;">
-            <div id="jdk-progress-bar" style="height: 100%; width: 0%; background: #fff; transition: width 0.2s;"></div>
+            <div id="jdk-progress-bar" style="height: 100%; width: 0%; background: #fff; transition: width 0.3s var(--ease);"></div>
           </div>
           <span id="jdk-progress-text" style="display:block; font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">Preparing setup...</span>
         </div>
@@ -377,14 +478,23 @@
     <section id="panel-mods" class="panel">
       <div class="panel-header">
         <h2>Mod Hub</h2>
-        <p>Explore and install optimized Fabric/Vanilla performance mods for 1.20.4</p>
+        <p>Explore mods, shaders, and resource packs optimized for your selected version</p>
       </div>
-      <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <input type="text" id="mod-query" class="input-field" placeholder="Search Modrinth (Sodium, Lithium, Iris)..." onkeydown="if(event.key==='Enter') queryModrinth()" />
+
+      <!-- Type Filter Chips -->
+      <div class="chip-group">
+        <button class="chip-btn active" id="chip-mod" onclick="setModType('mod')">Mods</button>
+        <button class="chip-btn" id="chip-resourcepack" onclick="setModType('resourcepack')">Resource Packs</button>
+        <button class="chip-btn" id="chip-shader" onclick="setModType('shader')">Shader Packs</button>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 22px;">
+        <input type="text" id="mod-query" class="input-field" placeholder="Search (e.g. Sodium, Iris, Bare Bones, BSL)..." onkeydown="if(event.key==='Enter') queryModrinth()" />
         <button class="btn-secondary" onclick="queryModrinth()">Search</button>
       </div>
+
       <div id="mod-list">
-        <p style="font-size: 0.8rem; color: var(--text-muted);">Type a mod title and press search.</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Enter a title or tag to browse releases.</p>
       </div>
     </section>
 
@@ -392,10 +502,10 @@
     <section id="panel-skins" class="panel">
       <div class="panel-header">
         <h2>Skin Studio</h2>
-        <p>Preview and upload your character appearance directly to Mojang</p>
+        <p>Preview and upload your character texture to Mojang</p>
       </div>
       <div style="display: flex; gap: 32px; align-items: flex-start;">
-        <div class="skin-box">
+        <div style="width: 160px; height: 240px; background: #09090b; border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; justify-content: center;">
           <canvas id="skin-canvas" width="128" height="256" style="image-rendering: pixelated;"></canvas>
         </div>
         <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
@@ -420,11 +530,11 @@
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
           <h2>Vault</h2>
-          <p>Local worlds, backups, and capture library</p>
+          <p>Local instances, worlds, and captures</p>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button class="btn-secondary" onclick="openDir('saves')">Open Saves Folder</button>
-          <button class="btn-secondary" onclick="openDir('screenshots')">Open Captures Folder</button>
+          <button class="btn-secondary" onclick="openDir('saves')">Saves Folder</button>
+          <button class="btn-secondary" onclick="openDir('screenshots')">Captures Folder</button>
           <button class="btn-secondary" onclick="loadVault()">Refresh</button>
         </div>
       </div>
@@ -451,11 +561,11 @@
           <h2>Accounts</h2>
           <p>Manage authentication profiles</p>
         </div>
-        <button class="btn" onclick="addMicrosoftAccount()">Sign in with Microsoft</button>
+        <button class="btn" onclick="addMicrosoftAccount()">Sign In with Microsoft</button>
       </div>
 
       <div class="card">
-        <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Offline Fallback Player</h3>
+        <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Offline Player Fallback</h3>
         <div style="display: flex; gap: 10px;">
           <input type="text" id="cfg-offline-user" class="input-field" placeholder="Player name (e.g. Steve)" />
           <button class="btn-secondary" onclick="saveOfflineName()">Save Name</button>
@@ -464,9 +574,7 @@
 
       <div class="card">
         <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Authenticated Microsoft Profiles</h3>
-        <div id="accounts-container" style="display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 0.8rem; color: var(--text-muted);">No Microsoft accounts signed in.</span>
-        </div>
+        <div id="accounts-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
       </div>
     </section>
 
@@ -515,6 +623,7 @@
 
     let currentConfig = {};
     let selectedSkinData = null;
+    let activeModType = 'mod';
 
     function toast(text) {
       const el = document.getElementById('toast');
@@ -523,14 +632,25 @@
       setTimeout(() => el.style.display = 'none', 3500);
     }
 
-    // Top Dropdown Selector
+    // Top-Right Dropdown Navigation
     function toggleNav() {
-      document.getElementById('dropdown-menu').classList.toggle('open');
+      const menu = document.getElementById('dropdown-menu');
+      const arrow = document.getElementById('dropdown-arrow');
+      const isOpen = menu.classList.contains('open');
+
+      if (isOpen) {
+        menu.classList.remove('open');
+        arrow.style.transform = 'rotate(0deg)';
+      } else {
+        menu.classList.add('open');
+        arrow.style.transform = 'rotate(180deg)';
+      }
     }
 
     window.addEventListener('click', (e) => {
       if (!e.target.closest('.nav-wrapper')) {
         document.getElementById('dropdown-menu').classList.remove('open');
+        document.getElementById('dropdown-arrow').style.transform = 'rotate(0deg)';
       }
     });
 
@@ -541,6 +661,7 @@
       document.getElementById(`panel-${name}`).classList.add('active');
       document.getElementById('active-tab-title').innerText = title;
       document.getElementById('dropdown-menu').classList.remove('open');
+      document.getElementById('dropdown-arrow').style.transform = 'rotate(0deg)';
 
       if (name === 'vault') loadVault();
     }
@@ -550,7 +671,7 @@
     function closeWin() { ipcRenderer.send('window-close'); }
     function openDir(dir) { ipcRenderer.send('open-path', dir); }
 
-    // Init & Diagnostics
+    // Init & Live Version Sync
     window.addEventListener('DOMContentLoaded', async () => {
       currentConfig = await ipcRenderer.invoke('get-config');
       document.getElementById('cfg-java').value = currentConfig.customJavaPath || '';
@@ -562,8 +683,34 @@
 
       renderAccounts();
       checkJdkStatus();
+      syncVersions();
     });
 
+    async function syncVersions() {
+      const manifest = await ipcRenderer.invoke('get-mc-versions');
+      const selector = document.getElementById('version-selector');
+      selector.innerHTML = '';
+
+      manifest.versions.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.id;
+        opt.innerText = v.id === manifest.latest ? `${v.id} (Latest)` : v.id;
+        selector.appendChild(opt);
+      });
+
+      const selected = currentConfig.selectedVersion || manifest.latest;
+      selector.value = selected;
+      document.getElementById('version-badge').innerText = selected;
+    }
+
+    async function changeVersion(ver) {
+      currentConfig.selectedVersion = ver;
+      document.getElementById('version-badge').innerText = ver;
+      await ipcRenderer.invoke('save-config', currentConfig);
+      toast(`Target version set to ${ver}`);
+    }
+
+    // Diagnostics & Auto-Installer
     async function checkJdkStatus() {
       const diag = document.getElementById('diag-java');
       const btn = document.getElementById('btn-install-jdk');
@@ -605,6 +752,85 @@
         box.style.display = 'none';
       }
     }
+
+    // Mod Hub: Filters & Visual Previews
+    function setModType(type) {
+      activeModType = type;
+      document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`chip-${type}`).classList.add('active');
+      queryModrinth();
+    }
+
+    async function queryModrinth() {
+      const q = document.getElementById('mod-query').value.trim();
+      const list = document.getElementById('mod-list');
+      const ver = currentConfig.selectedVersion || '1.20.4';
+      list.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">Searching Modrinth registry...</span>';
+
+      const hits = await ipcRenderer.invoke('search-modrinth', { query: q, type: activeModType, version: ver });
+      list.innerHTML = '';
+      if (!hits.length) {
+        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No matching releases found for Minecraft ${ver}.</span>`;
+        return;
+      }
+
+      hits.forEach(m => {
+        const item = document.createElement('div');
+        item.className = 'mod-item';
+        item.innerHTML = `
+          <div style="display:flex; align-items:center; gap:14px;">
+            <img class="mod-icon" src="${m.icon_url || ''}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'48\\' height=\\'48\\'><rect width=\\'48\\' height=\\'48\\' fill=\\'%2318181b\\'/></svg>'" />
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="font-size:0.9rem;">${m.title}</strong>
+                <span style="font-size:0.7rem; color:var(--text-dim); background:#18181b; padding:1px 6px; border-radius:4px; border:1px solid var(--border);">by ${m.author}</span>
+              </div>
+              <p style="font-size:0.75rem; color:var(--text-muted); max-width:540px; margin-top:3px; line-height:1.3;">${m.description}</p>
+            </div>
+          </div>
+          <button class="btn-secondary" onclick="installItem('${m.project_id}', '${m.title}')">Install</button>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    async function installItem(id, name) {
+      toast(`Downloading ${name}...`);
+      try {
+        const file = await ipcRenderer.invoke('install-modrinth-item', {
+          projectId: id,
+          type: activeModType,
+          version: currentConfig.selectedVersion || '1.20.4'
+        });
+        toast(`Installed: ${file}`);
+      } catch (e) {
+        alert('Download error: ' + e.message);
+      }
+    }
+
+    // Launch Pipeline
+    function playGame() {
+      toast('Starting game execution pipeline...');
+      const playBtn = document.getElementById('play-button');
+      playBtn.disabled = true;
+
+      ipcRenderer.send('launch-game', {
+        customJavaPath: currentConfig.customJavaPath,
+        minRam: currentConfig.minRam,
+        maxRam: currentConfig.maxRam,
+        jvmArgs: currentConfig.jvmArgs,
+        closeOnLaunch: currentConfig.closeOnLaunch,
+        selectedVersion: currentConfig.selectedVersion || '1.20.4',
+        account: currentConfig.activeAccount,
+        offlineUsername: currentConfig.offlineUsername || 'Player'
+      });
+    }
+
+    ipcRenderer.on('launch-status', (event, res) => {
+      document.getElementById('hero-status').innerText = res.message;
+      document.getElementById('play-button').disabled = false;
+      toast(res.message);
+    });
 
     // Settings
     async function saveSettings() {
@@ -675,67 +901,7 @@
       toast('Profile switched.');
     }
 
-    // Game Execution
-    function playGame() {
-      toast('Preparing runtime launch...');
-      const playBtn = document.getElementById('play-button');
-      playBtn.disabled = true;
-
-      ipcRenderer.send('launch-game', {
-        customJavaPath: currentConfig.customJavaPath,
-        minRam: currentConfig.minRam,
-        maxRam: currentConfig.maxRam,
-        jvmArgs: currentConfig.jvmArgs,
-        closeOnLaunch: currentConfig.closeOnLaunch,
-        account: currentConfig.activeAccount,
-        offlineUsername: currentConfig.offlineUsername || 'Player'
-      });
-    }
-
-    ipcRenderer.on('launch-status', (event, res) => {
-      document.getElementById('hero-status').innerText = res.message;
-      document.getElementById('play-button').disabled = false;
-      toast(res.message);
-    });
-
-    // Modrinth Explorer
-    async function queryModrinth() {
-      const q = document.getElementById('mod-query').value.trim();
-      const list = document.getElementById('mod-list');
-      list.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">Searching registry...</span>';
-
-      const hits = await ipcRenderer.invoke('search-modrinth', { query: q });
-      list.innerHTML = '';
-      if (!hits.length) {
-        list.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No matching releases found.</span>';
-        return;
-      }
-
-      hits.forEach(m => {
-        const item = document.createElement('div');
-        item.className = 'mod-item';
-        item.innerHTML = `
-          <div>
-            <strong>${m.title}</strong>
-            <p style="font-size:0.75rem; color:var(--text-muted); max-width:540px; margin-top:2px;">${m.description}</p>
-          </div>
-          <button class="btn-secondary" onclick="installMod('${m.project_id}', '${m.title}')">Install</button>
-        `;
-        list.appendChild(item);
-      });
-    }
-
-    async function installMod(id, name) {
-      toast(`Installing ${name}...`);
-      try {
-        const filename = await ipcRenderer.invoke('install-mod', { projectId: id });
-        toast(`Installed: ${filename}`);
-      } catch (e) {
-        alert('Download error: ' + e.message);
-      }
-    }
-
-    // Skin Studio
+    // Skins
     async function chooseSkinFile() {
       const res = await ipcRenderer.invoke('select-skin-dialog');
       if (!res) return;
@@ -749,15 +915,11 @@
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Head Base & Overlay
         ctx.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
         ctx.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
-        // Body
         ctx.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
-        // Arms
         ctx.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
         ctx.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
-        // Legs
         ctx.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
         ctx.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
       };
@@ -765,12 +927,8 @@
     }
 
     async function uploadSkin() {
-      if (!currentConfig.activeAccount) {
-        return alert('Please select an active Microsoft account first.');
-      }
-      if (!selectedSkinData) {
-        return alert('Please browse and select a local skin PNG first.');
-      }
+      if (!currentConfig.activeAccount) return alert('Select an active Microsoft account first.');
+      if (!selectedSkinData) return alert('Select a skin PNG file first.');
 
       toast('Uploading skin to Mojang servers...');
       try {
