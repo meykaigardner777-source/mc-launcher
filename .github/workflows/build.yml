@@ -30,6 +30,6 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: "dist/*.exe"
-          tag: "v1.0.0"
-          allowUpdates: true
+          tag: "v1.0.${{ github.run_number }}"
+          name: "Aetheria Launcher v1.0.${{ github.run_number }}"
           token: ${{ secrets.GITHUB_TOKEN }}
