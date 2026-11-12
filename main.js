@@ -54,6 +54,44 @@ function appendLog(line, stream = 'stdout') {
 }
 
 // -------------------------------------------------------------
+// MANAGED ARM64 RUNTIME CATALOG (8, 17, 21, 25)
+// -------------------------------------------------------------
+const MANAGED_JDKS = {
+  '8': {
+    name: 'Azul Zulu OpenJDK 8 (ARM64)',
+    url: 'https://cdn.azul.com/zulu/bin/zulu8.80.0.17-ca-jdk8.0.422-win_aarch64.zip',
+    dirName: 'java-8-arm64',
+    version: '8',
+    major: 8,
+    desc: 'Legacy Minecraft (< 1.17)'
+  },
+  '17': {
+    name: 'Microsoft OpenJDK 17 (ARM64)',
+    url: 'https://aka.ms/download-jdk/microsoft-jdk-17-windows-aarch64.zip',
+    dirName: 'java-17-arm64',
+    version: '17',
+    major: 17,
+    desc: 'Modern Minecraft (1.17 – 1.20.4)'
+  },
+  '21': {
+    name: 'Microsoft OpenJDK 21 (ARM64)',
+    url: 'https://aka.ms/download-jdk/microsoft-jdk-21-windows-aarch64.zip',
+    dirName: 'java-21-arm64',
+    version: '21',
+    major: 21,
+    desc: 'Current Minecraft (1.20.5+)'
+  },
+  '25': {
+    name: 'OpenJDK 25 Early Access (ARM64)',
+    url: 'https://download.java.net/java/early_access/jdk25/11/GPL/openjdk-25-ea+11_windows-aarch64_bin.zip',
+    dirName: 'java-25-arm64',
+    version: '25',
+    major: 25,
+    desc: 'Experimental / Next-Gen JVM'
+  }
+};
+
+// -------------------------------------------------------------
 // ATOMIC DIRECTORY RESOLVER
 // -------------------------------------------------------------
 function safeMkdirSync(targetPath) {
@@ -191,6 +229,7 @@ function loadConfig() {
           path: MINECRAFT_DIR,
           version: '1.20.4',
           loader: 'vanilla',
+          javaRuntime: 'auto',
           minRam: 2048,
           maxRam: 4096,
           jvmArgs: DEFAULT_ORYON_JVM,
@@ -211,6 +250,7 @@ function loadConfig() {
     minRam: 2048,
     maxRam: 4096,
     customJavaPath: '',
+    globalJavaRuntime: 'auto',
     envVars: '',
     closeOnLaunch: false,
     jvmArgs: DEFAULT_ORYON_JVM,
@@ -221,6 +261,7 @@ function loadConfig() {
         path: MINECRAFT_DIR,
         version: '1.20.4',
         loader: 'vanilla',
+        javaRuntime: 'auto',
         minRam: 2048,
         maxRam: 4096,
         jvmArgs: DEFAULT_ORYON_JVM,
@@ -249,6 +290,7 @@ function getActiveInstance(cfg) {
       path: MINECRAFT_DIR,
       version: cfg.selectedVersion || '1.20.4',
       loader: 'vanilla',
+      javaRuntime: 'auto',
       minRam: cfg.minRam || 2048,
       maxRam: cfg.maxRam || 4096,
       jvmArgs: cfg.jvmArgs || DEFAULT_ORYON_JVM,
@@ -312,13 +354,43 @@ ipcMain.handle('get-config', () => loadConfig());
 ipcMain.handle('save-config', (e, cfg) => { saveConfig(cfg); return true; });
 
 // -------------------------------------------------------------
-// JAVA RUNTIMES & BROWSER PIPELINE
+// MULTI-VERSION JAVA RUNTIMES & BROWSER PIPELINE
 // -------------------------------------------------------------
+function getManagedJdkStatus() {
+  return Object.keys(MANAGED_JDKS).map(key => {
+    const def = MANAGED_JDKS[key];
+    const binPath = path.join(RUNTIMES_DIR, def.dirName, 'bin', 'java.exe');
+    let installed = fs.existsSync(binPath);
+    let effectivePath = installed ? binPath : null;
+
+    if (!installed && key === '21') {
+      const legacy21 = path.join(JDK_DIR, 'bin', 'java.exe');
+      if (fs.existsSync(legacy21)) {
+        installed = true;
+        effectivePath = legacy21;
+      }
+    }
+
+    return {
+      key,
+      name: def.name,
+      version: def.version,
+      desc: def.desc,
+      installed,
+      path: effectivePath
+    };
+  });
+}
+
 function scanSystemJavaRuntimes() {
   const results = [];
-  const localJava = path.join(JDK_DIR, 'bin', 'java.exe');
-  if (fs.existsSync(localJava)) {
-    results.push({ name: 'Managed Microsoft OpenJDK 21 (ARM64)', path: localJava, arch: 'ARM64' });
+
+  // Add managed runtimes first
+  const managed = getManagedJdkStatus();
+  for (const m of managed) {
+    if (m.installed && m.path) {
+      results.push({ name: `Managed ${m.name}`, path: m.path, arch: 'ARM64', version: m.key });
+    }
   }
 
   const standardDirs = [
@@ -349,6 +421,7 @@ function scanSystemJavaRuntimes() {
   return results;
 }
 
+ipcMain.handle('get-managed-jdks', () => getManagedJdkStatus());
 ipcMain.handle('get-system-javas', () => scanSystemJavaRuntimes());
 
 ipcMain.handle('browse-java-path', async () => {
@@ -367,10 +440,127 @@ ipcMain.handle('browse-java-path', async () => {
   return chosenPath;
 });
 
+ipcMain.handle('install-managed-jdk', async (event, { version }) => {
+  const def = MANAGED_JDKS[version];
+  if (!def) throw new Error(`Unknown JDK version requested: ${version}`);
+
+  const targetDir = path.join(RUNTIMES_DIR, def.dirName);
+  const zipPath = path.join(RUNTIMES_DIR, `temp-${def.dirName}.zip`);
+  const tempExtract = path.join(RUNTIMES_DIR, `temp-extract-${def.dirName}`);
+
+  const report = (step, progress) => {
+    event.sender.send('jdk-install-status', { version, step, progress });
+  };
+
+  try {
+    report(`Connecting to ${def.name} distribution CDN...`, 0.05);
+    await downloadFile(def.url, zipPath, (pct) => {
+      report(`Downloading ${def.name} (${Math.round(pct * 100)}%)...`, pct * 0.75);
+    });
+
+    report('Extracting runtime binaries...', 0.85);
+    if (fs.existsSync(tempExtract)) fs.rmSync(tempExtract, { recursive: true, force: true });
+    safeMkdirSync(tempExtract);
+
+    execSync(`powershell.exe -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tempExtract}' -Force"`);
+
+    const entries = fs.readdirSync(tempExtract);
+    const innerDir = entries.find(e => fs.statSync(path.join(tempExtract, e)).isDirectory()) || '';
+    const src = innerDir ? path.join(tempExtract, innerDir) : tempExtract;
+
+    if (fs.existsSync(targetDir)) fs.rmSync(targetDir, { recursive: true, force: true });
+    safeMkdirSync(path.dirname(targetDir));
+    fs.renameSync(src, targetDir);
+
+    try { fs.rmSync(tempExtract, { recursive: true, force: true }); } catch (e) {}
+    try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (e) {}
+
+    const javaBin = path.join(targetDir, 'bin', 'java.exe');
+    setHighPerformanceGpu(javaBin);
+
+    report(`${def.name} installed and registered for Snapdragon X!`, 1.0);
+    return { success: true, path: javaBin, version };
+  } catch (err) {
+    try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (e) {}
+    try { if (fs.existsSync(tempExtract)) fs.rmSync(tempExtract, { recursive: true, force: true }); } catch (e) {}
+    throw err;
+  }
+});
+
+// Legacy backward-compatibility alias
+ipcMain.handle('install-arm-jdk', async (event) => {
+  return ipcMain.emit('install-managed-jdk', event, { version: '21' });
+});
+
+// -------------------------------------------------------------
+// SMART JAVA RUNTIME RESOLUTION PER INSTANCE
+// -------------------------------------------------------------
+function resolveInstanceJava(inst, globalCfg, targetVersionId) {
+  const chosenMode = inst.javaRuntime || globalCfg.globalJavaRuntime || 'auto';
+
+  // 1. Explicit Managed Runtime selected
+  if (['8', '17', '21', '25'].includes(chosenMode)) {
+    const def = MANAGED_JDKS[chosenMode];
+    const candidate = path.join(RUNTIMES_DIR, def.dirName, 'bin', 'java.exe');
+    if (fs.existsSync(candidate)) return candidate;
+    if (chosenMode === '21') {
+      const leg21 = path.join(JDK_DIR, 'bin', 'java.exe');
+      if (fs.existsSync(leg21)) return leg21;
+    }
+  }
+
+  // 2. Custom Java executable provided on instance or global
+  if (chosenMode === 'custom' || inst.customJavaPath) {
+    if (inst.customJavaPath && fs.existsSync(inst.customJavaPath)) return inst.customJavaPath;
+    if (globalCfg.customJavaPath && fs.existsSync(globalCfg.customJavaPath)) return globalCfg.customJavaPath;
+  }
+
+  // 3. Auto-detect optimal Java based on Minecraft release version
+  const cleanVer = extractMcVersion(targetVersionId || '1.20.4');
+  const vParts = cleanVer.split('.').map(n => parseInt(n, 10) || 0);
+  const minor = vParts[1] || 0;
+  const patch = vParts[2] || 0;
+
+  let idealKey = '21';
+  if (minor < 17) {
+    idealKey = '8';
+  } else if (minor < 20 || (minor === 20 && patch <= 4)) {
+    idealKey = '17';
+  } else {
+    idealKey = '21';
+  }
+
+  // Check if ideal managed runtime is installed
+  const idealPath = path.join(RUNTIMES_DIR, MANAGED_JDKS[idealKey].dirName, 'bin', 'java.exe');
+  if (fs.existsSync(idealPath)) return idealPath;
+  if (idealKey === '21') {
+    const leg21 = path.join(JDK_DIR, 'bin', 'java.exe');
+    if (fs.existsSync(leg21)) return leg21;
+  }
+
+  // Fallback: Check other managed runtimes that are compatible
+  if (idealKey === '17') {
+    const j21Path = path.join(RUNTIMES_DIR, MANAGED_JDKS['21'].dirName, 'bin', 'java.exe');
+    if (fs.existsSync(j21Path)) return j21Path;
+  }
+
+  // Fallback to installed system ARM64 JDK
+  const detected = findSystemArmJava();
+  if (detected.found) return detected.path;
+
+  // Fallback to any installed managed runtime
+  for (const k of ['21', '17', '8', '25']) {
+    const p = path.join(RUNTIMES_DIR, MANAGED_JDKS[k].dirName, 'bin', 'java.exe');
+    if (fs.existsSync(p)) return p;
+  }
+
+  return null;
+}
+
 // -------------------------------------------------------------
 // INSTANCE CRUD & SETTINGS
 // -------------------------------------------------------------
-ipcMain.handle('create-instance', async (e, { name, version, loader = 'vanilla' }) => {
+ipcMain.handle('create-instance', async (e, { name, version, loader = 'vanilla', javaRuntime = 'auto' }) => {
   const cfg = loadConfig();
   const id = 'inst-' + Date.now();
   const instPath = path.join(INSTANCES_DIR, id);
@@ -385,6 +575,7 @@ ipcMain.handle('create-instance', async (e, { name, version, loader = 'vanilla' 
     path: instPath,
     version,
     loader,
+    javaRuntime: javaRuntime || 'auto',
     minRam: cfg.minRam || 2048,
     maxRam: cfg.maxRam || 4096,
     jvmArgs: DEFAULT_ORYON_JVM,
@@ -611,7 +802,13 @@ ipcMain.handle('get-neoforge-versions', async (event, gameVersion = '1.20.4') =>
 
 ipcMain.handle('install-neoforge-profile', async (event, { neoforgeVersion }) => {
   const detected = findSystemArmJava();
-  if (!detected.found) throw new Error('ARM64 JDK required to execute NeoForge processor graph.');
+  const cfg = loadConfig();
+  const inst = getActiveInstance(cfg);
+  const javaBin = resolveInstanceJava(inst, cfg, neoforgeVersion) || detected.path;
+
+  if (!javaBin || !fs.existsSync(javaBin)) {
+    throw new Error('ARM64 JDK required to execute NeoForge processor graph. Please install Microsoft OpenJDK 21.');
+  }
 
   const installerUrl = `https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoforgeVersion}/neoforge-${neoforgeVersion}-installer.jar`;
   const tempInstaller = path.join(RUNTIMES_DIR, `neoforge-installer-${neoforgeVersion}.jar`);
@@ -621,7 +818,7 @@ ipcMain.handle('install-neoforge-profile', async (event, { neoforgeVersion }) =>
 
   appendLog(`Executing headless NeoForge client installation pipeline...`);
   return new Promise((resolve, reject) => {
-    const proc = spawn(detected.path, ['-jar', tempInstaller, '--installClient', MINECRAFT_DIR], {
+    const proc = spawn(javaBin, ['-jar', tempInstaller, '--installClient', MINECRAFT_DIR], {
       cwd: MINECRAFT_DIR
     });
 
@@ -840,6 +1037,7 @@ ipcMain.handle('import-prism-instance', async (event, { prismInstancePath, targe
     path: destDir,
     version: mcVersion,
     loader,
+    javaRuntime: 'auto',
     minRam,
     maxRam,
     jvmArgs: DEFAULT_ORYON_JVM,
@@ -997,26 +1195,31 @@ function diagnoseCrash(fullLogs) {
   } else if (fullLogs.includes('UnsupportedClassVersionError')) {
     summary.faultIdentified = true;
     summary.title = 'Java Runtime Version Mismatch';
-    summary.recommendation = 'Minecraft 1.20.5+ requires Java 21; 1.17 - 1.20.4 requires Java 17+. Install or select Microsoft OpenJDK 21 ARM64 in settings.';
+    summary.recommendation = 'Minecraft version and Java runtime mismatch. Versions < 1.17 require Java 8; 1.17 – 1.20.4 require Java 17; 1.20.5+ requires Java 21. Select the appropriate runtime in Instance Settings.';
   }
 
   return summary;
 }
 
 // -------------------------------------------------------------
-// NATIVE ARM64 JDK RUNTIME
+// NATIVE ARM64 JDK RUNTIME DETECTOR
 // -------------------------------------------------------------
 function findSystemArmJava() {
-  const localJava = path.join(JDK_DIR, 'bin', 'java.exe');
-  const localJavaw = path.join(JDK_DIR, 'bin', 'javaw.exe');
-  if (fs.existsSync(localJava)) return { found: true, path: localJava, source: 'Managed ARM64 JDK' };
-  if (fs.existsSync(localJavaw)) return { found: true, path: localJavaw, source: 'Managed ARM64 JDK' };
+  for (const k of ['21', '17', '8', '25']) {
+    const local = path.join(RUNTIMES_DIR, MANAGED_JDKS[k].dirName, 'bin', 'java.exe');
+    if (fs.existsSync(local)) return { found: true, path: local, source: `Managed ${MANAGED_JDKS[k].name}` };
+  }
+
+  const legacyJava = path.join(JDK_DIR, 'bin', 'java.exe');
+  if (fs.existsSync(legacyJava)) return { found: true, path: legacyJava, source: 'Managed ARM64 JDK (21)' };
 
   const candidates = [
     'C:\\Program Files\\Microsoft\\jdk-21\\bin\\java.exe',
     'C:\\Program Files\\Microsoft\\jdk-17\\bin\\java.exe',
     'C:\\Program Files\\Eclipse Adoptium\\jdk-21-arm64\\bin\\java.exe',
-    'C:\\Program Files\\Zulu\\zulu-21-arm64\\bin\\java.exe'
+    'C:\\Program Files\\Zulu\\zulu-21-arm64\\bin\\java.exe',
+    'C:\\Program Files\\Zulu\\zulu-17-arm64\\bin\\java.exe',
+    'C:\\Program Files\\Zulu\\zulu-8-arm64\\bin\\java.exe'
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return { found: true, path: c, source: 'Installed System ARM64 JDK' };
@@ -1031,46 +1234,6 @@ function findSystemArmJava() {
 }
 
 ipcMain.handle('detect-arm-java', async () => findSystemArmJava());
-
-ipcMain.handle('install-arm-jdk', async (event) => {
-  const JDK_URL = 'https://aka.ms/download-jdk/microsoft-jdk-21-windows-aarch64.zip';
-  const zipPath = path.join(RUNTIMES_DIR, 'ms-jdk-21-arm64.zip');
-  const tempExtract = path.join(RUNTIMES_DIR, 'temp-jdk-extract');
-
-  const report = (step, progress) => event.sender.send('jdk-install-status', { step, progress });
-
-  try {
-    report('Connecting to Microsoft CDN...', 0.05);
-    await downloadFile(JDK_URL, zipPath, (pct) => {
-      report(`Downloading ARM64 OpenJDK (${Math.round(pct * 100)}%)...`, pct * 0.75);
-    });
-
-    report('Extracting runtime binaries...', 0.85);
-    if (fs.existsSync(tempExtract)) fs.rmSync(tempExtract, { recursive: true, force: true });
-    safeMkdirSync(tempExtract);
-
-    execSync(`powershell.exe -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tempExtract}' -Force"`);
-
-    const entries = fs.readdirSync(tempExtract);
-    const innerDir = entries.find(e => fs.statSync(path.join(tempExtract, e)).isDirectory()) || '';
-    const src = path.join(tempExtract, innerDir);
-
-    if (fs.existsSync(JDK_DIR)) fs.rmSync(JDK_DIR, { recursive: true, force: true });
-    fs.renameSync(src, JDK_DIR);
-
-    fs.rmSync(tempExtract, { recursive: true, force: true });
-    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-
-    const javaBin = path.join(JDK_DIR, 'bin', 'java.exe');
-    setHighPerformanceGpu(javaBin);
-
-    report('ARM64 JDK installed successfully.', 1.0);
-    return { success: true, path: javaBin };
-  } catch (err) {
-    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-    throw err;
-  }
-});
 
 // -------------------------------------------------------------
 // MICROSOFT OAUTH
@@ -1586,7 +1749,7 @@ ipcMain.handle('backup-world', async (event, folderName) => {
 });
 
 // -------------------------------------------------------------
-// GAME LAUNCH PIPELINE WITH ENV INJECTION
+// GAME LAUNCH PIPELINE WITH MULTI-JAVA & ENV INJECTION
 // -------------------------------------------------------------
 async function resolveVanillaDescriptor(versionId, sendStatus) {
   const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
@@ -1638,15 +1801,13 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
     const versionId = inst.version || reqCfg.selectedVersion || '1.20.4';
     const activeGameDir = getActiveInstanceDir(globalCfg);
 
-    let javaBin = inst.customJavaPath || globalCfg.customJavaPath;
+    let javaBin = resolveInstanceJava(inst, globalCfg, versionId);
     if (!javaBin || !fs.existsSync(javaBin)) {
-      const detected = findSystemArmJava();
-      if (!detected.found) return sendStatus('Native ARM64 JDK runtime required. Install Microsoft OpenJDK 21 below.', true);
-      javaBin = detected.path;
+      return sendStatus('Compatible ARM64 Java runtime not found. Install Java 8, 17, or 21 in Overview.', true);
     }
 
     setHighPerformanceGpu(javaBin);
-    sendStatus(`Preparing native ARM64 launch pipeline for ${versionId}...`);
+    sendStatus(`Preparing native ARM64 launch pipeline using ${path.basename(path.dirname(path.dirname(javaBin)))}...`);
 
     const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
     const versionJsonPath = path.join(versionsDir, `${versionId}.json`);
