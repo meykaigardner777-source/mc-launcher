@@ -194,7 +194,8 @@ function loadConfig() {
           minRam: 2048,
           maxRam: 4096,
           jvmArgs: DEFAULT_ORYON_JVM,
-          customJavaPath: ''
+          customJavaPath: '',
+          envVars: ''
         }];
         cfg.activeInstanceId = 'default';
       }
@@ -210,6 +211,7 @@ function loadConfig() {
     minRam: 2048,
     maxRam: 4096,
     customJavaPath: '',
+    envVars: '',
     closeOnLaunch: false,
     jvmArgs: DEFAULT_ORYON_JVM,
     instances: [
@@ -222,7 +224,8 @@ function loadConfig() {
         minRam: 2048,
         maxRam: 4096,
         jvmArgs: DEFAULT_ORYON_JVM,
-        customJavaPath: ''
+        customJavaPath: '',
+        envVars: ''
       }
     ],
     activeInstanceId: 'default'
@@ -249,7 +252,8 @@ function getActiveInstance(cfg) {
       minRam: cfg.minRam || 2048,
       maxRam: cfg.maxRam || 4096,
       jvmArgs: cfg.jvmArgs || DEFAULT_ORYON_JVM,
-      customJavaPath: cfg.customJavaPath || ''
+      customJavaPath: cfg.customJavaPath || '',
+      envVars: cfg.envVars || ''
     };
   }
   return inst;
@@ -308,6 +312,62 @@ ipcMain.handle('get-config', () => loadConfig());
 ipcMain.handle('save-config', (e, cfg) => { saveConfig(cfg); return true; });
 
 // -------------------------------------------------------------
+// JAVA RUNTIMES & BROWSER PIPELINE
+// -------------------------------------------------------------
+function scanSystemJavaRuntimes() {
+  const results = [];
+  const localJava = path.join(JDK_DIR, 'bin', 'java.exe');
+  if (fs.existsSync(localJava)) {
+    results.push({ name: 'Managed Microsoft OpenJDK 21 (ARM64)', path: localJava, arch: 'ARM64' });
+  }
+
+  const standardDirs = [
+    'C:\\Program Files\\Microsoft',
+    'C:\\Program Files\\Eclipse Adoptium',
+    'C:\\Program Files\\Zulu',
+    'C:\\Program Files\\BellSoft',
+    'C:\\Program Files\\Java'
+  ];
+
+  for (const root of standardDirs) {
+    if (!fs.existsSync(root)) continue;
+    try {
+      for (const entry of fs.readdirSync(root)) {
+        const binJava = path.join(root, entry, 'bin', 'java.exe');
+        if (fs.existsSync(binJava)) {
+          let arch = 'Unknown';
+          try {
+            const out = execSync(`"${binJava}" -XshowSettings:properties -version 2>&1`, { timeout: 1500 }).toString();
+            arch = out.includes('aarch64') ? 'ARM64' : (out.includes('x86_64') || out.includes('amd64') ? 'x64' : 'x86');
+          } catch (e) {}
+          results.push({ name: `${entry} (${arch})`, path: binJava, arch });
+        }
+      }
+    } catch (e) {}
+  }
+
+  return results;
+}
+
+ipcMain.handle('get-system-javas', () => scanSystemJavaRuntimes());
+
+ipcMain.handle('browse-java-path', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select Java Executable (java.exe / javaw.exe)',
+    filters: [
+      { name: 'Java Executable', extensions: ['exe'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+
+  if (res.canceled || !res.filePaths.length) return null;
+  const chosenPath = res.filePaths[0];
+  setHighPerformanceGpu(chosenPath);
+  return chosenPath;
+});
+
+// -------------------------------------------------------------
 // INSTANCE CRUD & SETTINGS
 // -------------------------------------------------------------
 ipcMain.handle('create-instance', async (e, { name, version, loader = 'vanilla' }) => {
@@ -328,7 +388,8 @@ ipcMain.handle('create-instance', async (e, { name, version, loader = 'vanilla' 
     minRam: cfg.minRam || 2048,
     maxRam: cfg.maxRam || 4096,
     jvmArgs: DEFAULT_ORYON_JVM,
-    customJavaPath: ''
+    customJavaPath: '',
+    envVars: ''
   };
 
   cfg.instances.push(newInst);
@@ -342,6 +403,7 @@ ipcMain.handle('update-instance-settings', async (e, updatedData) => {
   const cfg = loadConfig();
   const idx = cfg.instances.findIndex(i => i.id === updatedData.id);
   if (idx !== -1) {
+    if (updatedData.customJavaPath) setHighPerformanceGpu(updatedData.customJavaPath);
     cfg.instances[idx] = { ...cfg.instances[idx], ...updatedData };
     saveConfig(cfg);
     return true;
@@ -527,10 +589,8 @@ ipcMain.handle('install-fabric-profile', async (event, { gameVersion, loaderVers
   });
 });
 
-// NeoForge Version Metadata & Silent Headless Installer
 ipcMain.handle('get-neoforge-versions', async (event, gameVersion = '1.20.4') => {
   const cleanVer = extractMcVersion(gameVersion);
-  // NeoForge maven metadata query
   const url = 'https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml';
   return new Promise((resolve) => {
     https.get(url, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
@@ -540,7 +600,6 @@ ipcMain.handle('get-neoforge-versions', async (event, gameVersion = '1.20.4') =>
         try {
           const versionMatches = xml.match(/<version>([^<]+)<\/version>/g) || [];
           const allVersions = versionMatches.map(v => v.replace(/<\/?version>/g, ''));
-          // Filter matching Minecraft major/minor version (e.g. 20.4 matches 1.20.4)
           const majorMinor = cleanVer.split('.').slice(1).join('.');
           const matched = allVersions.filter(v => v.startsWith(majorMinor) || v.startsWith(`20.${cleanVer.split('.')[2] || 0}`));
           resolve(matched.reverse());
@@ -627,12 +686,11 @@ ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
 });
 
 // -------------------------------------------------------------
-// PRISM LAUNCHER INSTANCE IMPORTER
+// PRISM LAUNCHER COMPACT INTEGRATION
 // -------------------------------------------------------------
 function parseIni(content) {
   const map = {};
-  const lines = content.split(/\r?\n/);
-  for (const line of lines) {
+  for (const line of content.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const eqIdx = trimmed.indexOf('=');
@@ -657,8 +715,7 @@ ipcMain.handle('detect-prism-instances', async (event, customPrismDir = null) =>
 
   const discovered = [];
   try {
-    const dirs = fs.readdirSync(instancesRoot, { withFileTypes: true });
-    for (const d of dirs) {
+    for (const d of fs.readdirSync(instancesRoot, { withFileTypes: true })) {
       if (d.isDirectory()) {
         const instDir = path.join(instancesRoot, d.name);
         const cfgFile = path.join(instDir, 'instance.cfg');
@@ -689,7 +746,6 @@ ipcMain.handle('detect-prism-instances', async (event, customPrismDir = null) =>
               if (pack.components.some(c => c.uid === 'net.fabricmc.fabric-loader')) loader = 'Fabric';
               else if (pack.components.some(c => c.uid === 'net.neoforged')) loader = 'NeoForge';
               else if (pack.components.some(c => c.uid === 'net.minecraftforge')) loader = 'Forge';
-              else if (pack.components.some(c => c.uid === 'org.quiltmc.quilt-loader')) loader = 'Quilt';
             }
           } catch (e) {}
         }
@@ -711,7 +767,7 @@ ipcMain.handle('detect-prism-instances', async (event, customPrismDir = null) =>
 });
 
 ipcMain.handle('import-prism-instance', async (event, { prismInstancePath, targetName }) => {
-  if (!fs.existsSync(prismInstancePath)) throw new Error('Selected Prism instance directory not found.');
+  if (!fs.existsSync(prismInstancePath)) throw new Error('Prism instance directory not found.');
 
   const cfg = loadConfig();
   const id = 'prism-' + Date.now();
@@ -787,7 +843,8 @@ ipcMain.handle('import-prism-instance', async (event, { prismInstancePath, targe
     minRam,
     maxRam,
     jvmArgs: DEFAULT_ORYON_JVM,
-    customJavaPath: ''
+    customJavaPath: '',
+    envVars: ''
   };
 
   cfg.instances.push(newInstance);
@@ -922,25 +979,25 @@ function diagnoseCrash(fullLogs) {
   const summary = {
     faultIdentified: false,
     title: 'Unknown JVM Termination',
-    recommendation: 'Check that standard JVM flags are valid and no conflicting mod combinations are loaded.'
+    recommendation: 'Verify that allocated memory is sufficient and incompatible mod combinations are disabled.'
   };
 
   if (fullLogs.includes('EXCEPTION_ACCESS_VIOLATION') || fullLogs.includes('0xc0000005')) {
     summary.faultIdentified = true;
     summary.title = 'ARM64 Native Execution Trap (Access Violation)';
-    summary.recommendation = 'An unmapped x86/x64 instruction faulted inside Windows ARM64 emulation. Ensure native ARM64 LWJGL binaries are being used and your Qualcomm Adreno GPU DirectX drivers are up to date.';
+    summary.recommendation = 'An unmapped instruction faulted inside Windows ARM64 translation layers. Ensure native ARM64 LWJGL binaries are unpacked and your Qualcomm Adreno drivers are up to date.';
   } else if (fullLogs.includes('java.lang.UnsatisfiedLinkError')) {
     summary.faultIdentified = true;
-    summary.title = 'Missing Native ARM64 DLL / Library Mismatch';
-    summary.recommendation = 'Minecraft attempted to link an x86/x64 native dynamic library. Verify that the ARM64 LWJGL native jar unpack pipeline completed without permission errors.';
+    summary.title = 'Missing Native ARM64 DLL / Architecture Mismatch';
+    summary.recommendation = 'Minecraft attempted to load an x86/x64 native DLL. Verify that ARM64 LWJGL extraction completed without disk permission errors.';
   } else if (fullLogs.includes('java.lang.OutOfMemoryError') || fullLogs.includes('Metaspace')) {
     summary.faultIdentified = true;
     summary.title = 'JVM Heap / Metaspace Exhaustion';
-    summary.recommendation = 'The game exceeded allocated RAM limits. Open Instance Settings and increase Max Memory allocation to 4096MB or 6144MB.';
+    summary.recommendation = 'The game exceeded allocated RAM. Increase Max RAM in Instance Settings to 4096MB or 6144MB.';
   } else if (fullLogs.includes('UnsupportedClassVersionError')) {
     summary.faultIdentified = true;
     summary.title = 'Java Runtime Version Mismatch';
-    summary.recommendation = 'Minecraft 1.20.5+ requires Java 21, and 1.17 - 1.20.4 requires Java 17+. Install and switch to the managed Microsoft OpenJDK 21 ARM64 build in Diagnostics.';
+    summary.recommendation = 'Minecraft 1.20.5+ requires Java 21; 1.17 - 1.20.4 requires Java 17+. Install or select Microsoft OpenJDK 21 ARM64 in settings.';
   }
 
   return summary;
@@ -1350,20 +1407,6 @@ ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version =
     }).on('error', () => resolve([]));
   });
 
-  if (!hits.length && query) {
-    const relaxedFacets = [[`project_type:${type}`]];
-    const fallbackUrl = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(query)}&facets=${encodeURIComponent(JSON.stringify(relaxedFacets))}&limit=20`;
-    hits = await new Promise((resolve) => {
-      https.get(fallbackUrl, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
-        let data = '';
-        res.on('data', c => data += c);
-        res.on('end', () => {
-          try { resolve(JSON.parse(data).hits || []); } catch (e) { resolve([]); }
-        });
-      }).on('error', () => resolve([]));
-    });
-  }
-
   return hits;
 });
 
@@ -1543,7 +1586,7 @@ ipcMain.handle('backup-world', async (event, folderName) => {
 });
 
 // -------------------------------------------------------------
-// GAME LAUNCH PIPELINE
+// GAME LAUNCH PIPELINE WITH ENV INJECTION
 // -------------------------------------------------------------
 async function resolveVanillaDescriptor(versionId, sendStatus) {
   const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
@@ -1568,6 +1611,21 @@ async function resolveVanillaDescriptor(versionId, sendStatus) {
   return JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
 }
 
+function parseEnvString(str = '') {
+  const envObj = {};
+  for (const line of str.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx !== -1) {
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1).trim();
+      if (key) envObj[key] = val;
+    }
+  }
+  return envObj;
+}
+
 ipcMain.on('launch-game', async (event, reqCfg) => {
   const sendStatus = (message, isError = false) => {
     appendLog(message, isError ? 'stderr' : 'stdout');
@@ -1583,7 +1641,7 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
     let javaBin = inst.customJavaPath || globalCfg.customJavaPath;
     if (!javaBin || !fs.existsSync(javaBin)) {
       const detected = findSystemArmJava();
-      if (!detected.found) return sendStatus('Native ARM64 JDK runtime required. Install Microsoft OpenJDK 21.', true);
+      if (!detected.found) return sendStatus('Native ARM64 JDK runtime required. Install Microsoft OpenJDK 21 below.', true);
       javaBin = detected.path;
     }
 
@@ -1742,7 +1800,18 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       '--userType', account.token !== 'null' ? 'msa' : 'mojang'
     ];
 
-    const game = spawn(javaBin, args, { cwd: activeGameDir });
+    // Merge process.env with global and instance environment variables
+    const customEnv = {
+      ...parseEnvString(globalCfg.envVars || ''),
+      ...parseEnvString(inst.envVars || '')
+    };
+
+    const launchEnv = {
+      ...process.env,
+      ...customEnv
+    };
+
+    const game = spawn(javaBin, args, { cwd: activeGameDir, env: launchEnv });
     let totalOutput = '';
 
     game.stdout.on('data', (d) => {
