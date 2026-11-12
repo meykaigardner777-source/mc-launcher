@@ -12,8 +12,7 @@ const { spawn, exec, execSync } = require('child_process');
 // -------------------------------------------------------------
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
-  app.quit();
-  process.exit(0);
+  app.exit(0);
 }
 
 process.on('uncaughtException', (err) => {
@@ -21,7 +20,7 @@ process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception]', err);
 });
 
-let mainWindow;
+let mainWindow = null;
 let activeGameProcess = null;
 
 // Directory Paths
@@ -47,7 +46,7 @@ const CF_LOADER_MAP = {
   'neoforge': 6
 };
 
-// Real-time console log ring buffer
+// Circular Ring Buffer for Console Output
 const LOG_BUFFER_MAX = 5000;
 const gameLogs = [];
 
@@ -62,6 +61,23 @@ function appendLog(line, stream = 'stdout') {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('game-log-stream', entry);
   }
+}
+
+// -------------------------------------------------------------
+// PROCESS TERMINATION & TASK MANAGER CLEANUP
+// -------------------------------------------------------------
+function forceCleanExit() {
+  if (activeGameProcess && activeGameProcess.pid) {
+    try {
+      if (process.platform === 'win32') {
+        execSync(`taskkill /pid ${activeGameProcess.pid} /T /F`);
+      } else {
+        activeGameProcess.kill('SIGKILL');
+      }
+    } catch (e) {}
+    activeGameProcess = null;
+  }
+  app.exit(0);
 }
 
 // -------------------------------------------------------------
@@ -181,7 +197,7 @@ function initDirectories() {
 }
 
 // -------------------------------------------------------------
-// PURE NODE.JS ZIP EXTRACTOR (ZERO POWERSHELL FOR DLLs)
+// PURE NODE.JS ZIP EXTRACTOR FOR DLLS (ZERO POWERSHELL)
 // -------------------------------------------------------------
 function extractDllsFromZip(zipFilePath, destDir) {
   safeMkdirSync(destDir);
@@ -250,7 +266,7 @@ function extractDllsFromZip(zipFilePath, destDir) {
 }
 
 // -------------------------------------------------------------
-// SNAPDRAGON X HIGH PERFORMANCE GPU PROFILER
+// SNAPDRAGON X HIGH-PERFORMANCE GPU PROFILER
 // -------------------------------------------------------------
 function setHighPerformanceGpu(javaPath) {
   if (!javaPath || process.platform !== 'win32') return;
@@ -264,7 +280,7 @@ function setHighPerformanceGpu(javaPath) {
 }
 
 // -------------------------------------------------------------
-// UNIFIED PROFILES & CONFIGURATION
+// CONFIGURATION PIPELINE
 // -------------------------------------------------------------
 function loadConfig() {
   safeMkdirSync(APP_DIR);
@@ -371,7 +387,7 @@ function getActiveProfileDir(cfg) {
 }
 
 // -------------------------------------------------------------
-// WINDOW SETUP
+// WINDOW MANAGEMENT & LIFECYCLE
 // -------------------------------------------------------------
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -384,12 +400,18 @@ function createWindow() {
     show: false,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      spellcheck: false
     }
   });
 
   mainWindow.loadFile('index.html');
   mainWindow.once('ready-to-show', () => mainWindow.show());
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+    forceCleanExit();
+  });
 }
 
 app.on('second-instance', () => {
@@ -399,9 +421,16 @@ app.on('second-instance', () => {
   }
 });
 
-ipcMain.on('window-min', () => mainWindow.minimize());
-ipcMain.on('window-max', () => mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize());
-ipcMain.on('window-close', () => mainWindow.close());
+ipcMain.on('window-min', () => { if (mainWindow) mainWindow.minimize(); });
+ipcMain.on('window-max', () => {
+  if (mainWindow) {
+    mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
+  }
+});
+ipcMain.on('window-close', () => {
+  forceCleanExit();
+});
+
 ipcMain.on('open-path', (e, target) => {
   const cfg = loadConfig();
   const baseDir = getActiveProfileDir(cfg);
@@ -414,7 +443,7 @@ ipcMain.handle('get-config', () => loadConfig());
 ipcMain.handle('save-config', (e, cfg) => { saveConfig(cfg); return true; });
 
 // -------------------------------------------------------------
-// MULTI-VERSION JAVA RUNTIMES & SCANNER
+// ARM64 RUNTIME CATALOG & MANAGEMENT
 // -------------------------------------------------------------
 function getManagedJdkStatus() {
   return Object.keys(MANAGED_JDKS).map(key => {
@@ -546,9 +575,9 @@ ipcMain.handle('install-managed-jdk', async (event, { version }) => {
 });
 
 // -------------------------------------------------------------
-// SMART JAVA RUNTIME RESOLUTION PER PROFILE
+// DYNAMIC JAVA SELECTION FOR CURRENT & FUTURE GAME VERSIONS
 // -------------------------------------------------------------
-function resolveProfileJava(prof, globalCfg, targetVersionId) {
+function resolveProfileJava(prof, globalCfg, targetVersionId, versionDescriptor = null) {
   const chosenMode = prof.javaRuntime || globalCfg.globalJavaRuntime || 'auto';
 
   if (['8', '17', '21', '25'].includes(chosenMode)) {
@@ -564,6 +593,15 @@ function resolveProfileJava(prof, globalCfg, targetVersionId) {
   if (chosenMode === 'custom' || prof.customJavaPath) {
     if (prof.customJavaPath && fs.existsSync(prof.customJavaPath)) return prof.customJavaPath;
     if (globalCfg.customJavaPath && fs.existsSync(globalCfg.customJavaPath)) return globalCfg.customJavaPath;
+  }
+
+  // Check version descriptor metadata first (future-proof)
+  if (versionDescriptor && versionDescriptor.javaVersion && versionDescriptor.javaVersion.majorVersion) {
+    const targetMajor = String(versionDescriptor.javaVersion.majorVersion);
+    if (MANAGED_JDKS[targetMajor]) {
+      const candidate = path.join(RUNTIMES_DIR, MANAGED_JDKS[targetMajor].dirName, 'bin', 'java.exe');
+      if (fs.existsSync(candidate)) return candidate;
+    }
   }
 
   const cleanVer = extractMcVersion(targetVersionId || prof.version || '1.20.4');
@@ -595,7 +633,7 @@ function resolveProfileJava(prof, globalCfg, targetVersionId) {
   const detected = findSystemArmJava();
   if (detected.found) return detected.path;
 
-  for (const k of ['21', '17', '8', '25']) {
+  for (const k of ['21', '25', '17', '8']) {
     const p = path.join(RUNTIMES_DIR, MANAGED_JDKS[k].dirName, 'bin', 'java.exe');
     if (fs.existsSync(p)) return p;
   }
@@ -604,7 +642,7 @@ function resolveProfileJava(prof, globalCfg, targetVersionId) {
 }
 
 // -------------------------------------------------------------
-// PROFILE CRUD, DUPLICATION & ISOLATION
+// PROFILE MANAGEMENT
 // -------------------------------------------------------------
 ipcMain.handle('create-profile', async (e, { name, version, loader = 'vanilla', loaderVersion = '', javaRuntime = 'auto' }) => {
   const cfg = loadConfig();
@@ -686,13 +724,15 @@ ipcMain.handle('delete-profile', async (e, profileId) => {
     try { fs.rmSync(target.path, { recursive: true, force: true }); } catch (e) {}
   }
   cfg.profiles = cfg.profiles.filter(p => p.id !== profileId);
-  cfg.activeProfileId = 'default';
+  if (cfg.activeProfileId === profileId) {
+    cfg.activeProfileId = 'default';
+  }
   saveConfig(cfg);
   return true;
 });
 
 // -------------------------------------------------------------
-// EXTERNAL CLIENT SCANNERS & BULLETPROOF PRISM RESOLVER
+// EXTERNAL CLIENT SCANNERS & BULLETPROOF INSTANCE IMPORTER
 // -------------------------------------------------------------
 function parseIni(content) {
   const map = {};
@@ -763,7 +803,7 @@ ipcMain.handle('scan-external-clients', async () => {
         const packFile = path.join(instDir, 'mmc-pack.json');
         let name = d.name;
         let mcVersion = '1.20.4';
-        let loader = 'Vanilla';
+        let loader = 'vanilla';
         let minRam = 2048;
         let maxRam = 4096;
 
@@ -778,15 +818,24 @@ ipcMain.handle('scan-external-clients', async () => {
           try {
             const pack = JSON.parse(fs.readFileSync(packFile, 'utf-8'));
             const mcComp = pack.components && pack.components.find(c => c.uid === 'net.minecraft');
-            if (mcComp) mcVersion = mcComp.version;
-            if (pack.components?.some(c => c.uid === 'net.fabricmc.fabric-loader')) loader = 'Fabric';
-            else if (pack.components?.some(c => c.uid === 'net.neoforged' || c.uid === 'net.neoforged.neoforge')) loader = 'NeoForge';
-            else if (pack.components?.some(c => c.uid === 'net.minecraftforge')) loader = 'Forge';
+            if (mcComp && mcComp.version) mcVersion = mcComp.version;
+            if (pack.components?.some(c => c.uid === 'net.fabricmc.fabric-loader')) loader = 'fabric';
+            else if (pack.components?.some(c => c.uid === 'net.neoforged' || c.uid === 'net.neoforged.neoforge')) loader = 'neoforge';
+            else if (pack.components?.some(c => c.uid === 'net.minecraftforge')) loader = 'forge';
           } catch (e) {}
         }
 
         if (!results.prism.some(p => p.path === instDir)) {
-          results.prism.push({ name, path: instDir, mcVersion, loader, minRam, maxRam, source: 'Prism' });
+          results.prism.push({
+            id: `ext-prism-${d.name}`,
+            name,
+            path: instDir,
+            mcVersion,
+            loader: loader || 'vanilla',
+            minRam,
+            maxRam,
+            source: 'Prism'
+          });
         }
       }
     } catch (e) {}
@@ -806,17 +855,26 @@ ipcMain.handle('scan-external-clients', async () => {
         const metaJson = path.join(profDir, 'profile.json');
         let name = d.name;
         let mcVersion = '1.20.4';
-        let loader = 'Vanilla';
+        let loader = 'vanilla';
 
         if (fs.existsSync(metaJson)) {
           try {
             const meta = JSON.parse(fs.readFileSync(metaJson, 'utf-8'));
             if (meta.name) name = meta.name;
             if (meta.game_version) mcVersion = meta.game_version;
-            if (meta.loader) loader = meta.loader;
+            if (meta.loader) loader = meta.loader.toLowerCase();
           } catch (e) {}
         }
-        results.modrinth.push({ name, path: profDir, mcVersion, loader, minRam: 2048, maxRam: 4096, source: 'Modrinth' });
+        results.modrinth.push({
+          id: `ext-modrinth-${d.name}`,
+          name,
+          path: profDir,
+          mcVersion,
+          loader: loader || 'vanilla',
+          minRam: 2048,
+          maxRam: 4096,
+          source: 'Modrinth'
+        });
       }
     } catch (e) {}
   }
@@ -828,10 +886,11 @@ ipcMain.handle('scan-external-clients', async () => {
       for (const d of fs.readdirSync(lunarOffline, { withFileTypes: true })) {
         if (!d.isDirectory()) continue;
         results.lunar.push({
+          id: `ext-lunar-${d.name}`,
           name: `Lunar ${d.name}`,
           path: path.join(lunarOffline, d.name),
           mcVersion: d.name,
-          loader: 'Lunar Client',
+          loader: 'lunar',
           minRam: 2048,
           maxRam: 4096,
           source: 'Lunar'
@@ -845,8 +904,8 @@ ipcMain.handle('scan-external-clients', async () => {
 
 ipcMain.handle('import-external-profile', async (event, {
   sourcePath,
-  clientType,
-  targetName,
+  clientType = 'Prism',
+  targetName = '',
   mcVersion = '1.20.4',
   loader = 'vanilla',
   minRam = 2048,
@@ -861,9 +920,13 @@ ipcMain.handle('import-external-profile', async (event, {
   const destDir = path.join(PROFILES_DIR, id);
   safeMkdirSync(destDir);
 
-  let detectedVersion = mcVersion;
-  let rawLoader = (loader || 'vanilla').toLowerCase();
-  let normalizedLoader = rawLoader.includes('fabric') ? 'fabric' : (rawLoader.includes('neoforge') ? 'neoforge' : 'vanilla');
+  let detectedVersion = mcVersion || '1.20.4';
+  let rawLoader = String(loader || 'vanilla').toLowerCase();
+  let normalizedLoader = 'vanilla';
+  if (rawLoader.includes('fabric')) normalizedLoader = 'fabric';
+  else if (rawLoader.includes('neoforge')) normalizedLoader = 'neoforge';
+  else if (rawLoader.includes('forge')) normalizedLoader = 'forge';
+  else if (rawLoader.includes('quilt')) normalizedLoader = 'quilt';
 
   if (clientType === 'Prism') {
     const packFile = path.join(sourcePath, 'mmc-pack.json');
@@ -902,7 +965,7 @@ ipcMain.handle('import-external-profile', async (event, {
 
   const newProfile = {
     id,
-    name: targetName || path.basename(sourcePath),
+    name: targetName || path.basename(sourcePath) || 'Imported Profile',
     path: destDir,
     version: detectedVersion,
     loader: normalizedLoader,
@@ -1190,7 +1253,7 @@ ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
 });
 
 // -------------------------------------------------------------
-// AUTOMATIC MOD UPDATE CHECKER (MODRINH SHA1 BATCH API)
+// MOD UPDATER PIPELINE
 // -------------------------------------------------------------
 function hashFileSha1(filePath) {
   return new Promise((resolve) => {
@@ -1338,10 +1401,10 @@ function diagnoseCrash(fullLogs) {
 }
 
 // -------------------------------------------------------------
-// NATIVE ARM64 JDK RUNTIME DETECTOR
+// SYSTEM ARM64 JDK SCANNER
 // -------------------------------------------------------------
 function findSystemArmJava() {
-  for (const k of ['21', '17', '8', '25']) {
+  for (const k of ['21', '25', '17', '8']) {
     const local = path.join(RUNTIMES_DIR, MANAGED_JDKS[k].dirName, 'bin', 'java.exe');
     if (fs.existsSync(local)) return { found: true, path: local, source: `Managed ${MANAGED_JDKS[k].name}` };
   }
@@ -1580,7 +1643,7 @@ ipcMain.handle('fetch-player-skin', async (event, username) => {
 });
 
 // -------------------------------------------------------------
-// CONTENT MANAGER
+// LOCAL CONTENT MANAGER
 // -------------------------------------------------------------
 function resolveFolderTarget(type) {
   if (type === 'resourcepacks') return 'resourcepacks';
@@ -1686,7 +1749,7 @@ ipcMain.handle('import-dropped-files', async (event, { folderType, filePaths }) 
 });
 
 // -------------------------------------------------------------
-// DUAL PROVIDER (MODRINH + CURSEFORGE) WITH LOADER FILTERING
+// DUAL PROVIDER (MODRINH + CURSEFORGE)
 // -------------------------------------------------------------
 ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version = '1.20.4', loader = 'all' }) => {
   const cleanVer = extractMcVersion(version);
@@ -1851,7 +1914,7 @@ ipcMain.handle('install-curseforge-item', async (event, { modId, type, version =
 });
 
 // -------------------------------------------------------------
-// VAULT
+// VAULT DATA & BACKUP
 // -------------------------------------------------------------
 ipcMain.handle('get-vault-data', async () => {
   const cfg = loadConfig();
@@ -1905,7 +1968,7 @@ ipcMain.handle('backup-world', async (event, folderName) => {
 });
 
 // -------------------------------------------------------------
-// GAME LAUNCH PIPELINE WITH MULTI-JAVA & ENV INJECTION
+// FUTURE-PROOF GAME LAUNCH PIPELINE
 // -------------------------------------------------------------
 async function resolveVanillaDescriptor(versionId, sendStatus) {
   const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
@@ -1913,7 +1976,7 @@ async function resolveVanillaDescriptor(versionId, sendStatus) {
   safeMkdirSync(versionsDir);
 
   if (!fs.existsSync(versionJsonPath) || fs.statSync(versionJsonPath).size < 100) {
-    sendStatus(`Fetching vanilla manifest for ${versionId}...`);
+    sendStatus(`Fetching version descriptor for ${versionId}...`);
     if (!cachedManifest) {
       cachedManifest = await new Promise((res, rej) => {
         https.get('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json', (r) => {
@@ -1945,6 +2008,34 @@ function parseEnvString(str = '') {
   return envObj;
 }
 
+function evaluateRule(rule) {
+  if (!rule) return true;
+  let matches = true;
+  if (rule.os) {
+    if (rule.os.name && rule.os.name !== 'windows') matches = false;
+    if (rule.os.arch && rule.os.arch !== 'arm64' && rule.os.arch !== 'aarch64') matches = false;
+  }
+  return (rule.action === 'allow') ? matches : !matches;
+}
+
+function evaluateRules(rules) {
+  if (!rules || !rules.length) return true;
+  let allowed = false;
+  for (const r of rules) {
+    if (evaluateRule(r)) allowed = (r.action === 'allow');
+  }
+  return allowed;
+}
+
+function resolveArgumentToken(arg, context) {
+  let text = arg;
+  for (const key of Object.keys(context)) {
+    const regex = new RegExp(`\\$\\{${key}\\}`, 'g');
+    text = text.replace(regex, context[key]);
+  }
+  return text;
+}
+
 ipcMain.on('launch-game', async (event, reqCfg) => {
   const sendStatus = (message, isError = false) => {
     appendLog(message, isError ? 'stderr' : 'stdout');
@@ -1956,14 +2047,6 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
     const prof = getActiveProfile(globalCfg);
     const versionId = prof.version || reqCfg.selectedVersion || '1.20.4';
     const activeGameDir = getActiveProfileDir(globalCfg);
-
-    let javaBin = resolveProfileJava(prof, globalCfg, versionId);
-    if (!javaBin || !fs.existsSync(javaBin)) {
-      return sendStatus('Compatible ARM64 Java runtime not found. Please install Java 8, 17, or 21 in Settings.', true);
-    }
-
-    setHighPerformanceGpu(javaBin);
-    sendStatus(`Preparing Snapdragon X Oryon launch pipeline using ${path.basename(path.dirname(path.dirname(javaBin)))}...`);
 
     const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
     const versionJsonPath = path.join(versionsDir, `${versionId}.json`);
@@ -1986,6 +2069,15 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       sendStatus(`Resolving base client (${baseGameVersion})...`);
       parentData = await resolveVanillaDescriptor(baseGameVersion, sendStatus);
     }
+
+    // Resolve JVM with metadata inspection
+    let javaBin = resolveProfileJava(prof, globalCfg, versionId, parentData || versionData);
+    if (!javaBin || !fs.existsSync(javaBin)) {
+      return sendStatus('Compatible ARM64 Java runtime not found. Please install Java 8, 17, 21, or 25 in Settings.', true);
+    }
+
+    setHighPerformanceGpu(javaBin);
+    sendStatus(`Preparing Snapdragon X Oryon launch pipeline using ${path.basename(path.dirname(path.dirname(javaBin)))}...`);
 
     const effectiveBaseDir = path.join(MINECRAFT_DIR, 'versions', baseGameVersion);
     const clientJarPath = path.join(effectiveBaseDir, `${baseGameVersion}.jar`);
@@ -2019,19 +2111,7 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
 
     const vanillaLibs = (parentData || versionData).libraries || [];
     for (const lib of vanillaLibs) {
-      let allowed = true;
-      if (lib.rules) {
-        allowed = false;
-        for (const rule of lib.rules) {
-          let matches = true;
-          if (rule.os) {
-            if (rule.os.name && rule.os.name !== 'windows') matches = false;
-            if (rule.os.arch && rule.os.arch !== 'arm64' && rule.os.arch !== 'aarch64') matches = false;
-          }
-          if (matches) allowed = (rule.action === 'allow');
-        }
-      }
-      if (!allowed) continue;
+      if (!evaluateRules(lib.rules)) continue;
 
       if (lib.downloads && lib.downloads.artifact) {
         const libDest = path.join(MINECRAFT_DIR, 'libraries', lib.downloads.artifact.path);
@@ -2077,12 +2157,12 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
 
     classpath.push(clientJarPath);
 
-    const assetInfo = (parentData || versionData).assetIndex;
+    const assetInfo = (parentData || versionData).assetIndex || { id: 'legacy' };
     const assetIndexDir = path.join(MINECRAFT_DIR, 'assets', 'indexes');
     safeMkdirSync(assetIndexDir);
     const assetIndexFile = path.join(assetIndexDir, `${assetInfo.id}.json`);
 
-    if (!fs.existsSync(assetIndexFile) || fs.statSync(assetIndexFile).size < 50) {
+    if (assetInfo.url && (!fs.existsSync(assetIndexFile) || fs.statSync(assetIndexFile).size < 50)) {
       sendStatus('Downloading game assets index...');
       await downloadFile(assetInfo.url, assetIndexFile);
     }
@@ -2096,7 +2176,24 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
     const minRam = prof.minRam || globalCfg.minRam || 2048;
     const maxRam = prof.maxRam || globalCfg.maxRam || 4096;
 
-    const args = [
+    // Build argument token replacement map
+    const argContext = {
+      auth_player_name: account.name,
+      version_name: versionId,
+      game_directory: activeGameDir,
+      assets_root: path.join(MINECRAFT_DIR, 'assets'),
+      assets_index_name: assetInfo.id || 'legacy',
+      auth_uuid: account.id.replace(/-/g, ''),
+      auth_access_token: account.token,
+      user_type: account.token !== 'null' ? 'msa' : 'mojang',
+      version_type: 'release',
+      natives_directory: nativesDir,
+      launcher_name: 'Aetheria',
+      launcher_version: '1.0.0',
+      classpath: classpath.join(';')
+    };
+
+    const jvmArgs = [
       `-Xms${minRam}M`,
       `-Xmx${maxRam}M`,
       `-Djava.library.path=${nativesDir}`,
@@ -2105,17 +2202,41 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       `-Dio.netty.tryReflectionSetAccessible=true`,
       ...userJvmFlags,
       '-cp',
-      classpath.join(';'),
-      mainClass,
-      '--username', account.name,
-      '--version', versionId,
-      '--gameDir', activeGameDir,
-      '--assetsDir', path.join(MINECRAFT_DIR, 'assets'),
-      '--assetIndex', assetInfo.id,
-      '--uuid', account.id.replace(/-/g, ''),
-      '--accessToken', account.token,
-      '--userType', account.token !== 'null' ? 'msa' : 'mojang'
+      classpath.join(';')
     ];
+
+    let gameArgs = [];
+    const rawGameArgs = versionData.arguments?.game || parentData?.arguments?.game;
+
+    if (Array.isArray(rawGameArgs)) {
+      for (const a of rawGameArgs) {
+        if (typeof a === 'string') {
+          gameArgs.push(resolveArgumentToken(a, argContext));
+        } else if (typeof a === 'object' && evaluateRules(a.rules)) {
+          if (Array.isArray(a.value)) {
+            gameArgs.push(...a.value.map(val => resolveArgumentToken(val, argContext)));
+          } else if (typeof a.value === 'string') {
+            gameArgs.push(resolveArgumentToken(a.value, argContext));
+          }
+        }
+      }
+    } else if (typeof (versionData.minecraftArguments || parentData?.minecraftArguments) === 'string') {
+      const legacyPattern = versionData.minecraftArguments || parentData.minecraftArguments;
+      gameArgs = legacyPattern.split(' ').map(token => resolveArgumentToken(token, argContext));
+    } else {
+      gameArgs = [
+        '--username', account.name,
+        '--version', versionId,
+        '--gameDir', activeGameDir,
+        '--assetsDir', path.join(MINECRAFT_DIR, 'assets'),
+        '--assetIndex', assetInfo.id || 'legacy',
+        '--uuid', account.id.replace(/-/g, ''),
+        '--accessToken', account.token,
+        '--userType', account.token !== 'null' ? 'msa' : 'mojang'
+      ];
+    }
+
+    const fullArgs = [...jvmArgs, mainClass, ...gameArgs];
 
     const customEnv = {
       ...parseEnvString(globalCfg.envVars || ''),
@@ -2127,7 +2248,7 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       ...customEnv
     };
 
-    activeGameProcess = spawn(javaBin, args, { cwd: activeGameDir, env: launchEnv });
+    activeGameProcess = spawn(javaBin, fullArgs, { cwd: activeGameDir, env: launchEnv });
     let totalOutput = '';
 
     activeGameProcess.stdout.on('data', (d) => {
@@ -2148,7 +2269,7 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
     activeGameProcess.on('spawn', () => {
       event.reply('game-started', { pid: activeGameProcess.pid });
       sendStatus(`Minecraft running (PID: ${activeGameProcess.pid})`);
-      if (globalCfg.closeOnLaunch) setTimeout(() => mainWindow.hide(), 2500);
+      if (globalCfg.closeOnLaunch) setTimeout(() => mainWindow && mainWindow.hide(), 2500);
     });
 
     activeGameProcess.on('close', (code) => {
@@ -2183,6 +2304,10 @@ app.whenReady().then(() => {
   createWindow();
 });
 
+app.on('before-quit', () => {
+  forceCleanExit();
+});
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  forceCleanExit();
 });
