@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aetheria Launcher</title>
   <style>
-    /* Monochrome Strict Dark System */
     :root {
       color-scheme: dark;
       --bg: #09090b;
@@ -51,7 +51,7 @@
       height: 100vh;
       pointer-events: none;
       z-index: 0;
-      opacity: 0.85;
+      opacity: 0.9;
     }
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -66,7 +66,7 @@
       justify-content: space-between;
       padding: 0 16px;
       border-bottom: 1px solid var(--border);
-      background: rgba(9, 9, 11, 0.85);
+      background: rgba(9, 9, 11, 0.88);
       backdrop-filter: blur(20px);
       -webkit-app-region: drag;
       z-index: 1000;
@@ -87,7 +87,7 @@
     .nav-trigger:hover { border-color: var(--border-focus); background: var(--card-hover); transform: translateY(-1px); }
 
     .nav-dropdown {
-      position: absolute; top: calc(100% + 8px); right: 0; width: 190px;
+      position: absolute; top: calc(100% + 8px); right: 0; width: 200px;
       background: rgba(18, 18, 21, 0.96); backdrop-filter: blur(24px);
       border: 1px solid var(--border); border-radius: var(--radius); padding: 6px;
       display: flex; flex-direction: column; gap: 3px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75);
@@ -264,7 +264,7 @@
           </div>
           <div>
             <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">ACTIVE PROFILE</label>
-            <select id="version-selector" class="select-field" style="width: 200px; padding: 8px 12px; cursor: pointer;" onchange="changeVersion(this.value)">
+            <select id="version-selector" class="select-field" style="width: 220px; padding: 8px 12px; cursor: pointer;" onchange="changeVersion(this.value)">
               <option value="1.20.4">1.20.4 (Release)</option>
             </select>
           </div>
@@ -308,7 +308,7 @@
     <section id="panel-fabric" class="panel">
       <div class="panel-header">
         <h2>Fabric Setup</h2>
-        <p>Install lightweight, modular Fabric profiles directly to your client</p>
+        <p>Install lightweight, modular Fabric profiles across any release</p>
       </div>
 
       <div class="card">
@@ -317,7 +317,8 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;">
           <div>
             <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">TARGET MINECRAFT VERSION</label>
-            <input type="text" id="fabric-target-mc" class="input-field" value="1.20.4" onchange="fetchFabricLoaders()" />
+            <input list="mc-version-list" type="text" id="fabric-target-mc" class="input-field" value="1.20.4" oninput="fetchFabricLoaders()" />
+            <datalist id="mc-version-list"></datalist>
           </div>
           <div>
             <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">LOADER BUILD</label>
@@ -350,7 +351,7 @@
 
       <div class="banner" id="mgr-fabric-banner" style="display:none;">
         <span style="font-size: 0.8rem; color: var(--text);">
-          Current target profile is <strong>Vanilla</strong>. Fabric mods will only run when a Fabric profile is selected.
+          Current target profile is <strong>Vanilla</strong>. Fabric mods run when a Fabric profile is selected.
         </span>
         <button class="btn-secondary" style="font-size:0.75rem; padding: 4px 10px;" onclick="switchTab('fabric', 'Fabric Setup')">Switch to Fabric</button>
       </div>
@@ -421,18 +422,20 @@
       <div class="card" style="margin-bottom: 20px;">
         <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Inspect Player Skin by Username</h3>
         <div style="display: flex; gap: 10px;">
-          <input type="text" id="skin-search-user" class="input-field" placeholder="Enter username..." onkeydown="if(event.key==='Enter') searchPlayerSkin()" />
-          <button class="btn-secondary" onclick="searchPlayerSkin()">Fetch Skin</button>
+          <input type="text" id="skin-search-user" class="input-field" placeholder="Enter username (e.g. Steve, Alex, Notch)..." onkeydown="if(event.key==='Enter') searchPlayerSkin()" />
+          <button class="btn" onclick="searchPlayerSkin()">Fetch Skin</button>
         </div>
       </div>
 
       <div style="display: flex; gap: 32px; align-items: flex-start;">
-        <div style="width: 160px; height: 240px; background: rgba(9, 9, 11, 0.8); border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; justify-content: center;">
-          <canvas id="skin-canvas" width="128" height="256" style="image-rendering: pixelated;"></canvas>
+        <div style="width: 160px; height: 260px; background: rgba(9, 9, 11, 0.85); border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+          <canvas id="skin-canvas" width="128" height="256" style="image-rendering: pixelated; width: 128px; height: 256px;"></canvas>
         </div>
         <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
           <div class="card">
-            <span id="skin-file-name" style="display:block; font-size:0.75rem; color:var(--text-muted);">No active texture loaded</span>
+            <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 6px;">Skin Properties</h4>
+            <span id="skin-file-name" style="display:block; font-size:0.8rem; color:var(--text-muted);">No active texture loaded</span>
+            <span id="skin-model-name" style="display:block; font-size:0.75rem; color:var(--text-dim); margin-top: 4px;">Model: —</span>
           </div>
         </div>
       </div>
@@ -543,7 +546,7 @@
       <h3 style="font-size:1.1rem; margin-bottom: 12px;">Create New Instance</h3>
       <div style="margin-bottom: 14px;">
         <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Instance Name</label>
-        <input type="text" id="inst-name" class="input-field" placeholder="e.g. Speed & Shaders" />
+        <input type="text" id="inst-name" class="input-field" placeholder="e.g. Snapdragon Shaders" />
       </div>
       <div style="margin-bottom: 20px;">
         <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Target Game Version</label>
@@ -558,13 +561,13 @@
 
   <div id="toast"></div>
 
-  <!-- Background Canvas Script -->
+  <!-- COMPLETE 10 MONOCHROME BACKGROUND CANVAS ENGINES -->
   <script>
     const canvas = document.getElementById('bg-canvas');
     const ctx = canvas.getContext('2d');
     let currentPreset = 'waves';
     let animId = null;
-    let width, height;
+    let width = 0, height = 0;
 
     function resizeCanvas() {
       width = canvas.width = window.innerWidth;
@@ -574,13 +577,60 @@
     resizeCanvas();
 
     let tick = 0;
-    const stars = Array.from({ length: 90 }, () => ({ x: Math.random() * (width || 800), y: Math.random() * (height || 600), z: Math.random() * 800 }));
+
+    // Presets State Pools
+    const stars = Array.from({ length: 110 }, () => ({ x: Math.random() * (width || 800), y: Math.random() * (height || 600), z: Math.random() * 800 }));
+    const matrixChars = '0123456789ABCDEFｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ'.split('');
+    const matrixDrops = [];
+    function initMatrix() {
+      const cols = Math.floor(window.innerWidth / 18) + 1;
+      matrixDrops.length = 0;
+      for (let i = 0; i < cols; i++) matrixDrops[i] = Math.floor(Math.random() * -50);
+    }
+    initMatrix();
+    window.addEventListener('resize', initMatrix);
+
+    const plexusNodes = Array.from({ length: 48 }, () => ({
+      x: Math.random() * (width || 800),
+      y: Math.random() * (height || 600),
+      vx: (Math.random() - 0.5) * 0.7,
+      vy: (Math.random() - 0.5) * 0.7
+    }));
+
+    const mistParticles = Array.from({ length: 28 }, () => ({
+      x: Math.random() * (width || 800),
+      y: Math.random() * (height || 600),
+      r: 80 + Math.random() * 120,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      alpha: 0.02 + Math.random() * 0.04
+    }));
+
+    const voxels = Array.from({ length: 24 }, () => ({
+      x: Math.random() * (width || 800),
+      y: Math.random() * (height || 600),
+      size: 14 + Math.random() * 22,
+      vy: 0.3 + Math.random() * 0.6,
+      rot: Math.random() * Math.PI
+    }));
+
+    const constellations = Array.from({ length: 42 }, () => ({
+      x: Math.random() * (width || 800),
+      y: Math.random() * (height || 600),
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: (Math.random() - 0.5) * 0.25,
+      radius: Math.random() * 1.5 + 0.8
+    }));
 
     function renderAnimation() {
       tick++;
       ctx.clearRect(0, 0, width, height);
 
-      if (currentPreset === 'none') return;
+      if (currentPreset === 'none') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        return;
+      }
 
       if (currentPreset === 'waves') {
         ctx.fillStyle = '#09090b';
@@ -599,14 +649,151 @@
         ctx.fillStyle = '#09090b';
         ctx.fillRect(0, 0, width, height);
         stars.forEach(s => {
-          s.z -= 1.5;
+          s.z -= 1.8;
           if (s.z <= 0) { s.z = width; s.x = Math.random() * width; s.y = Math.random() * height; }
           const k = 128 / s.z;
           const px = (s.x - width / 2) * k + width / 2;
           const py = (s.y - height / 2) * k + height / 2;
           if (px >= 0 && px <= width && py >= 0 && py <= height) {
-            ctx.fillStyle = `rgba(255, 255, 255, ${1 - s.z / width})`;
-            ctx.fillRect(px, py, (1 - s.z / width) * 2, (1 - s.z / width) * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, 1 - s.z / width)})`;
+            ctx.fillRect(px, py, (1 - s.z / width) * 2.2, (1 - s.z / width) * 2.2);
+          }
+        });
+      } else if (currentPreset === 'matrix') {
+        ctx.fillStyle = 'rgba(9, 9, 11, 0.22)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = '13px monospace';
+        for (let i = 0; i < matrixDrops.length; i++) {
+          const char = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+          const x = i * 18;
+          const y = matrixDrops[i] * 18;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(char, x, y);
+          ctx.fillStyle = '#71717a';
+          ctx.fillText(char, x, y - 18);
+          if (y > height && Math.random() > 0.98) matrixDrops[i] = 0;
+          matrixDrops[i]++;
+        }
+      } else if (currentPreset === 'plexus') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        for (let i = 0; i < plexusNodes.length; i++) {
+          const p = plexusNodes[i];
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0 || p.x > width) p.vx *= -1;
+          if (p.y < 0 || p.y > height) p.vy *= -1;
+
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.fillRect(p.x, p.y, 2, 2);
+
+          for (let j = i + 1; j < plexusNodes.length; j++) {
+            const p2 = plexusNodes[j];
+            const dx = p.x - p2.x, dy = p.y - p2.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 120) {
+              ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 * (1 - dist / 120)})`;
+              ctx.lineWidth = 0.8;
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(p2.x, p2.y);
+              ctx.stroke();
+            }
+          }
+        }
+      } else if (currentPreset === 'pulse') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        const maxR = Math.max(width, height) * 0.7;
+        for (let i = 0; i < 4; i++) {
+          const r = ((tick * 0.8 + i * (maxR / 4)) % maxR);
+          const alpha = Math.max(0, 0.15 * (1 - r / maxR));
+          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(width / 2, height / 2, r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (currentPreset === 'mist') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        mistParticles.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < -p.r) p.x = width + p.r;
+          if (p.x > width + p.r) p.x = -p.r;
+          if (p.y < -p.r) p.y = height + p.r;
+          if (p.y > height + p.r) p.y = -p.r;
+
+          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+          grad.addColorStop(0, `rgba(255, 255, 255, ${p.alpha})`);
+          grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      } else if (currentPreset === 'grid') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        const horizon = height * 0.45;
+
+        for (let x = -width; x <= width * 2; x += 50) {
+          ctx.beginPath();
+          ctx.moveTo(width / 2, horizon);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+
+        const offset = (tick * 0.75) % 35;
+        for (let y = horizon; y <= height; y += (y - horizon) * 0.14 + 6) {
+          const drawY = y + offset * ((y - horizon) / (height - horizon));
+          if (drawY <= height) {
+            ctx.beginPath();
+            ctx.moveTo(0, drawY);
+            ctx.lineTo(width, drawY);
+            ctx.stroke();
+          }
+        }
+      } else if (currentPreset === 'voxels') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        voxels.forEach(v => {
+          v.y += v.vy;
+          v.rot += 0.006;
+          if (v.y > height + 40) { v.y = -40; v.x = Math.random() * width; }
+          ctx.save();
+          ctx.translate(v.x, v.y);
+          ctx.rotate(v.rot);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.13)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(-v.size / 2, -v.size / 2, v.size, v.size);
+          ctx.strokeRect(-v.size / 4, -v.size / 4, v.size / 2, v.size / 2);
+          ctx.restore();
+        });
+      } else if (currentPreset === 'constellation') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        constellations.forEach((c, idx) => {
+          c.x += c.vx; c.y += c.vy;
+          if (c.x < 0 || c.x > width) c.vx *= -1;
+          if (c.y < 0 || c.y > height) c.vy *= -1;
+
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          for (let j = idx + 1; j < constellations.length; j++) {
+            const c2 = constellations[j];
+            const d = Math.hypot(c.x - c2.x, c.y - c2.y);
+            if (d < 100) {
+              ctx.strokeStyle = `rgba(255, 255, 255, ${0.1 * (1 - d / 100)})`;
+              ctx.beginPath();
+              ctx.moveTo(c.x, c.y);
+              ctx.lineTo(c2.x, c2.y);
+              ctx.stroke();
+            }
           }
         });
       }
@@ -681,7 +868,7 @@
       renderInstances();
       renderAccounts();
       checkJdkStatus();
-      syncVersions();
+      await syncVersions();
       setupDragAndDrop();
 
       if (currentConfig.activeAccount) {
@@ -721,7 +908,7 @@
     async function submitNewInstance() {
       const name = document.getElementById('inst-name').value.trim() || 'New Instance';
       const version = document.getElementById('inst-version').value.trim() || '1.20.4';
-      const newInst = await ipcRenderer.invoke('create-instance', { name, version });
+      await ipcRenderer.invoke('create-instance', { name, version });
       currentConfig = await ipcRenderer.invoke('get-config');
       renderInstances();
       closeNewInstanceModal();
@@ -731,7 +918,9 @@
     async function syncVersions() {
       const manifest = await ipcRenderer.invoke('get-mc-versions');
       const selector = document.getElementById('version-selector');
+      const datalist = document.getElementById('mc-version-list');
       selector.innerHTML = '';
+      datalist.innerHTML = '';
 
       if (manifest.installed && manifest.installed.length) {
         const fabGroup = document.createElement('optgroup');
@@ -752,6 +941,10 @@
         opt.value = v.id;
         opt.innerText = v.id === manifest.latest ? `${v.id} (Latest Release)` : v.id;
         vanGroup.appendChild(opt);
+
+        const dOpt = document.createElement('option');
+        dOpt.value = v.id;
+        datalist.appendChild(dOpt);
       });
       selector.appendChild(vanGroup);
 
@@ -773,11 +966,15 @@
     async function fetchFabricLoaders() {
       const mcVer = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
       const select = document.getElementById('fabric-loader-select');
-      select.innerHTML = '<option value="">Fetching loaders from Fabric Meta...</option>';
+      select.innerHTML = '<option value="">Querying Fabric Meta API...</option>';
 
       try {
         const loaders = await ipcRenderer.invoke('get-fabric-loaders', mcVer);
         select.innerHTML = '';
+        if (!loaders.length) {
+          select.innerHTML = '<option value="">No loader builds available for this version</option>';
+          return;
+        }
         loaders.forEach((l, index) => {
           const opt = document.createElement('option');
           opt.value = l.version;
@@ -792,9 +989,9 @@
     async function installFabric() {
       const gameVersion = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
       const loaderVersion = document.getElementById('fabric-loader-select').value;
-      if (!loaderVersion) return alert('Select a Fabric loader version first.');
+      if (!loaderVersion) return alert('Select a valid Fabric loader version build first.');
 
-      toast('Writing Fabric profile descriptor...');
+      toast('Installing Fabric profile descriptor...');
       try {
         const res = await ipcRenderer.invoke('install-fabric-profile', { gameVersion, loaderVersion });
         await syncVersions();
@@ -1048,21 +1245,55 @@
     }
 
     // -------------------------------------------------------------
-    // SKIN STUDIO RENDERER
+    // ADVANCED 2D SKIN STUDIO RENDERER (FULL OVERLAY SUPPORT)
     // -------------------------------------------------------------
     function drawSkinToCanvas(imgSrc) {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.getElementById('skin-canvas');
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
-        ctx.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
-        ctx.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
-        ctx.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
-        ctx.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
-        ctx.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
-        ctx.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
+        const cvs = document.getElementById('skin-canvas');
+        const c = cvs.getContext('2d');
+        c.imageSmoothingEnabled = false;
+        c.clearRect(0, 0, cvs.width, cvs.height);
+
+        // Head Base + Hat Overlay
+        c.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
+        c.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
+
+        // Body Base + Jacket Overlay
+        c.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
+        c.drawImage(img, 20, 36, 8, 12, 48, 48, 32, 48);
+
+        // Right Arm Base + Sleeve Overlay
+        c.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
+        c.drawImage(img, 44, 36, 4, 12, 32, 48, 16, 48);
+
+        // Left Arm (Handles 64x64 or mirrored 64x32)
+        if (img.height >= 64) {
+          c.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
+          c.drawImage(img, 52, 52, 4, 12, 80, 48, 16, 48);
+        } else {
+          c.save();
+          c.translate(96, 48);
+          c.scale(-1, 1);
+          c.drawImage(img, 44, 20, 4, 12, 0, 0, 16, 48);
+          c.restore();
+        }
+
+        // Right Leg Base + Pants Overlay
+        c.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
+        c.drawImage(img, 4, 36, 4, 12, 48, 96, 16, 48);
+
+        // Left Leg (Handles 64x64 or mirrored 64x32)
+        if (img.height >= 64) {
+          c.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
+          c.drawImage(img, 4, 52, 4, 12, 64, 96, 16, 48);
+        } else {
+          c.save();
+          c.translate(80, 96);
+          c.scale(-1, 1);
+          c.drawImage(img, 4, 20, 4, 12, 0, 0, 16, 48);
+          c.restore();
+        }
       };
       img.src = imgSrc;
     }
@@ -1072,20 +1303,22 @@
         const res = await ipcRenderer.invoke('fetch-player-skin', username);
         if (res && res.skinUrl) {
           drawSkinToCanvas(res.skinUrl);
-          document.getElementById('skin-file-name').innerText = `Active Account Skin: ${username}`;
+          document.getElementById('skin-file-name').innerText = `Active Account Skin: ${res.username}`;
+          document.getElementById('skin-model-name').innerText = `Model: ${res.isSlim ? 'Slim (Alex 3px)' : 'Classic (Steve 4px)'}`;
         }
       } catch (e) {}
     }
 
     async function searchPlayerSkin() {
       const u = document.getElementById('skin-search-user').value.trim();
-      if (!u) return;
-      toast(`Fetching skin for ${u}...`);
+      if (!u) return alert('Enter a Minecraft username to fetch.');
+      toast(`Resolving skin for ${u}...`);
       try {
         const res = await ipcRenderer.invoke('fetch-player-skin', u);
         drawSkinToCanvas(res.skinUrl);
-        document.getElementById('skin-file-name').innerText = `Loaded Skin: ${res.username}`;
-        toast(`Skin for ${res.username} loaded!`);
+        document.getElementById('skin-file-name').innerText = `Loaded Skin: ${res.username} (${res.uuid})`;
+        document.getElementById('skin-model-name').innerText = `Model: ${res.isSlim ? 'Slim (Alex 3px)' : 'Classic (Steve 4px)'}`;
+        toast(`Skin for ${res.username} loaded successfully!`);
       } catch (e) {
         alert(e.message);
       }
@@ -1152,7 +1385,7 @@
     // LAUNCH EXECUTION
     // -------------------------------------------------------------
     function playGame() {
-      toast('Starting execution pipeline...');
+      toast('Starting native ARM64 pipeline...');
       document.getElementById('play-button').disabled = true;
 
       ipcRenderer.send('launch-game', {
