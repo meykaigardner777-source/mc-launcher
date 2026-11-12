@@ -8,8 +8,8 @@
     :root {
       color-scheme: dark;
       --bg: #09090b;
-      --card: rgba(18, 18, 21, 0.78);
-      --card-hover: rgba(24, 24, 27, 0.94);
+      --card: rgba(18, 18, 21, 0.88);
+      --card-hover: rgba(26, 26, 30, 0.96);
       --border: #27272a;
       --border-hover: #3f3f46;
       --border-focus: #52525b;
@@ -24,7 +24,6 @@
       --status-error: #ef4444;
       --ease: cubic-bezier(0.16, 1, 0.3, 1);
       --radius: 8px;
-      --bubble-radius: 9999px;
     }
 
     * {
@@ -32,7 +31,16 @@
       margin: 0;
       padding: 0;
       user-select: none;
+      -webkit-user-select: none;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    }
+
+    /* TYPING UNLOCK: STRICT RESTORATION OF CARET PLACEMENT AND KEY DISPATCH */
+    input, textarea, select {
+      user-select: text !important;
+      -webkit-user-select: text !important;
+      -webkit-app-region: no-drag !important;
+      pointer-events: auto !important;
     }
 
     body {
@@ -62,51 +70,90 @@
     ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
 
     .titlebar {
-      height: 46px;
+      height: 48px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 16px;
       border-bottom: 1px solid var(--border);
-      background: rgba(9, 9, 11, 0.88);
+      background: rgba(9, 9, 11, 0.92);
       backdrop-filter: blur(20px);
       -webkit-app-region: drag;
       z-index: 1000;
+      animation: fadeIn 0.4s var(--ease);
     }
 
-    .brand-group { display: flex; align-items: center; gap: 12px; }
-    .brand-title { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text); }
-    .brand-badge { background: #18181b; border: 1px solid var(--border); color: var(--text-muted); padding: 2px 7px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; }
-
-    .top-right-group { display: flex; align-items: center; gap: 12px; -webkit-app-region: no-drag; }
-    .nav-wrapper { position: relative; }
-    .nav-trigger {
-      display: flex; align-items: center; gap: 9px; background: rgba(24, 24, 27, 0.7);
-      backdrop-filter: blur(12px); border: 1px solid var(--border); color: var(--text);
-      padding: 6px 14px; border-radius: var(--radius); font-size: 0.8rem; font-weight: 600;
-      cursor: pointer; transition: all 0.25s var(--ease);
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      -webkit-app-region: drag;
+      min-width: 180px;
     }
-    .nav-trigger:hover { border-color: var(--border-focus); background: var(--card-hover); transform: translateY(-1px); }
-
-    .nav-dropdown {
-      position: absolute; top: calc(100% + 8px); right: 0; width: 210px;
-      background: rgba(18, 18, 21, 0.98); backdrop-filter: blur(24px);
-      border: 1px solid var(--border); border-radius: var(--radius); padding: 6px;
-      display: flex; flex-direction: column; gap: 3px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
-      z-index: 2000; opacity: 0; transform: translateY(-8px) scale(0.97); pointer-events: none;
-      transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
+    .brand-title {
+      font-size: 0.84rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text);
     }
-    .nav-dropdown.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
-
-    .nav-option {
-      background: transparent; border: none; color: var(--text-muted); text-align: left;
-      padding: 8px 12px; font-size: 0.8rem; font-weight: 500; border-radius: 5px;
-      cursor: pointer; transition: all 0.15s var(--ease);
+    .brand-badge {
+      background: #18181b;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      transition: all 0.2s var(--ease);
     }
-    .nav-option:hover { background: #202025; color: var(--text); transform: translateX(2px); }
-    .nav-option.active { background: var(--accent-bg); color: #ffffff; font-weight: 600; }
 
-    .win-controls { display: flex; gap: 4px; }
+    .top-right-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      -webkit-app-region: no-drag;
+      overflow: hidden;
+    }
+
+    /* HORIZONTAL TOP NAVIGATION */
+    .top-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      max-width: 820px;
+      padding: 2px 0;
+    }
+    .top-nav::-webkit-scrollbar { display: none; }
+
+    .top-nav-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s var(--ease);
+      white-space: nowrap;
+    }
+    .top-nav-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border-color: var(--border);
+      transform: translateY(-1px);
+    }
+    .top-nav-btn.active {
+      background: #18181b;
+      border-color: var(--border-hover);
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    .win-controls { display: flex; gap: 4px; margin-left: 6px; }
     .win-btn {
       width: 28px; height: 28px; background: transparent; border: none; color: var(--text-muted);
       border-radius: 4px; display: flex; align-items: center; justify-content: center;
@@ -115,10 +162,10 @@
     .win-btn:hover { background: #1c1c20; color: var(--text); }
     .win-btn.close:hover { background: var(--danger); color: #fff; }
 
-    /* SPLIT WORKSPACE: LEFT CONTENT ONLY, ZERO DECK OVERLAP */
+    /* WORKSPACE STAGE */
     .viewport {
       flex: 1;
-      padding: 20px 24px;
+      padding: 24px;
       position: relative;
       z-index: 1;
       overflow: hidden;
@@ -126,9 +173,10 @@
     }
 
     .workspace-stage {
-      width: calc(100% - 360px);
-      max-width: 860px;
+      width: 100%;
+      max-width: 1060px;
       height: 100%;
+      margin: 0 auto;
       display: flex;
       flex-direction: column;
       overflow-y: auto;
@@ -137,21 +185,29 @@
       z-index: 10;
     }
 
-    .panel { display: none; animation: panelIn 0.28s var(--ease) forwards; }
+    .panel { display: none; animation: panelIn 0.32s var(--ease) forwards; }
     .panel.active { display: block; }
 
-    @keyframes panelIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
 
     .card {
       background: var(--card); backdrop-filter: blur(16px); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
-      transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
+      transition: border-color 0.25s var(--ease), background 0.25s var(--ease), transform 0.25s var(--ease);
     }
     .card:hover { border-color: var(--border-hover); }
 
-    .panel-header { margin-bottom: 18px; }
-    .panel-header h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
-    .panel-header p { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
+    .panel-header { margin-bottom: 20px; }
+    .panel-header h2 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; }
+    .panel-header p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
 
     .btn {
       background: #ffffff; color: #09090b; border: none; padding: 8px 16px;
@@ -168,70 +224,80 @@
       cursor: pointer; transition: all 0.2s var(--ease);
     }
     .btn-secondary:hover { background: #222227; border-color: var(--border-focus); transform: translateY(-1px); }
+    .btn-secondary:active { transform: translateY(1px); }
 
-    /* DARK ZINC DROPDOWNS & INPUTS */
     .input-field, .select-field, textarea.input-field {
       width: 100%; background: #121215; border: 1px solid var(--border);
-      padding: 9px 13px; border-radius: var(--radius); color: var(--text);
-      font-size: 0.82rem; outline: none; transition: border-color 0.2s ease;
+      padding: 10px 14px; border-radius: var(--radius); color: var(--text);
+      font-size: 0.82rem; outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease;
       color-scheme: dark;
     }
     .select-field {
       appearance: none;
       background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
       background-repeat: no-repeat;
-      background-position: right 10px center;
+      background-position: right 12px center;
       background-size: 14px;
-      padding-right: 32px;
+      padding-right: 34px;
       cursor: pointer;
     }
-    .select-field option {
-      background: #121215;
-      color: #f4f4f5;
-      padding: 8px;
+    .select-field option { background: #121215; color: #f4f4f5; padding: 8px; }
+    .input-field:focus, .select-field:focus, textarea.input-field:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 1px var(--border-focus);
     }
-    .input-field:focus, .select-field:focus, textarea.input-field:focus { border-color: var(--border-focus); }
 
     .chip-group { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
     .chip-btn {
       background: var(--card); border: 1px solid var(--border); color: var(--text-muted);
-      padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+      padding: 6px 14px; border-radius: var(--radius); font-size: 0.76rem; font-weight: 600;
       cursor: pointer; transition: all 0.2s var(--ease);
     }
-    .chip-btn:hover { color: var(--text); border-color: var(--border-hover); }
+    .chip-btn:hover { color: var(--text); border-color: var(--border-hover); transform: translateY(-1px); }
     .chip-btn.active { background: #ffffff; color: #09090b; border-color: #ffffff; }
 
     .mod-item {
-      display: flex; justify-content: space-between; align-items: center; padding: 11px 15px;
+      display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
       background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
       margin-bottom: 8px; transition: all 0.25s var(--ease);
     }
     .mod-item:hover { transform: translateY(-1px); border-color: var(--border-focus); background: var(--card-hover); }
 
     .drop-zone {
-      border: 1px dashed var(--border-hover); border-radius: var(--radius); padding: 16px;
+      border: 1px dashed var(--border-hover); border-radius: var(--radius); padding: 18px;
       text-align: center; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px;
       transition: all 0.2s ease;
     }
     .drop-zone.drag-active { border-color: #ffffff; background: rgba(255, 255, 255, 0.04); color: #ffffff; }
 
     #toast {
-      position: fixed; bottom: 84px; right: 28px; background: #18181b; border: 1px solid var(--border-focus);
+      position: fixed; bottom: 32px; right: 32px; background: #18181b; border: 1px solid var(--border-focus);
       color: var(--text); padding: 10px 18px; border-radius: var(--radius); font-size: 0.8rem;
       font-weight: 500; display: none; z-index: 99999; box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+      animation: toastIn 0.22s var(--ease);
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.82); backdrop-filter: blur(8px);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
       display: none; align-items: center; justify-content: center; z-index: 5000;
+      animation: fadeIn 0.2s var(--ease);
     }
     .modal-box {
-      width: 560px; max-height: 85vh; overflow-y: auto; background: #121215; border: 1px solid var(--border);
+      width: 580px; max-height: 85vh; overflow-y: auto; background: #121215; border: 1px solid var(--border);
       border-radius: var(--radius); padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+      animation: modalIn 0.24s var(--ease);
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.97) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
     }
 
     .console-box {
-      height: 440px; background: rgba(5, 5, 7, 0.95); border: 1px solid var(--border);
+      height: 480px; background: rgba(5, 5, 7, 0.95); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.75rem; color: #e4e4e7; overflow-y: auto; white-space: pre-wrap; line-height: 1.45;
     }
@@ -239,111 +305,106 @@
     .log-stderr { color: #f87171; }
     .log-stdout { color: #e4e4e7; }
 
-    /* DASHBOARD */
-    .overview-hero { margin-bottom: 20px; }
+    /* OVERVIEW CONTROLS */
+    .overview-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 520px;
+      text-align: center;
+      animation: fadeIn 0.35s var(--ease);
+    }
+
+    .overview-hero {
+      margin-bottom: 34px;
+    }
     .overview-hero h1 {
-      font-size: 2.2rem;
+      font-size: 3.4rem;
       font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1.1;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
       color: #ffffff;
     }
     .overview-hero p {
-      font-size: 0.84rem;
+      font-size: 0.9rem;
       color: var(--text-muted);
-      margin-top: 6px;
-      line-height: 1.4;
+      margin-top: 10px;
+      letter-spacing: 0.02em;
     }
 
-    .quick-chips-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-    .quick-chip {
-      background: #18181b; border: 1px solid var(--border); color: var(--text);
-      font-size: 0.74rem; font-weight: 600; padding: 6px 12px; border-radius: 9999px;
-      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-      transition: all 0.2s var(--ease);
-    }
-    .quick-chip:hover { border-color: var(--border-focus); background: #222227; transform: translateY(-1px); }
-
-    /* FLOATING COHESIVE BUBBLE PILL ACTION DECK (BOTTOM RIGHT) */
-    .action-deck {
-      position: fixed;
-      bottom: 24px;
-      right: 28px;
+    .overview-action-deck {
       display: flex;
-      align-items: center;
+      align-items: stretch;
       gap: 12px;
-      z-index: 1000;
+      width: 100%;
+      max-width: 580px;
+      margin-bottom: 24px;
     }
 
-    .deck-profile-wrapper { position: relative; }
+    .overview-profile-selector {
+      flex: 1;
+      position: relative;
+    }
 
     .deck-profile-btn {
+      width: 100%;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 12px;
       background: rgba(18, 18, 21, 0.92);
       backdrop-filter: blur(20px);
       border: 1px solid #3f3f46;
-      padding: 6px 18px 6px 14px;
-      border-radius: var(--bubble-radius);
+      padding: 10px 16px;
+      border-radius: var(--radius);
       cursor: pointer;
-      height: 48px;
+      height: 54px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
       transition: all 0.22s var(--ease);
     }
     .deck-profile-btn:hover {
       border-color: #71717a;
       background: rgba(26, 26, 30, 0.98);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7);
     }
-
-    .bullet-menu-icon {
-      width: 18px;
-      height: 18px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 2px 0;
-    }
-    .bullet-row { display: flex; align-items: center; gap: 4px; }
-    .bullet-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text-muted); }
-    .bullet-line { height: 2px; flex: 1; background: var(--border-hover); border-radius: 1px; }
 
     .deck-profile-info { display: flex; flex-direction: column; text-align: left; }
     .deck-profile-name {
-      font-size: 0.82rem; font-weight: 700; color: var(--text);
-      max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-size: 0.88rem; font-weight: 700; color: var(--text);
+      max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .deck-profile-meta { font-size: 0.67rem; color: var(--text-dim); }
+    .deck-profile-meta { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
 
     .deck-profile-menu {
-      position: absolute; bottom: calc(100% + 12px); right: 0; width: 260px;
+      position: absolute; bottom: calc(100% + 8px); left: 0; width: 100%;
       background: rgba(18, 18, 21, 0.98); backdrop-filter: blur(24px);
-      border: 1px solid var(--border-hover); border-radius: 12px; padding: 6px;
+      border: 1px solid var(--border-hover); border-radius: var(--radius); padding: 8px;
       display: flex; flex-direction: column; gap: 4px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
-      opacity: 0; transform: translateY(8px) scale(0.97); pointer-events: none;
-      transition: all 0.22s var(--ease); max-height: 340px; overflow-y: auto; z-index: 2000;
+      opacity: 0; transform: translateY(8px) scale(0.98); pointer-events: none;
+      transition: all 0.22s var(--ease); max-height: 280px; overflow-y: auto; z-index: 2000;
     }
     .deck-profile-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
     .profile-item-btn {
       display: flex; align-items: center; justify-content: space-between; background: transparent;
-      border: none; color: var(--text-muted); text-align: left; padding: 8px 10px;
-      font-size: 0.78rem; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;
+      border: none; color: var(--text-muted); text-align: left; padding: 10px 12px;
+      font-size: 0.8rem; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;
     }
     .profile-item-btn:hover { background: #202025; color: var(--text); }
     .profile-item-btn.active { background: var(--accent-bg); color: #fff; font-weight: 600; }
 
+    /* PLAY BUTTON (MATCHING RADIUS) */
     .play-btn {
-      display: flex; align-items: center; gap: 10px; padding: 0 26px;
-      border-radius: var(--bubble-radius); font-size: 0.88rem; font-weight: 700;
-      letter-spacing: 0.05em; cursor: pointer; height: 48px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 0 32px; border-radius: var(--radius); font-size: 0.92rem; font-weight: 700;
+      letter-spacing: 0.06em; cursor: pointer; height: 54px; min-width: 170px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-      transition: all 0.22s var(--ease);
+      transition: all 0.22s var(--ease); border: none;
     }
-    .play-btn:hover { transform: translateY(-2px); filter: brightness(1.12); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7); }
-    .play-btn:active { transform: translateY(0) scale(0.98); }
+    .play-btn:hover { transform: translateY(-1px); filter: brightness(1.1); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7); }
+    .play-btn:active { transform: translateY(1px) scale(0.99); }
 
     .play-btn.state-ready { background: #10b981; color: #042f2e; border: 1px solid #34d399; }
     .play-btn.state-ready .status-indicator { background: #042f2e; }
@@ -354,8 +415,8 @@
     .play-btn.state-error { background: #ef4444; color: #450a0a; border: 1px solid #f87171; }
     .play-btn.state-error .status-indicator { background: #450a0a; }
 
-    .status-indicator { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .home-status-toast { font-size: 0.74rem; color: var(--text-dim); font-family: ui-monospace, monospace; margin-top: 10px; }
+    .status-indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .home-status-toast { font-size: 0.76rem; color: var(--text-dim); font-family: ui-monospace, monospace; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -369,24 +430,18 @@
     </div>
 
     <div class="top-right-group">
-      <div class="nav-wrapper">
-        <button class="nav-trigger" id="dropdown-btn" onclick="toggleNav()">
-          <span id="active-tab-title">Overview</span>
-          <span style="font-size: 0.65rem; color: var(--text-dim);">▼</span>
-        </button>
-        <div class="nav-dropdown" id="dropdown-menu">
-          <button class="nav-option active" onclick="switchTab('home', 'Overview')">Overview</button>
-          <button class="nav-option" onclick="switchTab('profiles', 'Profiles')">Profiles</button>
-          <button class="nav-option" onclick="switchTab('mods', 'Mod Hub')">Mod Hub</button>
-          <button class="nav-option" onclick="switchTab('manager', 'Content Manager')">Content Manager</button>
-          <button class="nav-option" onclick="switchTab('loaders', 'Loader Engines')">Loader Engines</button>
-          <button class="nav-option" onclick="switchTab('console', 'Live Console')">Live Console</button>
-          <button class="nav-option" onclick="switchTab('skins', 'Skin Studio')">Skin Studio</button>
-          <button class="nav-option" onclick="switchTab('vault', 'Vault')">Vault</button>
-          <button class="nav-option" onclick="switchTab('accounts', 'Accounts')">Accounts</button>
-          <button class="nav-option" onclick="switchTab('settings', 'Settings')">Settings</button>
-        </div>
-      </div>
+      <nav class="top-nav">
+        <button class="top-nav-btn active" onclick="switchTab('home', this)">Overview</button>
+        <button class="top-nav-btn" onclick="switchTab('profiles', this)">Profiles</button>
+        <button class="top-nav-btn" onclick="switchTab('mods', this)">Mod Hub</button>
+        <button class="top-nav-btn" onclick="switchTab('manager', this)">Content</button>
+        <button class="top-nav-btn" onclick="switchTab('loaders', this)">Engines</button>
+        <button class="top-nav-btn" onclick="switchTab('console', this)">Console</button>
+        <button class="top-nav-btn" onclick="switchTab('skins', this)">Skin Studio</button>
+        <button class="top-nav-btn" onclick="switchTab('vault', this)">Vault</button>
+        <button class="top-nav-btn" onclick="switchTab('accounts', this)">Accounts</button>
+        <button class="top-nav-btn" onclick="switchTab('settings', this)">Settings</button>
+      </nav>
 
       <div class="win-controls">
         <button class="win-btn" onclick="minWin()">&#8211;</button>
@@ -397,69 +452,70 @@
   </header>
 
   <main class="viewport">
-
-    <!-- DEDICATED LEFT WORKSPACE STAGE -->
     <div class="workspace-stage">
 
       <!-- 1. OVERVIEW DASHBOARD -->
       <section id="panel-home" class="panel active">
-        <div class="overview-hero">
-          <h1 id="hero-title">Ready.</h1>
-          <p id="hero-sub">Snapdragon X Oryon 64-bit native pipeline. Zero emulation overhead.</p>
+        <div class="overview-container">
+          <div class="overview-hero">
+            <h1 id="hero-title">Ready.</h1>
+            <p id="hero-sub">Snapdragon X Oryon ARM64 Execution Pipeline</p>
+          </div>
+
+          <div class="overview-action-deck">
+            <div class="overview-profile-selector">
+              <button class="deck-profile-btn" onclick="toggleProfileMenu()">
+                <div class="deck-profile-info">
+                  <span class="deck-profile-name" id="deck-prof-name">Default Profile</span>
+                  <span class="deck-profile-meta" id="deck-prof-meta">1.20.4 • VANILLA</span>
+                </div>
+                <span style="font-size: 0.65rem; color: var(--text-dim);">▲</span>
+              </button>
+
+              <div class="deck-profile-menu" id="deck-profile-dropdown">
+                <div id="deck-profile-items" style="display:flex; flex-direction:column; gap:2px;"></div>
+                <hr style="border:none; border-top: 1px solid var(--border); margin: 6px 0;" />
+                <button class="profile-item-btn" onclick="openNewProfileModal()">+ Create Profile</button>
+                <button class="profile-item-btn" onclick="switchTab('profiles')">Manage All Environments...</button>
+              </div>
+            </div>
+
+            <button class="play-btn state-ready" id="main-play-btn" onclick="playGame()">
+              <span class="status-indicator" id="play-status-dot"></span>
+              <span id="play-btn-text">PLAY</span>
+            </button>
+          </div>
+
+          <div class="home-status-toast" id="home-status-line">Pipeline standing by</div>
         </div>
-
-        <div class="card" style="border-color: var(--border-hover);">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-            <div>
-              <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em;">Active Environment</span>
-              <h3 id="dash-prof-title" style="font-size: 1.15rem; font-weight: 700; margin-top: 2px;">Default Profile</h3>
-            </div>
-            <span class="brand-badge" id="dash-loader-badge">VANILLA</span>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;">
-            <div style="background: #18181b; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
-              <span style="font-size: 0.65rem; color: var(--text-dim); display: block;">MINECRAFT</span>
-              <strong id="dash-mc-ver" style="font-size: 0.85rem;">1.20.4</strong>
-            </div>
-            <div style="background: #18181b; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
-              <span style="font-size: 0.65rem; color: var(--text-dim); display: block;">ALLOCATED RAM</span>
-              <strong id="dash-ram" style="font-size: 0.85rem;">4096 MB</strong>
-            </div>
-            <div style="background: #18181b; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
-              <span style="font-size: 0.65rem; color: var(--text-dim); display: block;">JAVA RUNTIME</span>
-              <strong id="dash-java" style="font-size: 0.85rem;">Auto (ARM64)</strong>
-            </div>
-          </div>
-
-          <span style="font-size: 0.72rem; color: var(--text-dim); font-weight: 600;">DIRECT WORKSPACE JUMPS</span>
-          <div class="quick-chips-bar">
-            <button class="quick-chip" onclick="openProfileSettingsModal(currentConfig.activeProfileId || 'default')">&#9881; Edit Parameters</button>
-            <button class="quick-chip" onclick="switchTab('manager', 'Content Manager')">&#128230; Mods &amp; Shaders</button>
-            <button class="quick-chip" onclick="switchTab('mods', 'Mod Hub')">&#128269; Mod Hub</button>
-            <button class="quick-chip" onclick="switchTab('loaders', 'Loader Engines')">&#9874; Fabric / NeoForge</button>
-            <button class="quick-chip" onclick="switchTab('skins', 'Skin Studio')">&#128100; Skin Studio</button>
-            <button class="quick-chip" onclick="switchTab('settings', 'Settings')">&#128187; ARM64 JVMs</button>
-          </div>
-        </div>
-
-        <div class="home-status-toast" id="home-status-line">Pipeline standing by</div>
       </section>
 
-      <!-- 2. PROFILES MANAGER -->
+      <!-- 2. UNIFIED PROFILE & INSTANCE MANAGER -->
       <section id="panel-profiles" class="panel">
         <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <h2>Profile Manager</h2>
-            <p>Isolated environments for versions, mods, and client configurations</p>
+            <h2>Profile &amp; Instance Manager</h2>
+            <p>Unified native environments and external client installations</p>
           </div>
           <div style="display: flex; gap: 8px;">
             <button class="btn" onclick="openNewProfileModal()">+ New Profile</button>
-            <button class="btn-secondary" onclick="openImportModal()">Import Instance</button>
+            <button class="btn-secondary" onclick="scanExternalInstances()">Rescan Instances</button>
           </div>
         </div>
 
-        <div id="profiles-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;"></div>
+        <div style="margin-bottom: 24px;">
+          <h3 style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;">
+            Native Aetheria Profiles
+          </h3>
+          <div id="profiles-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px;"></div>
+        </div>
+
+        <div>
+          <h3 style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;">
+            External Client Instances (Prism / Modrinth / Lunar)
+          </h3>
+          <div id="instances-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px;"></div>
+        </div>
       </section>
 
       <!-- 3. LIVE CONSOLE -->
@@ -488,7 +544,7 @@
         <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             <h2>Content Manager</h2>
-            <p>Active Profile: <span id="mgr-active-prof-label" style="color:#ffffff; font-weight:600;">Default</span></p>
+            <p>Active Environment: <span id="mgr-active-prof-label" style="color:#ffffff; font-weight:600;">Default</span></p>
           </div>
           <div class="chip-group" style="margin-bottom: 0;">
             <button class="chip-btn active" id="mgr-chip-mods" onclick="loadManager('mods')">Mods</button>
@@ -557,7 +613,7 @@
         </div>
 
         <div class="card">
-          <h3 style="font-size: 0.92rem; font-weight: 600; margin-bottom: 12px;">NeoForge Engine (1.20.4+ / 1.21.x)</h3>
+          <h3 style="font-size: 0.92rem; font-weight: 600; margin-bottom: 12px;">NeoForge Engine</h3>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
             <div>
               <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 600;">TARGET VERSION</label>
@@ -574,7 +630,7 @@
         </div>
       </section>
 
-      <!-- 6. MOD HUB (WITH LOADER SELECTOR) -->
+      <!-- 6. MOD HUB -->
       <section id="panel-mods" class="panel">
         <div class="panel-header" style="display:flex; justify-content: space-between; align-items: center;">
           <div>
@@ -594,11 +650,9 @@
         </div>
 
         <div style="display: flex; gap: 10px; margin-bottom: 18px;">
-          <!-- Version Filter -->
           <div style="min-width: 140px;">
             <select id="hub-version-filter" class="select-field" onchange="executeHubSearch()"></select>
           </div>
-          <!-- Loader Selector Filter -->
           <div style="min-width: 135px;" id="hub-loader-container">
             <select id="hub-loader-filter" class="select-field" onchange="executeHubSearch()">
               <option value="all">All Loaders</option>
@@ -621,7 +675,7 @@
       <section id="panel-skins" class="panel">
         <div class="panel-header">
           <h2>Skin Studio</h2>
-          <p>2D composite skin preview and multi-tier Mojang avatar fetcher</p>
+          <p>Composite skin preview and multi-tier Mojang avatar fetcher</p>
         </div>
         <div class="card" style="margin-bottom: 16px;">
           <div style="display: flex; gap: 10px;">
@@ -755,37 +809,6 @@
       </section>
 
     </div>
-
-    <!-- FLOATING COHESIVE BUBBLE PILL ACTION DECK -->
-    <div class="action-deck">
-      <div class="deck-profile-wrapper">
-        <button class="deck-profile-btn" onclick="toggleProfileMenu()">
-          <div class="bullet-menu-icon">
-            <div class="bullet-row"><div class="bullet-dot"></div><div class="bullet-line"></div></div>
-            <div class="bullet-row"><div class="bullet-dot"></div><div class="bullet-line"></div></div>
-            <div class="bullet-row"><div class="bullet-dot"></div><div class="bullet-line"></div></div>
-          </div>
-          <div class="deck-profile-info">
-            <span class="deck-profile-name" id="deck-prof-name">Default Profile</span>
-            <span class="deck-profile-meta" id="deck-prof-meta">1.20.4 &bull; VANILLA</span>
-          </div>
-          <span style="font-size: 0.65rem; color: var(--text-dim); margin-left: 2px;">▲</span>
-        </button>
-
-        <div class="deck-profile-menu" id="deck-profile-dropdown">
-          <div id="deck-profile-items" style="display:flex; flex-direction:column; gap:2px;"></div>
-          <hr style="border:none; border-top: 1px solid var(--border); margin: 4px 0;" />
-          <button class="profile-item-btn" onclick="openNewProfileModal()">+ Create Profile</button>
-          <button class="profile-item-btn" onclick="switchTab('profiles', 'Profiles')">Manage All Profiles...</button>
-        </div>
-      </div>
-
-      <button class="play-btn state-ready" id="main-play-btn" onclick="playGame()">
-        <span class="status-indicator" id="play-status-dot"></span>
-        <span id="play-btn-text">PLAY</span>
-      </button>
-    </div>
-
   </main>
 
   <!-- PROFILE CONFIGURATION MODAL -->
@@ -894,23 +917,6 @@
       <div style="display:flex; justify-content: flex-end; gap: 8px;">
         <button class="btn-secondary" onclick="closeNewProfileModal()">Cancel</button>
         <button class="btn" onclick="submitNewProfile()">Create Profile</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- EXTERNAL CLIENT IMPORTER MODAL -->
-  <div class="modal-overlay" id="modal-import">
-    <div class="modal-box" style="width: 640px;">
-      <h3 style="font-size: 1.05rem; margin-bottom: 12px;">Import External Client Instances</h3>
-      <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 16px;">
-        Select an external client instance to transform into a native, fully isolated Aetheria profile.
-      </p>
-      <div id="import-scanned-container" style="max-height: 320px; overflow-y: auto; display:flex; flex-direction:column; gap:8px;">
-        <p style="font-size:0.8rem; color:var(--text-muted);">Detecting external client installations...</p>
-      </div>
-      <div style="display:flex; justify-content: space-between; align-items:center; margin-top: 18px;">
-        <button class="btn-secondary" onclick="scanExternalInstances()">Rescan System</button>
-        <button class="btn-secondary" onclick="closeImportModal()">Close</button>
       </div>
     </div>
   </div>
@@ -1184,6 +1190,16 @@
 
     const DEFAULT_ORYON = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
 
+    function safeUpper(val, def = 'VANILLA') {
+      if (!val) return def;
+      return String(val).toUpperCase();
+    }
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
     function toast(text) {
       const el = document.getElementById('toast');
       el.innerText = text;
@@ -1191,36 +1207,38 @@
       setTimeout(() => el.style.display = 'none', 3500);
     }
 
-    function toggleNav() {
-      document.getElementById('dropdown-menu').classList.toggle('open');
-    }
-
     function toggleProfileMenu() {
       document.getElementById('deck-profile-dropdown').classList.toggle('open');
     }
 
     window.addEventListener('click', (e) => {
-      if (!e.target.closest('.nav-wrapper')) {
-        document.getElementById('dropdown-menu').classList.remove('open');
-      }
-      if (!e.target.closest('.deck-profile-wrapper')) {
-        document.getElementById('deck-profile-dropdown').classList.remove('open');
+      if (!e.target.closest('.overview-profile-selector')) {
+        const el = document.getElementById('deck-profile-dropdown');
+        if (el) el.classList.remove('open');
       }
     });
 
-    function switchTab(name, title) {
+    function switchTab(name, clickedBtn = null) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-option').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.top-nav-btn').forEach(b => b.classList.remove('active'));
 
       const target = document.getElementById(`panel-${name}`);
       if (target) target.classList.add('active');
 
-      const titleEl = document.getElementById('active-tab-title');
-      if (titleEl) titleEl.innerText = title;
+      if (clickedBtn) {
+        clickedBtn.classList.add('active');
+      } else {
+        const found = Array.from(document.querySelectorAll('.top-nav-btn')).find(b => {
+          const onclickAttr = b.getAttribute('onclick') || '';
+          return onclickAttr.includes(`'${name}'`);
+        });
+        if (found) found.classList.add('active');
+      }
 
-      document.getElementById('dropdown-menu').classList.remove('open');
-
-      if (name === 'profiles') renderProfileManagerGrid();
+      if (name === 'profiles') {
+        renderProfileManagerGrid();
+        scanExternalInstances();
+      }
       if (name === 'vault') loadVault();
       if (name === 'manager') loadManager(activeMgrType);
       if (name === 'loaders') { fetchFabricLoaders(); fetchNeoForgeVersions(); }
@@ -1273,18 +1291,11 @@
       const activeProf = getActiveProfile();
       if (!activeProf) return;
 
-      document.getElementById('deck-prof-name').innerText = activeProf.name;
-      document.getElementById('deck-prof-meta').innerText = `${activeProf.version} • ${activeProf.loader.toUpperCase()}`;
+      document.getElementById('deck-prof-name').innerText = activeProf.name || 'Default Profile';
+      document.getElementById('deck-prof-meta').innerText = `${activeProf.version || '1.20.4'} • ${safeUpper(activeProf.loader)}`;
 
-      document.getElementById('hero-title').innerText = activeProf.name;
-      document.getElementById('hero-sub').innerText = `Target: Minecraft ${activeProf.version} (${activeProf.loader}) • Snapdragon ARM64`;
-      document.getElementById('dash-prof-title').innerText = activeProf.name;
-      document.getElementById('dash-loader-badge').innerText = activeProf.loader.toUpperCase();
-      document.getElementById('dash-mc-ver').innerText = activeProf.version;
-      document.getElementById('dash-ram').innerText = `${activeProf.maxRam || 4096} MB`;
-      document.getElementById('dash-java').innerText = (activeProf.javaRuntime && activeProf.javaRuntime !== 'auto')
-        ? `Java ${activeProf.javaRuntime}`
-        : 'Auto (ARM64)';
+      document.getElementById('hero-title').innerText = activeProf.name || 'Ready.';
+      document.getElementById('hero-sub').innerText = `Target: Minecraft ${activeProf.version || '1.20.4'} (${safeUpper(activeProf.loader)}) • Snapdragon ARM64`;
 
       const lbl = document.getElementById('mgr-active-prof-label');
       if (lbl) lbl.innerText = activeProf.name;
@@ -1326,9 +1337,12 @@
       if (prof) currentConfig.selectedVersion = prof.version;
       await ipcRenderer.invoke('save-config', currentConfig);
       refreshActiveProfileDeck();
-      document.getElementById('deck-profile-dropdown').classList.remove('open');
+      renderProfileManagerGrid();
+      renderInstancesGrid();
+      const drop = document.getElementById('deck-profile-dropdown');
+      if (drop) drop.classList.remove('open');
       setPlayButtonState('ready', 'PLAY');
-      toast(`Switched profile: ${prof.name}`);
+      toast(`Active Environment: ${prof ? prof.name : id}`);
     }
 
     function renderProfileManagerGrid() {
@@ -1349,11 +1363,11 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
               <strong style="font-size:0.95rem;">${escapeHtml(prof.name)}</strong>
               <span class="brand-badge" style="${isActive ? 'background:#fff; color:#09090b;' : ''}">
-                ${isActive ? 'ACTIVE' : prof.loader.toUpperCase()}
+                ${isActive ? 'ACTIVE' : safeUpper(prof.loader)}
               </span>
             </div>
             <span style="font-size:0.75rem; color:var(--text-muted); display:block;">
-              MC ${escapeHtml(prof.version)} • ${prof.maxRam}MB RAM • Java: ${prof.javaRuntime}
+              MC ${escapeHtml(prof.version)} • ${prof.maxRam}MB RAM • Java: ${prof.javaRuntime || 'auto'}
             </span>
           </div>
 
@@ -1363,10 +1377,80 @@
             </button>
             <button class="btn-secondary" style="padding:7px 10px; font-size:0.75rem;" onclick="openProfileSettingsModal('${prof.id}')">Configure</button>
             <button class="btn-secondary" style="padding:7px 10px; font-size:0.75rem;" onclick="duplicateProfile('${prof.id}')">Duplicate</button>
+            ${prof.id !== 'default' ? `<button class="btn-secondary" style="color:var(--danger); padding:7px 10px; font-size:0.75rem;" onclick="directDeleteProfile('${prof.id}')">Delete</button>` : ''}
           </div>
         `;
         grid.appendChild(card);
       });
+    }
+
+    function renderInstancesGrid() {
+      const grid = document.getElementById('instances-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      if (!cachedScannedInstances.length) {
+        grid.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted);">No external client instances detected.</p>';
+        return;
+      }
+
+      cachedScannedInstances.forEach((inst, idx) => {
+        const isSelected = (currentConfig.activeProfileId === inst.id);
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.display = 'flex';
+        card.style.flexDirection = 'column';
+        card.style.justifyContent = 'space-between';
+        card.style.gap = '14px';
+
+        card.innerHTML = `
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <strong style="font-size:0.95rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">${escapeHtml(inst.name)}</strong>
+              <span class="brand-badge" style="${isSelected ? 'background:#fff; color:#09090b;' : ''}">
+                ${isSelected ? 'ACTIVE' : safeUpper(inst.source)}
+              </span>
+            </div>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block;">
+              MC ${escapeHtml(inst.mcVersion)} • ${safeUpper(inst.loader)}
+            </span>
+          </div>
+
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn" style="flex:1; padding:7px 10px; font-size:0.75rem;" onclick="directTransformInstance(${idx})">
+              ${isSelected ? 'Selected' : 'Transform &amp; Run'}
+            </button>
+            <button class="btn-secondary" style="padding:7px 10px; font-size:0.75rem;" onclick="openEditTransformModal(${idx})">Edit</button>
+            <button class="btn-secondary" style="color:var(--danger); padding:7px 10px; font-size:0.75rem;" onclick="dismissInstance(${idx})">Dismiss</button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function scanExternalInstances() {
+      const grid = document.getElementById('instances-grid');
+      if (grid) grid.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted);">Inspecting system for Prism, Modrinth, and Lunar setups...</p>';
+
+      const found = await ipcRenderer.invoke('scan-external-clients');
+      cachedScannedInstances = [...found.prism, ...found.modrinth, ...found.lunar];
+      renderInstancesGrid();
+    }
+
+    function dismissInstance(idx) {
+      cachedScannedInstances.splice(idx, 1);
+      renderInstancesGrid();
+      toast('Instance dismissed from view.');
+    }
+
+    async function directDeleteProfile(id) {
+      if (confirm('Permanently delete this profile and all isolated files?')) {
+        await ipcRenderer.invoke('delete-profile', id);
+        currentConfig = await ipcRenderer.invoke('get-config');
+        refreshActiveProfileDeck();
+        renderProfileManagerGrid();
+        toast('Profile deleted.');
+      }
     }
 
     function openNewProfileModal() {
@@ -1461,70 +1545,8 @@
     async function deleteTargetProfile() {
       const id = document.getElementById('edit-prof-id').value;
       if (id === 'default') return;
-      if (confirm('Permanently delete this profile and all isolated files?')) {
-        await ipcRenderer.invoke('delete-profile', id);
-        currentConfig = await ipcRenderer.invoke('get-config');
-        refreshActiveProfileDeck();
-        renderProfileManagerGrid();
-        closeProfileSettingsModal();
-        toast('Profile deleted.');
-      }
-    }
-
-    // -------------------------------------------------------------
-    // PRISM / MODRINH / LUNAR SCANNER & INSTANCE TRANSFORMATION
-    // -------------------------------------------------------------
-    function openImportModal() {
-      document.getElementById('modal-import').style.display = 'flex';
-      scanExternalInstances();
-    }
-
-    function closeImportModal() {
-      document.getElementById('modal-import').style.display = 'none';
-    }
-
-    async function scanExternalInstances() {
-      const cont = document.getElementById('import-scanned-container');
-      cont.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted);">Inspecting system for Prism, Modrinth, and Lunar setups...</p>';
-
-      const found = await ipcRenderer.invoke('scan-external-clients');
-      cachedScannedInstances = [...found.prism, ...found.modrinth, ...found.lunar];
-
-      if (!cachedScannedInstances.length) {
-        cont.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No external client instances detected.</span>';
-        return;
-      }
-
-      cont.innerHTML = '';
-      cachedScannedInstances.forEach((inst, idx) => {
-        const row = document.createElement('div');
-        row.style.display = 'flex';
-        row.style.justifyContent = 'space-between';
-        row.style.alignItems = 'center';
-        row.style.padding = '10px 14px';
-        row.style.background = '#18181b';
-        row.style.borderRadius = '6px';
-        row.innerHTML = `
-          <div style="max-width: 320px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <strong style="font-size:0.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(inst.name)}</strong>
-              <span class="brand-badge" style="font-size:0.65rem;">${escapeHtml(inst.source)}</span>
-            </div>
-            <span style="font-size:0.74rem; color:var(--text-muted); display:block; margin-top:2px;">
-              MC ${escapeHtml(inst.mcVersion)} • ${escapeHtml(inst.loader)}
-            </span>
-          </div>
-          <div style="display: flex; gap: 6px;">
-            <button class="btn-secondary" style="padding:5px 10px; font-size:0.75rem;" onclick="openEditTransformModal(${idx})">
-              Edit &amp; Transform
-            </button>
-            <button class="btn" style="padding:5px 12px; font-size:0.75rem;" onclick="directTransformInstance(${idx})">
-              Transform
-            </button>
-          </div>
-        `;
-        cont.appendChild(row);
-      });
+      await directDeleteProfile(id);
+      closeProfileSettingsModal();
     }
 
     function openEditTransformModal(idx) {
@@ -1532,9 +1554,9 @@
       if (!inst) return;
 
       document.getElementById('trans-source-path').value = inst.path;
-      document.getElementById('trans-source-type').value = inst.source;
-      document.getElementById('trans-source-badge').innerText = inst.source.toUpperCase();
-      document.getElementById('trans-prof-name').value = inst.name;
+      document.getElementById('trans-source-type').value = inst.source || 'Prism';
+      document.getElementById('trans-source-badge').innerText = safeUpper(inst.source, 'PRISM');
+      document.getElementById('trans-prof-name').value = inst.name || 'Transformed Profile';
       document.getElementById('trans-prof-version').value = inst.mcVersion || '1.20.4';
 
       const normLoader = (inst.loader || 'vanilla').toLowerCase();
@@ -1579,8 +1601,8 @@
         currentConfig = await ipcRenderer.invoke('get-config');
         refreshActiveProfileDeck();
         renderProfileManagerGrid();
+        renderInstancesGrid();
         closeTransformModal();
-        closeImportModal();
         toast(`Successfully transformed into profile: ${prof.name}`);
       } catch (err) {
         alert('Transformation error: ' + err.message);
@@ -1594,23 +1616,23 @@
       try {
         const prof = await ipcRenderer.invoke('import-external-profile', {
           sourcePath: inst.path,
-          clientType: inst.source,
+          clientType: inst.source || 'Prism',
           targetName: inst.name,
-          mcVersion: inst.mcVersion,
-          loader: inst.loader
+          mcVersion: inst.mcVersion || '1.20.4',
+          loader: inst.loader || 'vanilla'
         });
         currentConfig = await ipcRenderer.invoke('get-config');
         refreshActiveProfileDeck();
         renderProfileManagerGrid();
-        closeImportModal();
-        toast(`Transformed into profile: ${prof.name}`);
+        renderInstancesGrid();
+        toast(`Activated profile: ${prof.name}`);
       } catch (err) {
         alert('Direct transformation error: ' + err.message);
       }
     }
 
     // -------------------------------------------------------------
-    // GAME LAUNCH ORCHESTRATION & STATE RESETS
+    // GAME LAUNCH ORCHESTRATION
     // -------------------------------------------------------------
     function playGame() {
       setPlayButtonState('busy', 'LAUNCHING');
@@ -1641,7 +1663,7 @@
       document.getElementById('crash-rec').innerText = diag.recommendation;
       box.style.display = 'block';
 
-      switchTab('console', 'Live Console');
+      switchTab('console');
     });
 
     ipcRenderer.on('launch-status', (event, res) => {
@@ -1686,13 +1708,8 @@
       toast('Console output copied.');
     }
 
-    function escapeHtml(s) {
-      if (!s) return '';
-      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    }
-
     // -------------------------------------------------------------
-    // MANAGED RUNTIMES & CONTENT MANAGEMENT
+    // RUNTIMES & CONTENT MANAGEMENT
     // -------------------------------------------------------------
     async function checkJdkStatus() {
       const diag = document.getElementById('diag-java');
@@ -1816,7 +1833,7 @@
       const ver = document.getElementById('neoforge-select').value;
       if (!ver) return alert('Select a NeoForge build.');
       toast('Starting NeoForge installer...');
-      switchTab('console', 'Live Console');
+      switchTab('console');
 
       try {
         await ipcRenderer.invoke('install-neoforge-profile', { neoforgeVersion: ver });
@@ -2021,7 +2038,6 @@
       document.querySelectorAll('#panel-mods .chip-btn').forEach(b => {
         if (b.id.startsWith('chip-')) b.classList.toggle('active', b.id === `chip-${type}`);
       });
-      // Show/hide loader dropdown based on whether searching for mods
       const lContainer = document.getElementById('hub-loader-container');
       if (lContainer) lContainer.style.display = (type === 'mod') ? 'block' : 'none';
       executeHubSearch();
