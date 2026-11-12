@@ -115,9 +115,7 @@
     .win-btn:hover { background: #1c1c20; color: var(--text); }
     .win-btn.close:hover { background: var(--danger); color: #fff; }
 
-    /* -------------------------------------------------------------
-       SPLIT WORKSPACE LAYOUT: LEFT SIDE CONTENT, UNOBSTRUCTED DECK
-       ------------------------------------------------------------- */
+    /* SPLIT WORKSPACE: LEFT CONTENT ONLY, ZERO DECK OVERLAP */
     .viewport {
       flex: 1;
       padding: 20px 24px;
@@ -241,12 +239,8 @@
     .log-stderr { color: #f87171; }
     .log-stdout { color: #e4e4e7; }
 
-    /* -------------------------------------------------------------
-       HOMESCREEN DASHBOARD (IN THE LEFT WORKSPACE)
-       ------------------------------------------------------------- */
-    .overview-hero {
-      margin-bottom: 20px;
-    }
+    /* DASHBOARD */
+    .overview-hero { margin-bottom: 20px; }
     .overview-hero h1 {
       font-size: 2.2rem;
       font-weight: 800;
@@ -261,35 +255,16 @@
       line-height: 1.4;
     }
 
-    .quick-chips-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 14px;
-    }
+    .quick-chips-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
     .quick-chip {
-      background: #18181b;
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 0.74rem;
-      font-weight: 600;
-      padding: 6px 12px;
-      border-radius: 9999px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      background: #18181b; border: 1px solid var(--border); color: var(--text);
+      font-size: 0.74rem; font-weight: 600; padding: 6px 12px; border-radius: 9999px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
       transition: all 0.2s var(--ease);
     }
-    .quick-chip:hover {
-      border-color: var(--border-focus);
-      background: #222227;
-      transform: translateY(-1px);
-    }
+    .quick-chip:hover { border-color: var(--border-focus); background: #222227; transform: translateY(-1px); }
 
-    /* -------------------------------------------------------------
-       COHESIVE BUBBLE PILL ACTION DECK (BOTTOM RIGHT)
-       ------------------------------------------------------------- */
+    /* FLOATING COHESIVE BUBBLE PILL ACTION DECK (BOTTOM RIGHT) */
     .action-deck {
       position: fixed;
       bottom: 24px;
@@ -300,9 +275,7 @@
       z-index: 1000;
     }
 
-    .deck-profile-wrapper {
-      position: relative;
-    }
+    .deck-profile-wrapper { position: relative; }
 
     .deck-profile-btn {
       display: flex;
@@ -333,141 +306,56 @@
       justify-content: space-between;
       padding: 2px 0;
     }
-    .bullet-row {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .bullet-dot {
-      width: 3px;
-      height: 3px;
-      border-radius: 50%;
-      background: var(--text-muted);
-    }
-    .bullet-line {
-      height: 2px;
-      flex: 1;
-      background: var(--border-hover);
-      border-radius: 1px;
-    }
+    .bullet-row { display: flex; align-items: center; gap: 4px; }
+    .bullet-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text-muted); }
+    .bullet-line { height: 2px; flex: 1; background: var(--border-hover); border-radius: 1px; }
 
-    .deck-profile-info {
-      display: flex;
-      flex-direction: column;
-      text-align: left;
-    }
+    .deck-profile-info { display: flex; flex-direction: column; text-align: left; }
     .deck-profile-name {
-      font-size: 0.82rem;
-      font-weight: 700;
-      color: var(--text);
-      max-width: 130px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-size: 0.82rem; font-weight: 700; color: var(--text);
+      max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .deck-profile-meta {
-      font-size: 0.67rem;
-      color: var(--text-dim);
-    }
+    .deck-profile-meta { font-size: 0.67rem; color: var(--text-dim); }
 
     .deck-profile-menu {
-      position: absolute;
-      bottom: calc(100% + 12px);
-      right: 0;
-      width: 260px;
-      background: rgba(18, 18, 21, 0.98);
-      backdrop-filter: blur(24px);
-      border: 1px solid var(--border-hover);
-      border-radius: 12px;
-      padding: 6px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
-      opacity: 0;
-      transform: translateY(8px) scale(0.97);
-      pointer-events: none;
-      transition: all 0.22s var(--ease);
-      max-height: 340px;
-      overflow-y: auto;
-      z-index: 2000;
+      position: absolute; bottom: calc(100% + 12px); right: 0; width: 260px;
+      background: rgba(18, 18, 21, 0.98); backdrop-filter: blur(24px);
+      border: 1px solid var(--border-hover); border-radius: 12px; padding: 6px;
+      display: flex; flex-direction: column; gap: 4px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
+      opacity: 0; transform: translateY(8px) scale(0.97); pointer-events: none;
+      transition: all 0.22s var(--ease); max-height: 340px; overflow-y: auto; z-index: 2000;
     }
-    .deck-profile-menu.open {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-      pointer-events: auto;
-    }
+    .deck-profile-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
     .profile-item-btn {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      text-align: left;
-      padding: 8px 10px;
-      font-size: 0.78rem;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.15s ease;
+      display: flex; align-items: center; justify-content: space-between; background: transparent;
+      border: none; color: var(--text-muted); text-align: left; padding: 8px 10px;
+      font-size: 0.78rem; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;
     }
     .profile-item-btn:hover { background: #202025; color: var(--text); }
     .profile-item-btn.active { background: var(--accent-bg); color: #fff; font-weight: 600; }
 
-    /* PLAY BUTTON MATCHING BUBBLE PILL BORDER */
     .play-btn {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 26px;
-      border-radius: var(--bubble-radius);
-      font-size: 0.88rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      cursor: pointer;
-      height: 48px;
+      display: flex; align-items: center; gap: 10px; padding: 0 26px;
+      border-radius: var(--bubble-radius); font-size: 0.88rem; font-weight: 700;
+      letter-spacing: 0.05em; cursor: pointer; height: 48px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
       transition: all 0.22s var(--ease);
     }
     .play-btn:hover { transform: translateY(-2px); filter: brightness(1.12); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7); }
     .play-btn:active { transform: translateY(0) scale(0.98); }
 
-    .play-btn.state-ready {
-      background: #10b981;
-      color: #042f2e;
-      border: 1px solid #34d399;
-    }
+    .play-btn.state-ready { background: #10b981; color: #042f2e; border: 1px solid #34d399; }
     .play-btn.state-ready .status-indicator { background: #042f2e; }
 
-    .play-btn.state-busy {
-      background: #f59e0b;
-      color: #451a03;
-      border: 1px solid #fbbf24;
-      cursor: wait;
-    }
+    .play-btn.state-busy { background: #f59e0b; color: #451a03; border: 1px solid #fbbf24; cursor: wait; }
     .play-btn.state-busy .status-indicator { background: #451a03; }
 
-    .play-btn.state-error {
-      background: #ef4444;
-      color: #450a0a;
-      border: 1px solid #f87171;
-    }
+    .play-btn.state-error { background: #ef4444; color: #450a0a; border: 1px solid #f87171; }
     .play-btn.state-error .status-indicator { background: #450a0a; }
 
-    .status-indicator {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .home-status-toast {
-      font-size: 0.74rem;
-      color: var(--text-dim);
-      font-family: ui-monospace, monospace;
-      margin-top: 10px;
-    }
+    .status-indicator { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .home-status-toast { font-size: 0.74rem; color: var(--text-dim); font-family: ui-monospace, monospace; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -510,7 +398,7 @@
 
   <main class="viewport">
 
-    <!-- DEDICATED LEFT WORKSPACE STAGE (NEVER OVERLAPS THE ACTION DECK) -->
+    <!-- DEDICATED LEFT WORKSPACE STAGE -->
     <div class="workspace-stage">
 
       <!-- 1. OVERVIEW DASHBOARD -->
@@ -520,7 +408,6 @@
           <p id="hero-sub">Snapdragon X Oryon 64-bit native pipeline. Zero emulation overhead.</p>
         </div>
 
-        <!-- Active Profile Quick Dashboard Card -->
         <div class="card" style="border-color: var(--border-hover);">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
             <div>
@@ -559,7 +446,7 @@
         <div class="home-status-toast" id="home-status-line">Pipeline standing by</div>
       </section>
 
-      <!-- 2. PROFILES MANAGER PAGE -->
+      <!-- 2. PROFILES MANAGER -->
       <section id="panel-profiles" class="panel">
         <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
@@ -575,7 +462,7 @@
         <div id="profiles-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px;"></div>
       </section>
 
-      <!-- 3. LIVE CONSOLE & CRASH ANALYZER -->
+      <!-- 3. LIVE CONSOLE -->
       <section id="panel-console" class="panel">
         <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
@@ -596,7 +483,7 @@
         <div class="console-box" id="console-stream"></div>
       </section>
 
-      <!-- 4. CONTENT MANAGER (ISOLATED MODS/SHADERS/RESOURCEPACKS) -->
+      <!-- 4. CONTENT MANAGER -->
       <section id="panel-manager" class="panel">
         <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
@@ -687,7 +574,7 @@
         </div>
       </section>
 
-      <!-- 6. MOD HUB -->
+      <!-- 6. MOD HUB (WITH LOADER SELECTOR) -->
       <section id="panel-mods" class="panel">
         <div class="panel-header" style="display:flex; justify-content: space-between; align-items: center;">
           <div>
@@ -707,8 +594,19 @@
         </div>
 
         <div style="display: flex; gap: 10px; margin-bottom: 18px;">
-          <div style="min-width: 150px;">
+          <!-- Version Filter -->
+          <div style="min-width: 140px;">
             <select id="hub-version-filter" class="select-field" onchange="executeHubSearch()"></select>
+          </div>
+          <!-- Loader Selector Filter -->
+          <div style="min-width: 135px;" id="hub-loader-container">
+            <select id="hub-loader-filter" class="select-field" onchange="executeHubSearch()">
+              <option value="all">All Loaders</option>
+              <option value="fabric">Fabric</option>
+              <option value="neoforge">NeoForge</option>
+              <option value="forge">Forge</option>
+              <option value="quilt">Quilt</option>
+            </select>
           </div>
           <input type="text" id="mod-query" class="input-field" placeholder="Search mods, resource packs, shaders..." onkeydown="if(event.key==='Enter') executeHubSearch()" />
           <button class="btn-secondary" onclick="executeHubSearch()">Search</button>
@@ -858,9 +756,8 @@
 
     </div>
 
-    <!-- FLOATING COHESIVE BUBBLE PILL ACTION DECK (BOTTOM RIGHT) -->
+    <!-- FLOATING COHESIVE BUBBLE PILL ACTION DECK -->
     <div class="action-deck">
-      <!-- BUBBLE PROFILE PICKER -->
       <div class="deck-profile-wrapper">
         <button class="deck-profile-btn" onclick="toggleProfileMenu()">
           <div class="bullet-menu-icon">
@@ -883,7 +780,6 @@
         </div>
       </div>
 
-      <!-- MATCHING BUBBLE PLAY BUTTON (GREEN/YELLOW/RED) -->
       <button class="play-btn state-ready" id="main-play-btn" onclick="playGame()">
         <span class="status-indicator" id="play-status-dot"></span>
         <span id="play-btn-text">PLAY</span>
@@ -913,6 +809,7 @@
             <option value="vanilla">Vanilla</option>
             <option value="fabric">Fabric</option>
             <option value="neoforge">NeoForge</option>
+            <option value="forge">Forge</option>
           </select>
         </div>
       </div>
@@ -980,6 +877,7 @@
             <option value="vanilla">Vanilla</option>
             <option value="fabric">Fabric</option>
             <option value="neoforge">NeoForge</option>
+            <option value="forge">Forge</option>
           </select>
         </div>
       </div>
@@ -1000,7 +898,7 @@
     </div>
   </div>
 
-  <!-- EXTERNAL CLIENT IMPORTER MODAL (PRISM, MODRINH, LUNAR) -->
+  <!-- EXTERNAL CLIENT IMPORTER MODAL -->
   <div class="modal-overlay" id="modal-import">
     <div class="modal-box" style="width: 640px;">
       <h3 style="font-size: 1.05rem; margin-bottom: 12px;">Import External Client Instances</h3>
@@ -1047,6 +945,7 @@
             <option value="vanilla">Vanilla</option>
             <option value="fabric">Fabric</option>
             <option value="neoforge">NeoForge</option>
+            <option value="forge">Forge</option>
           </select>
         </div>
       </div>
@@ -1326,6 +1225,7 @@
       if (name === 'manager') loadManager(activeMgrType);
       if (name === 'loaders') { fetchFabricLoaders(); fetchNeoForgeVersions(); }
       if (name === 'console') scrollToConsoleBottom();
+      if (name === 'mods') syncModHubFilters();
     }
 
     function minWin() { ipcRenderer.send('window-min'); }
@@ -1364,9 +1264,6 @@
       }
     });
 
-    // -------------------------------------------------------------
-    // UNIFIED PROFILE MANAGEMENT & DASHBOARD REFRESH
-    // -------------------------------------------------------------
     function getActiveProfile() {
       const id = currentConfig.activeProfileId || 'default';
       return (currentConfig.profiles || []).find(p => p.id === id) || currentConfig.profiles[0];
@@ -1376,11 +1273,9 @@
       const activeProf = getActiveProfile();
       if (!activeProf) return;
 
-      // Deck labels
       document.getElementById('deck-prof-name').innerText = activeProf.name;
       document.getElementById('deck-prof-meta').innerText = `${activeProf.version} • ${activeProf.loader.toUpperCase()}`;
 
-      // Left Overview Dashboard widgets
       document.getElementById('hero-title').innerText = activeProf.name;
       document.getElementById('hero-sub').innerText = `Target: Minecraft ${activeProf.version} (${activeProf.loader}) • Snapdragon ARM64`;
       document.getElementById('dash-prof-title').innerText = activeProf.name;
@@ -1393,6 +1288,8 @@
 
       const lbl = document.getElementById('mgr-active-prof-label');
       if (lbl) lbl.innerText = activeProf.name;
+
+      syncModHubFilters();
 
       const itemsBox = document.getElementById('deck-profile-items');
       itemsBox.innerHTML = '';
@@ -1407,6 +1304,20 @@
         btn.onclick = () => selectProfile(prof.id);
         itemsBox.appendChild(btn);
       });
+    }
+
+    function syncModHubFilters() {
+      const prof = getActiveProfile();
+      const lFilter = document.getElementById('hub-loader-filter');
+      const vFilter = document.getElementById('hub-version-filter');
+
+      if (vFilter && prof) vFilter.value = prof.version;
+      if (lFilter && prof) {
+        const norm = (prof.loader || '').toLowerCase();
+        if (['fabric', 'neoforge', 'forge', 'quilt'].includes(norm)) {
+          lFilter.value = norm;
+        }
+      }
     }
 
     async function selectProfile(id) {
@@ -2110,6 +2021,9 @@
       document.querySelectorAll('#panel-mods .chip-btn').forEach(b => {
         if (b.id.startsWith('chip-')) b.classList.toggle('active', b.id === `chip-${type}`);
       });
+      // Show/hide loader dropdown based on whether searching for mods
+      const lContainer = document.getElementById('hub-loader-container');
+      if (lContainer) lContainer.style.display = (type === 'mod') ? 'block' : 'none';
       executeHubSearch();
     }
 
@@ -2117,20 +2031,23 @@
       const q = document.getElementById('mod-query').value.trim();
       const list = document.getElementById('mod-list');
       const verFilter = document.getElementById('hub-version-filter');
-      const ver = (verFilter && verFilter.value) ? verFilter.value : (currentConfig.selectedVersion || '1.20.4');
+      const loaderFilter = document.getElementById('hub-loader-filter');
 
-      list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">Querying ${activeProvider} for MC ${ver}...</span>`;
+      const ver = (verFilter && verFilter.value) ? verFilter.value : (currentConfig.selectedVersion || '1.20.4');
+      const loader = (loaderFilter && loaderFilter.value) ? loaderFilter.value : 'all';
+
+      list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">Querying ${activeProvider} for MC ${ver} (${loader.toUpperCase()})...</span>`;
 
       let hits = [];
       if (activeProvider === 'curseforge') {
-        hits = await ipcRenderer.invoke('search-curseforge', { query: q, type: activeModType, version: ver });
+        hits = await ipcRenderer.invoke('search-curseforge', { query: q, type: activeModType, version: ver, loader });
       } else {
-        hits = await ipcRenderer.invoke('search-modrinth', { query: q, type: activeModType, version: ver });
+        hits = await ipcRenderer.invoke('search-modrinth', { query: q, type: activeModType, version: ver, loader });
       }
 
       list.innerHTML = '';
       if (!hits.length) {
-        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No releases found on ${activeProvider} for MC ${ver}.</span>`;
+        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No releases found on ${activeProvider} for MC ${ver} (${loader.toUpperCase()}).</span>`;
         return;
       }
 
@@ -2159,13 +2076,15 @@
       toast(`Downloading ${name}...`);
       try {
         const verFilter = document.getElementById('hub-version-filter');
+        const loaderFilter = document.getElementById('hub-loader-filter');
         const ver = (verFilter && verFilter.value) ? verFilter.value : (currentConfig.selectedVersion || '1.20.4');
+        const loader = (loaderFilter && loaderFilter.value) ? loaderFilter.value : 'all';
 
         let file;
         if (activeProvider === 'curseforge') {
-          file = await ipcRenderer.invoke('install-curseforge-item', { modId: id, type: activeModType, version: ver });
+          file = await ipcRenderer.invoke('install-curseforge-item', { modId: id, type: activeModType, version: ver, loader });
         } else {
-          file = await ipcRenderer.invoke('install-modrinth-item', { projectId: id, type: activeModType, version: ver });
+          file = await ipcRenderer.invoke('install-modrinth-item', { projectId: id, type: activeModType, version: ver, loader });
         }
         toast(`Installed: ${file}`);
       } catch (e) {
