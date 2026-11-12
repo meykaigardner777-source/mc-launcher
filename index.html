@@ -309,10 +309,32 @@
       border-color: var(--border-focus);
       background: var(--card-hover);
     }
-    .mod-icon {
-      width: 48px; height: 48px; border-radius: 8px;
-      background: #000; border: 1px solid var(--border);
-      object-fit: cover; flex-shrink: 0;
+
+    .banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 18px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(24, 24, 27, 0.7);
+      margin-bottom: 18px;
+    }
+
+    .drop-zone {
+      border: 1px dashed var(--border-hover);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      transition: all 0.2s ease;
+    }
+    .drop-zone.drag-active {
+      border-color: #ffffff;
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffffff;
     }
 
     .acc-card {
@@ -326,7 +348,6 @@
       margin-bottom: 10px;
       transition: all 0.2s var(--ease);
     }
-    .acc-card:hover { border-color: var(--border-hover); }
     .acc-avatar {
       width: 44px; height: 44px; border-radius: 6px;
       background: #000; border: 1px solid var(--border);
@@ -385,7 +406,8 @@
         <div class="nav-dropdown" id="dropdown-menu">
           <button class="nav-option active" onclick="switchTab('home', 'Overview')">Overview</button>
           <button class="nav-option" onclick="switchTab('mods', 'Mod Hub')">Mod Hub</button>
-          <button class="nav-option" onclick="switchTab('manager', 'Installed')">Mod Manager</button>
+          <button class="nav-option" onclick="switchTab('manager', 'Content Manager')">Content Manager</button>
+          <button class="nav-option" onclick="switchTab('fabric', 'Fabric Loader')">Fabric Setup</button>
           <button class="nav-option" onclick="switchTab('skins', 'Skin Studio')">Skin Studio</button>
           <button class="nav-option" onclick="switchTab('vault', 'Vault')">Vault</button>
           <button class="nav-option" onclick="switchTab('accounts', 'Accounts')">Accounts</button>
@@ -419,9 +441,9 @@
 
         <div style="display: flex; align-items: center; gap: 16px;">
           <div style="text-align: right;">
-            <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">VERSION SELECTOR</label>
-            <select id="version-selector" class="select-field" style="width: 140px; padding: 8px 12px; cursor: pointer;" onchange="changeVersion(this.value)">
-              <option value="1.20.4">1.20.4</option>
+            <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">ACTIVE PROFILE</label>
+            <select id="version-selector" class="select-field" style="width: 220px; padding: 8px 12px; cursor: pointer;" onchange="changeVersion(this.value)">
+              <option value="1.20.4">1.20.4 (Release)</option>
             </select>
           </div>
 
@@ -450,11 +472,91 @@
       </div>
     </section>
 
+    <!-- FABRIC LOADER INSTALLER -->
+    <section id="panel-fabric" class="panel">
+      <div class="panel-header">
+        <h2>Fabric Loader Setup</h2>
+        <p>Install lightweight, modular Fabric profiles directly to your client</p>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 14px;">Configure Profile Installation</h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;">
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">TARGET MINECRAFT VERSION</label>
+            <input type="text" id="fabric-target-mc" class="input-field" value="1.20.4" onchange="fetchFabricLoaders()" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">LOADER BUILD</label>
+            <select id="fabric-loader-select" class="select-field">
+              <option value="">Querying Fabric Meta API...</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <button class="btn" id="btn-install-fabric" onclick="installFabric()">Install Fabric Profile</button>
+          <button class="btn-secondary" onclick="installFabricApi()">1-Click Fabric API Download</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px;">Native ARM64 Optimization Note</h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+          Aetheria combines the Knot client loader with pre-resolved Windows ARM64 LWJGL natives. You do not need to install x86 emulation layers or third-party wrappers—Fabric mods run native on Qualcomm Snapdragon X.
+        </p>
+      </div>
+    </section>
+
+    <!-- CONTENT MANAGER (MODS / RESOURCE PACKS / SHADERS) -->
+    <section id="panel-manager" class="panel">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Content Manager</h2>
+          <p>Local extensions, packs, and graphical enhancements</p>
+        </div>
+        <div class="chip-group" style="margin-bottom: 0;">
+          <button class="chip-btn active" id="mgr-chip-mods" onclick="loadManager('mods')">Mods</button>
+          <button class="chip-btn" id="mgr-chip-resourcepacks" onclick="loadManager('resourcepacks')">Resource Packs</button>
+          <button class="chip-btn" id="mgr-chip-shaderpacks" onclick="loadManager('shaderpacks')">Shader Packs</button>
+        </div>
+      </div>
+
+      <!-- Advisor Banner -->
+      <div class="banner" id="mgr-fabric-banner" style="display:none;">
+        <span style="font-size: 0.8rem; color: var(--text);">
+          Current target profile is <strong>Vanilla</strong>. Fabric mods will only run when a Fabric profile is selected.
+        </span>
+        <button class="btn-secondary" style="font-size:0.75rem; padding: 4px 10px;" onclick="switchTab('fabric', 'Fabric Loader')">Install / Select Fabric</button>
+      </div>
+
+      <!-- Action Bar -->
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
+        <input type="text" id="mgr-search-input" class="input-field" style="max-width: 320px;" placeholder="Filter local items..." oninput="filterInstalledItems()" />
+        <div style="display:flex; gap: 8px;">
+          <button class="btn-secondary" onclick="importContentDialog()">+ Add Files</button>
+          <button class="btn-secondary" onclick="toggleAllItems(true)">Enable All</button>
+          <button class="btn-secondary" onclick="toggleAllItems(false)">Disable All</button>
+          <button class="btn-secondary" onclick="openCurrentDir()">Open Folder</button>
+        </div>
+      </div>
+
+      <!-- Drag & Drop Receptor -->
+      <div class="drop-zone" id="drop-target">
+        Drag and drop .jar or .zip packages directly here to import
+      </div>
+
+      <div id="manager-list">
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Scanning installed items...</p>
+      </div>
+    </section>
+
     <!-- MOD HUB -->
     <section id="panel-mods" class="panel">
       <div class="panel-header">
         <h2>Mod Hub</h2>
-        <p>Explore mods, shaders, and resource packs for your selected version</p>
+        <p>Explore mods, shaders, and resource packs directly via Modrinth</p>
       </div>
 
       <div class="chip-group">
@@ -473,36 +575,17 @@
       </div>
     </section>
 
-    <!-- MOD MANAGER -->
-    <section id="panel-manager" class="panel">
-      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <h2>Mod Manager</h2>
-          <p>Toggle, enable, and delete local extensions</p>
-        </div>
-        <div class="chip-group" style="margin-bottom: 0;">
-          <button class="chip-btn active" id="mgr-chip-mods" onclick="loadManager('mods')">Mods</button>
-          <button class="chip-btn" id="mgr-chip-resourcepacks" onclick="loadManager('resourcepacks')">Packs</button>
-          <button class="chip-btn" id="mgr-chip-shaderpacks" onclick="loadManager('shaderpacks')">Shaders</button>
-        </div>
-      </div>
-
-      <div id="manager-list">
-        <p style="font-size: 0.8rem; color: var(--text-muted);">Scanning installed items...</p>
-      </div>
-    </section>
-
     <!-- SKIN STUDIO -->
     <section id="panel-skins" class="panel">
       <div class="panel-header">
         <h2>Skin Studio</h2>
-        <p>Search skins, render 3D/2D layouts, and sync with your Mojang account</p>
+        <p>Search skins, render 2D layouts, and sync with your Mojang account</p>
       </div>
 
       <div class="card" style="margin-bottom: 20px;">
         <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Inspect Player Skin by Username</h3>
         <div style="display: flex; gap: 10px;">
-          <input type="text" id="skin-search-user" class="input-field" placeholder="Enter username (e.g. Notch, Technoblade)..." onkeydown="if(event.key==='Enter') searchPlayerSkin()" />
+          <input type="text" id="skin-search-user" class="input-field" placeholder="Enter username..." onkeydown="if(event.key==='Enter') searchPlayerSkin()" />
           <button class="btn-secondary" onclick="searchPlayerSkin()">Fetch Skin</button>
         </div>
       </div>
@@ -533,7 +616,7 @@
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
           <h2>Vault</h2>
-          <p>Local instances, worlds, and captures</p>
+          <p>Local saves, worlds, and captures</p>
         </div>
         <div style="display: flex; gap: 8px;">
           <button class="btn-secondary" onclick="openDir('saves')">Saves Folder</button>
@@ -810,6 +893,7 @@
     let selectedSkinData = null;
     let activeModType = 'mod';
     let activeMgrType = 'mods';
+    let localInstalledItems = [];
 
     function toast(text) {
       const el = document.getElementById('toast');
@@ -850,6 +934,7 @@
 
       if (name === 'vault') loadVault();
       if (name === 'manager') loadManager(activeMgrType);
+      if (name === 'fabric') fetchFabricLoaders();
     }
 
     function minWin() { ipcRenderer.send('window-min'); }
@@ -871,6 +956,7 @@
       renderAccounts();
       checkJdkStatus();
       syncVersions();
+      setupDragAndDrop();
 
       if (currentConfig.activeAccount) {
         loadAccountSkinAuto(currentConfig.activeAccount.name);
@@ -882,25 +968,233 @@
       const selector = document.getElementById('version-selector');
       selector.innerHTML = '';
 
+      // 1. Installed Fabric Profiles
+      if (manifest.installed && manifest.installed.length) {
+        const fabGroup = document.createElement('optgroup');
+        fabGroup.label = 'Installed Fabric Profiles';
+        manifest.installed.filter(v => v.isFabric).forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.innerText = `Fabric ${v.inheritsFrom || ''} (${v.id.replace('fabric-loader-', '')})`;
+          fabGroup.appendChild(opt);
+        });
+        if (fabGroup.children.length) selector.appendChild(fabGroup);
+      }
+
+      // 2. Official Vanilla Releases
+      const vanGroup = document.createElement('optgroup');
+      vanGroup.label = 'Official Releases';
       manifest.versions.forEach(v => {
         const opt = document.createElement('option');
         opt.value = v.id;
-        opt.innerText = v.id === manifest.latest ? `${v.id} (Latest)` : v.id;
-        selector.appendChild(opt);
+        opt.innerText = v.id === manifest.latest ? `${v.id} (Latest Release)` : v.id;
+        vanGroup.appendChild(opt);
       });
+      selector.appendChild(vanGroup);
 
-      const selected = currentConfig.selectedVersion || manifest.latest;
-      selector.value = selected;
-      document.getElementById('version-badge').innerText = selected;
+      const targetVersion = currentConfig.selectedVersion || manifest.latest;
+      selector.value = targetVersion;
+      document.getElementById('version-badge').innerText = targetVersion.startsWith('fabric') ? 'FABRIC' : targetVersion;
     }
 
     async function changeVersion(ver) {
       currentConfig.selectedVersion = ver;
-      document.getElementById('version-badge').innerText = ver;
+      document.getElementById('version-badge').innerText = ver.startsWith('fabric') ? 'FABRIC' : ver;
       await ipcRenderer.invoke('save-config', currentConfig);
-      toast(`Version targeted: ${ver}`);
+      toast(`Profile targeted: ${ver}`);
     }
 
+    // -------------------------------------------------------------
+    // FABRIC LOADER CLIENT LOGIC
+    // -------------------------------------------------------------
+    async function fetchFabricLoaders() {
+      const mcVer = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
+      const select = document.getElementById('fabric-loader-select');
+      select.innerHTML = '<option value="">Fetching loaders from Fabric Meta...</option>';
+
+      try {
+        const loaders = await ipcRenderer.invoke('get-fabric-loaders', mcVer);
+        select.innerHTML = '';
+        if (!loaders.length) {
+          select.innerHTML = `<option value="">No loaders found for ${mcVer}</option>`;
+          return;
+        }
+
+        loaders.forEach((l, index) => {
+          const opt = document.createElement('option');
+          opt.value = l.version;
+          opt.innerText = `${l.version} ${l.stable ? '(Stable)' : '(Beta)'}${index === 0 ? ' — Latest' : ''}`;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        select.innerHTML = '<option value="">Failed to fetch Fabric versions</option>';
+      }
+    }
+
+    async function installFabric() {
+      const gameVersion = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
+      const loaderVersion = document.getElementById('fabric-loader-select').value;
+      if (!loaderVersion) return alert('Select a Fabric loader version first.');
+
+      const btn = document.getElementById('btn-install-fabric');
+      btn.disabled = true;
+      toast('Writing Fabric profile descriptor...');
+
+      try {
+        const res = await ipcRenderer.invoke('install-fabric-profile', { gameVersion, loaderVersion });
+        await syncVersions();
+        await changeVersion(res.profileId);
+        document.getElementById('version-selector').value = res.profileId;
+        toast(`Fabric profile ${res.profileId} installed and activated!`);
+      } catch (e) {
+        alert('Fabric installation failed: ' + e.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function installFabricApi() {
+      const gameVer = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
+      toast(`Fetching Fabric API for ${gameVer}...`);
+      try {
+        const filename = await ipcRenderer.invoke('install-fabric-api', gameVer);
+        toast(`Fabric API downloaded: ${filename}`);
+      } catch (e) {
+        alert('Fabric API download failed: ' + e.message);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // CONTENT MANAGER LOGIC
+    // -------------------------------------------------------------
+    async function loadManager(type = 'mods') {
+      activeMgrType = type;
+      ['mods', 'resourcepacks', 'shaderpacks'].forEach(t => {
+        const el = document.getElementById(`mgr-chip-${t}`);
+        if (el) el.classList.toggle('active', t === type);
+      });
+
+      // Check if vanilla is active when managing mods
+      const banner = document.getElementById('mgr-fabric-banner');
+      const isVanilla = !(currentConfig.selectedVersion || '').startsWith('fabric-loader');
+      banner.style.display = (type === 'mods' && isVanilla) ? 'flex' : 'none';
+
+      const list = document.getElementById('manager-list');
+      list.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">Reading directory contents...</span>';
+
+      localInstalledItems = await ipcRenderer.invoke('get-installed-content', type);
+      renderManagerList(localInstalledItems);
+    }
+
+    function renderManagerList(items) {
+      const list = document.getElementById('manager-list');
+      list.innerHTML = '';
+
+      if (!items.length) {
+        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No local ${activeMgrType} found. Drag and drop files above to import.</span>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'mod-item';
+        row.innerHTML = `
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <strong style="font-size:0.9rem;">${item.name}</strong>
+              <span class="brand-badge" style="font-size:0.65rem; ${item.isEnabled ? 'background:#ffffff; color:#09090b;' : ''}">
+                ${item.isEnabled ? 'ACTIVE' : 'DISABLED'}
+              </span>
+            </div>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:4px;">
+              ${item.sizeMb} MB &bull; Modified ${item.modified}
+            </span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-secondary" onclick="toggleItem('${item.folder}', '${item.fileName}')">
+              ${item.isEnabled ? 'Disable' : 'Enable'}
+            </button>
+            <button class="btn-secondary" style="color:var(--danger);" onclick="deleteItem('${item.folder}', '${item.fileName}')">
+              Delete
+            </button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    function filterInstalledItems() {
+      const q = document.getElementById('mgr-search-input').value.toLowerCase().trim();
+      const filtered = localInstalledItems.filter(i => i.name.toLowerCase().includes(q));
+      renderManagerList(filtered);
+    }
+
+    async function toggleItem(folder, fileName) {
+      await ipcRenderer.invoke('toggle-content-item', { folder, fileName });
+      loadManager(activeMgrType);
+    }
+
+    async function toggleAllItems(enable) {
+      await ipcRenderer.invoke('toggle-all-content', { folder: activeMgrType, enable });
+      loadManager(activeMgrType);
+      toast(enable ? 'All items enabled.' : 'All items disabled.');
+    }
+
+    async function deleteItem(folder, fileName) {
+      if (confirm(`Permanently remove ${fileName}?`)) {
+        await ipcRenderer.invoke('delete-content-item', { folder, fileName });
+        loadManager(activeMgrType);
+        toast(`Removed ${fileName}`);
+      }
+    }
+
+    async function importContentDialog() {
+      const imported = await ipcRenderer.invoke('import-content-dialog', activeMgrType);
+      if (imported) {
+        toast(`Files imported to ${activeMgrType}.`);
+        loadManager(activeMgrType);
+      }
+    }
+
+    function openCurrentDir() {
+      openDir(activeMgrType);
+    }
+
+    function setupDragAndDrop() {
+      const dropZone = document.getElementById('drop-target');
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add('drag-active');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove('drag-active');
+        }, false);
+      });
+
+      dropZone.addEventListener('drop', async (e) => {
+        const files = Array.from(e.dataTransfer.files).map(f => f.path);
+        if (files.length) {
+          await ipcRenderer.invoke('import-dropped-files', {
+            folderType: activeMgrType,
+            filePaths: files
+          });
+          toast(`Imported ${files.length} item(s) to ${activeMgrType}!`);
+          loadManager(activeMgrType);
+        }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // RUNTIME & JDK DIAGNOSTICS
+    // -------------------------------------------------------------
     async function checkJdkStatus() {
       const diag = document.getElementById('diag-java');
       const btn = document.getElementById('btn-install-jdk');
@@ -943,56 +1237,9 @@
       }
     }
 
-    async function loadManager(type = 'mods') {
-      activeMgrType = type;
-      ['mods', 'resourcepacks', 'shaderpacks'].forEach(t => {
-        const el = document.getElementById(`mgr-chip-${t}`);
-        if (el) el.classList.toggle('active', t === type);
-      });
-
-      const list = document.getElementById('manager-list');
-      list.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">Scanning folder...</span>';
-
-      const items = await ipcRenderer.invoke('get-installed-content', type);
-      list.innerHTML = '';
-      if (!items.length) {
-        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No installed ${type} found.</span>`;
-        return;
-      }
-
-      items.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'mod-item';
-        row.innerHTML = `
-          <div>
-            <strong>${item.name}</strong>
-            <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:2px;">${item.sizeMb} MB &bull; ${item.isEnabled ? 'Active' : 'Disabled'}</span>
-          </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn-secondary" onclick="toggleItem('${item.folder}', '${item.fileName}')">
-              ${item.isEnabled ? 'Disable' : 'Enable'}
-            </button>
-            <button class="btn-secondary" style="color:var(--danger);" onclick="deleteItem('${item.folder}', '${item.fileName}')">
-              Delete
-            </button>
-          </div>
-        `;
-        list.appendChild(row);
-      });
-    }
-
-    async function toggleItem(folder, fileName) {
-      await ipcRenderer.invoke('toggle-content-item', { folder, fileName });
-      loadManager(activeMgrType);
-    }
-
-    async function deleteItem(folder, fileName) {
-      if (confirm(`Delete ${fileName}?`)) {
-        await ipcRenderer.invoke('delete-content-item', { folder, fileName });
-        loadManager(activeMgrType);
-      }
-    }
-
+    // -------------------------------------------------------------
+    // SKIN STUDIO RENDERER
+    // -------------------------------------------------------------
     function drawSkinToCanvas(imgSrc) {
       const img = new Image();
       img.onload = () => {
@@ -1064,6 +1311,9 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // ACCOUNTS
+    // -------------------------------------------------------------
     function renderAccounts() {
       const container = document.getElementById('accounts-container');
       container.innerHTML = '';
@@ -1124,9 +1374,12 @@
       toast(`Offline player set to ${name}`);
     }
 
+    // -------------------------------------------------------------
+    // MODRINH HUB SEARCH
+    // -------------------------------------------------------------
     function setModType(type) {
       activeModType = type;
-      document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#panel-mods .chip-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(`chip-${type}`).classList.add('active');
       queryModrinth();
     }
@@ -1149,7 +1402,7 @@
         item.className = 'mod-item';
         item.innerHTML = `
           <div style="display:flex; align-items:center; gap:14px;">
-            <img class="mod-icon" src="${m.icon_url || ''}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'48\\' height=\\'48\\'><rect width=\\'48\\' height=\\'48\\' fill=\\'%2318181b\\'/></svg>'" />
+            <img class="mod-icon" style="width:48px; height:48px; border-radius:8px; background:#000; border:1px solid var(--border); object-fit:cover;" src="${m.icon_url || ''}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'48\\' height=\\'48\\'><rect width=\\'48\\' height=\\'48\\' fill=\\'%2318181b\\'/></svg>'" />
             <div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <strong style="font-size:0.9rem;">${m.title}</strong>
@@ -1178,6 +1431,9 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // LAUNCH EXECUTION
+    // -------------------------------------------------------------
     function playGame() {
       toast('Starting execution pipeline...');
       const playBtn = document.getElementById('play-button');
@@ -1204,6 +1460,9 @@
       toast(res.message);
     });
 
+    // -------------------------------------------------------------
+    // VAULT
+    // -------------------------------------------------------------
     async function loadVault() {
       const data = await ipcRenderer.invoke('get-vault-data');
       const wCont = document.getElementById('vault-worlds');
@@ -1254,6 +1513,9 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // SETTINGS
+    // -------------------------------------------------------------
     async function saveSettings() {
       currentConfig.customJavaPath = document.getElementById('cfg-java').value.trim();
       currentConfig.minRam = parseInt(document.getElementById('cfg-min-ram').value, 10) || 2048;
