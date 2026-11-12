@@ -1,4 +1,3 @@
-
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -35,6 +34,18 @@ const PROFILES_DIR = path.join(APP_DIR, 'profiles');
 
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
 const DEFAULT_ORYON_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
+const DEFAULT_ORYON = DEFAULT_ORYON_JVM;
+
+// CurseForge modLoaderType mappings
+const CF_LOADER_MAP = {
+  'any': 0,
+  'forge': 1,
+  'cauldron': 2,
+  'liteloader': 3,
+  'fabric': 4,
+  'quilt': 5,
+  'neoforge': 6
+};
 
 // Real-time console log ring buffer
 const LOG_BUFFER_MAX = 5000;
@@ -151,7 +162,6 @@ function copyFolderRecursiveSync(src, dest) {
               fs.copyFileSync(srcItem, destItem);
             }
           } catch (symErr) {
-            // Skip broken junctions or inaccessible link targets
             continue;
           }
         } else if (itemLstat.isDirectory()) {
@@ -842,7 +852,7 @@ ipcMain.handle('import-external-profile', async (event, {
   minRam = 2048,
   maxRam = 4096,
   javaRuntime = 'auto',
-  jvmArgs = DEFAULT_ORYON
+  jvmArgs = DEFAULT_ORYON_JVM
 }) => {
   if (!fs.existsSync(sourcePath)) throw new Error(`Source instance path not found: ${sourcePath}`);
 
@@ -1609,8 +1619,7 @@ ipcMain.handle('toggle-content-item', async (event, { folder, fileName }) => {
   const dest = fileName.endsWith('.disabled')
     ? path.join(dir, fileName.replace(/\.disabled$/, ''))
     : path.join(dir, `${fileName}.disabled`);
-  if (fs.existsSync(src)) fs.renameSync(
-src, dest);
+  if (fs.existsSync(src)) fs.renameSync(src, dest);
   return true;
 });
 
@@ -1677,15 +1686,20 @@ ipcMain.handle('import-dropped-files', async (event, { folderType, filePaths }) 
 });
 
 // -------------------------------------------------------------
-// DUAL PROVIDER (MODRINH + CURSEFORGE)
+// DUAL PROVIDER (MODRINH + CURSEFORGE) WITH LOADER FILTERING
 // -------------------------------------------------------------
-ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version = '1.20.4' }) => {
+ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version = '1.20.4', loader = 'all' }) => {
   const cleanVer = extractMcVersion(version);
   const facets = [
     [`project_type:${type}`],
     [`versions:${cleanVer}`]
   ];
-  let url = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(query || '')}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=20`;
+
+  if (type === 'mod' && loader && loader !== 'all' && loader !== 'vanilla') {
+    facets.push([`categories:${loader.toLowerCase()}`]);
+  }
+
+  const url = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(query || '')}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=20`;
 
   let hits = await new Promise((resolve) => {
     https.get(url, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
@@ -1700,9 +1714,14 @@ ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version =
   return hits;
 });
 
-ipcMain.handle('install-modrinth-item', async (event, { projectId, type, version = '1.20.4' }) => {
+ipcMain.handle('install-modrinth-item', async (event, { projectId, type, version = '1.20.4', loader = 'all' }) => {
   const cleanVer = extractMcVersion(version);
-  let versionsUrl = `https://api.modrinth.com/v2/project/${projectId}/version?game_versions=["${encodeURIComponent(cleanVer)}"]`;
+  let loaderQuery = '';
+  if (type === 'mod' && loader && loader !== 'all' && loader !== 'vanilla') {
+    loaderQuery = `&loaders=["${encodeURIComponent(loader.toLowerCase())}"]`;
+  }
+
+  let versionsUrl = `https://api.modrinth.com/v2/project/${projectId}/version?game_versions=["${encodeURIComponent(cleanVer)}"]${loaderQuery}`;
 
   let versions = await new Promise((resolve, reject) => {
     https.get(versionsUrl, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
@@ -1742,13 +1761,18 @@ ipcMain.handle('install-modrinth-item', async (event, { projectId, type, version
   return primary.filename;
 });
 
-ipcMain.handle('search-curseforge', async (event, { query, type = 'mod', version = '1.20.4' }) => {
+ipcMain.handle('search-curseforge', async (event, { query, type = 'mod', version = '1.20.4', loader = 'all' }) => {
   const cleanVer = extractMcVersion(version);
   let classId = 6;
   if (type === 'resourcepack') classId = 12;
   if (type === 'shader') classId = 6552;
 
-  let url = `https://api.curseforge.com/v1/mods/search?gameId=432&classId=${classId}&searchFilter=${encodeURIComponent(query || '')}&gameVersion=${encodeURIComponent(cleanVer)}&pageSize=20&sortField=2&sortOrder=desc`;
+  let loaderParam = '';
+  if (type === 'mod' && loader && loader !== 'all' && CF_LOADER_MAP[loader.toLowerCase()]) {
+    loaderParam = `&modLoaderType=${CF_LOADER_MAP[loader.toLowerCase()]}`;
+  }
+
+  const url = `https://api.curseforge.com/v1/mods/search?gameId=432&classId=${classId}&searchFilter=${encodeURIComponent(query || '')}&gameVersion=${encodeURIComponent(cleanVer)}${loaderParam}&pageSize=20&sortField=2&sortOrder=desc`;
 
   let results = await new Promise((resolve) => {
     https.get(url, { headers: { 'Accept': 'application/json', 'x-api-key': CF_API_KEY } }, (res) => {
@@ -1773,9 +1797,14 @@ ipcMain.handle('search-curseforge', async (event, { query, type = 'mod', version
   return results;
 });
 
-ipcMain.handle('install-curseforge-item', async (event, { modId, type, version = '1.20.4' }) => {
+ipcMain.handle('install-curseforge-item', async (event, { modId, type, version = '1.20.4', loader = 'all' }) => {
   const cleanVer = extractMcVersion(version);
-  const filesUrl = `https://api.curseforge.com/v1/mods/${modId}/files?gameVersion=${encodeURIComponent(cleanVer)}`;
+  let loaderParam = '';
+  if (type === 'mod' && loader && loader !== 'all' && CF_LOADER_MAP[loader.toLowerCase()]) {
+    loaderParam = `&modLoaderType=${CF_LOADER_MAP[loader.toLowerCase()]}`;
+  }
+
+  const filesUrl = `https://api.curseforge.com/v1/mods/${modId}/files?gameVersion=${encodeURIComponent(cleanVer)}${loaderParam}`;
 
   return new Promise((resolve, reject) => {
     https.get(filesUrl, { headers: { 'Accept': 'application/json', 'x-api-key': CF_API_KEY } }, (res) => {
@@ -2101,7 +2130,6 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
     activeGameProcess = spawn(javaBin, args, { cwd: activeGameDir, env: launchEnv });
     let totalOutput = '';
 
-    // Non-blocking stream draining into the 5,000-line circular buffer
     activeGameProcess.stdout.on('data', (d) => {
       const line = d.toString();
       totalOutput += line;
