@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const http = require('http');
 const crypto = require('crypto');
 const { spawn, exec, execSync } = require('child_process');
 
@@ -15,46 +16,63 @@ const JDK_DIR = path.join(RUNTIMES_DIR, 'ms-jdk-21-arm64');
 const MINECRAFT_DIR = path.join(app.getPath('appData'), '.minecraft');
 
 // -------------------------------------------------------------
-// BULLETPROOF DIRECTORY UTILITIES (PREVENTS ENOENT ON ASSETS)
+// BULLETPROOF DIRECTORY UTILITIES (SAFE FOR WINDOWS DRIVE ROOTS)
 // -------------------------------------------------------------
-function ensureDirSync(targetPath) {
+function safeMkdirSync(targetPath) {
   if (!targetPath) return;
-  const resolved = path.resolve(targetPath);
-  const parts = resolved.split(path.sep);
-  let current = parts[0] ? parts[0] : path.sep;
-
-  for (let i = 1; i < parts.length; i++) {
-    current = path.join(current, parts[i]);
-    if (fs.existsSync(current)) {
-      const stat = fs.statSync(current);
-      if (!stat.isDirectory()) {
-        fs.unlinkSync(current); // Remove collision if a file blocked folder creation
-        fs.mkdirSync(current);
+  try {
+    if (fs.existsSync(targetPath)) {
+      if (!fs.statSync(targetPath).isDirectory()) {
+        fs.unlinkSync(targetPath);
+        fs.mkdirSync(targetPath, { recursive: true });
       }
     } else {
-      fs.mkdirSync(current);
+      fs.mkdirSync(targetPath, { recursive: true });
+    }
+  } catch (err) {
+    // Windows root-safe fallback
+    try {
+      const resolved = path.resolve(targetPath);
+      const parsed = path.parse(resolved);
+      let current = parsed.root; // Guaranteed "C:\" with backslash on Windows
+      const segments = resolved.slice(parsed.root.length).split(path.sep).filter(Boolean);
+
+      for (const segment of segments) {
+        current = path.join(current, segment);
+        if (fs.existsSync(current)) {
+          if (!fs.statSync(current).isDirectory()) {
+            fs.unlinkSync(current);
+            fs.mkdirSync(current);
+          }
+        } else {
+          fs.mkdirSync(current);
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to create directory: ${targetPath}`, e);
     }
   }
 }
 
-// Initialize all required game and launcher folders
-[
-  APP_DIR,
-  RUNTIMES_DIR,
-  MINECRAFT_DIR,
-  path.join(MINECRAFT_DIR, 'assets'),
-  path.join(MINECRAFT_DIR, 'assets', 'indexes'),
-  path.join(MINECRAFT_DIR, 'assets', 'objects'),
-  path.join(MINECRAFT_DIR, 'versions'),
-  path.join(MINECRAFT_DIR, 'libraries'),
-  path.join(MINECRAFT_DIR, 'mods'),
-  path.join(MINECRAFT_DIR, 'resourcepacks'),
-  path.join(MINECRAFT_DIR, 'shaderpacks'),
-  path.join(MINECRAFT_DIR, 'saves'),
-  path.join(MINECRAFT_DIR, 'screenshots')
-].forEach(dir => ensureDirSync(dir));
+function initDirectories() {
+  [
+    APP_DIR,
+    RUNTIMES_DIR,
+    MINECRAFT_DIR,
+    path.join(MINECRAFT_DIR, 'assets'),
+    path.join(MINECRAFT_DIR, 'assets', 'indexes'),
+    path.join(MINECRAFT_DIR, 'assets', 'objects'),
+    path.join(MINECRAFT_DIR, 'versions'),
+    path.join(MINECRAFT_DIR, 'libraries'),
+    path.join(MINECRAFT_DIR, 'mods'),
+    path.join(MINECRAFT_DIR, 'resourcepacks'),
+    path.join(MINECRAFT_DIR, 'shaderpacks'),
+    path.join(MINECRAFT_DIR, 'saves'),
+    path.join(MINECRAFT_DIR, 'screenshots')
+  ].forEach(dir => safeMkdirSync(dir));
+}
 
-// Configuration Management
+// Configuration
 function loadConfig() {
   if (fs.existsSync(CONFIG_FILE)) {
     try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8')); } catch (e) {}
@@ -74,6 +92,7 @@ function loadConfig() {
 }
 
 function saveConfig(cfg) {
+  safeMkdirSync(APP_DIR);
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
 }
 
@@ -102,7 +121,7 @@ ipcMain.on('window-max', () => mainWindow.isMaximized() ? mainWindow.unmaximize(
 ipcMain.on('window-close', () => mainWindow.close());
 ipcMain.on('open-path', (e, target) => {
   const p = path.join(MINECRAFT_DIR, target);
-  ensureDirSync(p);
+  safeMkdirSync(p);
   shell.openPath(p);
 });
 
@@ -110,14 +129,15 @@ ipcMain.handle('get-config', () => loadConfig());
 ipcMain.handle('save-config', (e, cfg) => { saveConfig(cfg); return true; });
 
 // -------------------------------------------------------------
-// STREAM DOWNLOAD ENGINE (WITH AUTOMATIC PARENT VERIFICATION)
+// STREAM DOWNLOAD ENGINE (HTTP + HTTPS WITH AUTO RETRIES)
 // -------------------------------------------------------------
 function downloadFile(url, dest, onProgress = null) {
   return new Promise((resolve, reject) => {
-    ensureDirSync(path.dirname(dest));
+    safeMkdirSync(path.dirname(dest));
 
     const get = (targetUrl) => {
-      https.get(targetUrl, (res) => {
+      const client = targetUrl.startsWith('https:') ? https : http;
+      client.get(targetUrl, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           return get(res.headers.location);
         }
@@ -146,7 +166,7 @@ function downloadFile(url, dest, onProgress = null) {
 }
 
 // -------------------------------------------------------------
-// MOJANG LIVE VERSION MANIFEST SYNC
+// MOJANG VERSION MANIFEST SYNC
 // -------------------------------------------------------------
 let cachedManifest = null;
 
@@ -172,17 +192,19 @@ ipcMain.handle('get-mc-versions', async () => {
 });
 
 // -------------------------------------------------------------
-// ARM64 JDK MANAGEMENT
+// ARM64 JDK DETECTION & SETUP
 // -------------------------------------------------------------
 function findSystemArmJava() {
+  const localJava = path.join(JDK_DIR, 'bin', 'java.exe');
   const localJavaw = path.join(JDK_DIR, 'bin', 'javaw.exe');
+  if (fs.existsSync(localJava)) return { found: true, path: localJava, source: 'Managed ARM64 JDK' };
   if (fs.existsSync(localJavaw)) return { found: true, path: localJavaw, source: 'Managed ARM64 JDK' };
 
   const candidates = [
-    'C:\\Program Files\\Microsoft\\jdk-21\\bin\\javaw.exe',
-    'C:\\Program Files\\Microsoft\\jdk-17\\bin\\javaw.exe',
-    'C:\\Program Files\\Eclipse Adoptium\\jdk-21-arm64\\bin\\javaw.exe',
-    'C:\\Program Files\\Zulu\\zulu-21-arm64\\bin\\javaw.exe'
+    'C:\\Program Files\\Microsoft\\jdk-21\\bin\\java.exe',
+    'C:\\Program Files\\Microsoft\\jdk-17\\bin\\java.exe',
+    'C:\\Program Files\\Eclipse Adoptium\\jdk-21-arm64\\bin\\java.exe',
+    'C:\\Program Files\\Zulu\\zulu-21-arm64\\bin\\java.exe'
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return { found: true, path: c, source: 'Installed System ARM64 JDK' };
@@ -190,7 +212,7 @@ function findSystemArmJava() {
 
   try {
     const out = execSync('java -XshowSettings:properties -version 2>&1', { timeout: 2500 }).toString();
-    if (out.includes('aarch64')) return { found: true, path: 'javaw', source: 'PATH (ARM64 Native)' };
+    if (out.includes('aarch64')) return { found: true, path: 'java', source: 'PATH (ARM64 Native)' };
   } catch (e) {}
 
   return { found: false, path: null, source: null };
@@ -211,9 +233,9 @@ ipcMain.handle('install-arm-jdk', async (event) => {
       report(`Downloading ARM64 OpenJDK (${Math.round(pct * 100)}%)...`, pct * 0.75);
     });
 
-    report('Extracting runtime files...', 0.85);
+    report('Extracting runtime binaries...', 0.85);
     if (fs.existsSync(tempExtract)) fs.rmSync(tempExtract, { recursive: true, force: true });
-    ensureDirSync(tempExtract);
+    safeMkdirSync(tempExtract);
 
     execSync(`powershell.exe -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tempExtract}' -Force"`);
 
@@ -228,7 +250,7 @@ ipcMain.handle('install-arm-jdk', async (event) => {
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
     report('ARM64 JDK installed successfully.', 1.0);
-    return { success: true, path: path.join(JDK_DIR, 'bin', 'javaw.exe') };
+    return { success: true, path: path.join(JDK_DIR, 'bin', 'java.exe') };
   } catch (err) {
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
     throw err;
@@ -386,7 +408,6 @@ ipcMain.handle('fetch-player-skin', async (event, username) => {
     const skinUrl = parsed.textures && parsed.textures.SKIN && parsed.textures.SKIN.url;
     if (!skinUrl) throw new Error('Skin texture unavailable');
 
-    // Download skin image to local base64
     return new Promise((resolve, reject) => {
       https.get(skinUrl, (res) => {
         const chunks = [];
@@ -452,7 +473,7 @@ ipcMain.handle('upload-skin', async (event, { token, filePath, isSlim }) => {
 });
 
 // -------------------------------------------------------------
-// MOD MANAGER: INSTALLED CONTENT SCANNER & TOGGLER
+// MOD MANAGER: INSTALLED CONTENT
 // -------------------------------------------------------------
 ipcMain.handle('get-installed-content', async (event, type = 'mods') => {
   let target = 'mods';
@@ -460,7 +481,7 @@ ipcMain.handle('get-installed-content', async (event, type = 'mods') => {
   if (type === 'shaderpacks') target = 'shaderpacks';
 
   const folder = path.join(MINECRAFT_DIR, target);
-  ensureDirSync(folder);
+  safeMkdirSync(folder);
 
   const files = fs.readdirSync(folder);
   return files.map(file => {
@@ -482,12 +503,9 @@ ipcMain.handle('get-installed-content', async (event, type = 'mods') => {
 ipcMain.handle('toggle-content-item', async (event, { folder, fileName }) => {
   const dir = path.join(MINECRAFT_DIR, folder);
   const src = path.join(dir, fileName);
-  let dest;
-  if (fileName.endsWith('.disabled')) {
-    dest = path.join(dir, fileName.replace(/\.disabled$/, ''));
-  } else {
-    dest = path.join(dir, `${fileName}.disabled`);
-  }
+  let dest = fileName.endsWith('.disabled')
+    ? path.join(dir, fileName.replace(/\.disabled$/, ''))
+    : path.join(dir, `${fileName}.disabled`);
   if (fs.existsSync(src)) fs.renameSync(src, dest);
   return true;
 });
@@ -495,16 +513,13 @@ ipcMain.handle('toggle-content-item', async (event, { folder, fileName }) => {
 ipcMain.handle('delete-content-item', async (event, { folder, fileName }) => {
   const target = path.join(MINECRAFT_DIR, folder, fileName);
   if (fs.existsSync(target)) {
-    if (fs.statSync(target).isDirectory()) {
-      fs.rmSync(target, { recursive: true, force: true });
-    } else {
-      fs.unlinkSync(target);
-    }
+    if (fs.statSync(target).isDirectory()) fs.rmSync(target, { recursive: true, force: true });
+    else fs.unlinkSync(target);
   }
   return true;
 });
 
-// Modrinth Search & Universal Installer
+// Modrinth API Search & Install
 ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version = '1.20.4' }) => {
   const facets = [
     [`project_type:${type}`],
@@ -536,13 +551,12 @@ ipcMain.handle('install-modrinth-item', async (event, { projectId, type, version
           if (!versions || !versions.length) throw new Error(`No compatible release found for ${version}`);
 
           const primary = versions[0].files.find(f => f.primary) || versions[0].files[0];
-
           let targetFolder = 'mods';
           if (type === 'resourcepack') targetFolder = 'resourcepacks';
           if (type === 'shader') targetFolder = 'shaderpacks';
 
           const destDir = path.join(MINECRAFT_DIR, targetFolder);
-          ensureDirSync(destDir);
+          safeMkdirSync(destDir);
 
           const filePath = path.join(destDir, primary.filename);
           await downloadFile(primary.url, filePath);
@@ -555,14 +569,12 @@ ipcMain.handle('install-modrinth-item', async (event, { projectId, type, version
   });
 });
 
-// -------------------------------------------------------------
-// VAULT DATA
-// -------------------------------------------------------------
+// Vault
 ipcMain.handle('get-vault-data', async () => {
   const savesDir = path.join(MINECRAFT_DIR, 'saves');
   const screenshotsDir = path.join(MINECRAFT_DIR, 'screenshots');
-  ensureDirSync(savesDir);
-  ensureDirSync(screenshotsDir);
+  safeMkdirSync(savesDir);
+  safeMkdirSync(screenshotsDir);
 
   const worlds = [];
   for (const d of fs.readdirSync(savesDir, { withFileTypes: true })) {
@@ -592,7 +604,7 @@ ipcMain.handle('get-vault-data', async () => {
 ipcMain.handle('backup-world', async (event, folderName) => {
   const targetDir = path.join(MINECRAFT_DIR, 'saves', folderName);
   const backupsDir = path.join(MINECRAFT_DIR, 'backups');
-  ensureDirSync(backupsDir);
+  safeMkdirSync(backupsDir);
 
   const zipTarget = path.join(backupsDir, `${folderName}-backup-${Date.now()}.zip`);
   return new Promise((resolve, reject) => {
@@ -604,7 +616,7 @@ ipcMain.handle('backup-world', async (event, folderName) => {
 });
 
 // -------------------------------------------------------------
-// GAME EXECUTION ENGINE
+// GAME EXECUTION ENGINE (WITH CRASH DETECTION PIPE)
 // -------------------------------------------------------------
 ipcMain.on('launch-game', async (event, cfg) => {
   const sendStatus = (message, isError = false) => event.reply('launch-status', { message, isError });
@@ -612,6 +624,7 @@ ipcMain.on('launch-game', async (event, cfg) => {
   try {
     const versionId = cfg.selectedVersion || '1.20.4';
 
+    // 1. Resolve ARM64 Java Binary
     let javaBin = cfg.customJavaPath;
     if (!javaBin || !fs.existsSync(javaBin)) {
       const detected = findSystemArmJava();
@@ -628,11 +641,12 @@ ipcMain.on('launch-game', async (event, cfg) => {
     const clientJarPath = path.join(versionsDir, `${versionId}.jar`);
     const nativesDir = path.join(versionsDir, 'natives');
 
-    ensureDirSync(versionsDir);
-    ensureDirSync(nativesDir);
+    safeMkdirSync(versionsDir);
+    safeMkdirSync(nativesDir);
 
-    // 1. Obtain Version Metadata
-    if (!fs.existsSync(versionJsonPath)) {
+    // 2. Fetch Version Metadata if Missing or Incomplete
+    let needsManifest = !fs.existsSync(versionJsonPath) || fs.statSync(versionJsonPath).size < 100;
+    if (needsManifest) {
       sendStatus(`Fetching version descriptor for ${versionId}...`);
       if (!cachedManifest) {
         const raw = await new Promise((res, rej) => {
@@ -651,13 +665,13 @@ ipcMain.on('launch-game', async (event, cfg) => {
 
     const versionData = JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
 
-    // 2. Download Client Jar
-    if (!fs.existsSync(clientJarPath)) {
+    // 3. Download Client Binary
+    if (!fs.existsSync(clientJarPath) || fs.statSync(clientJarPath).size < 1000) {
       sendStatus(`Downloading client binary (${versionId}.jar)...`);
       await downloadFile(versionData.downloads.client.url, clientJarPath);
     }
 
-    // 3. Resolve Libraries
+    // 4. Resolve Libraries
     sendStatus('Verifying library dependencies...');
     const classpath = [];
     const libraries = versionData.libraries || [];
@@ -678,17 +692,22 @@ ipcMain.on('launch-game', async (event, cfg) => {
 
       if (lib.downloads && lib.downloads.artifact) {
         const libDest = path.join(MINECRAFT_DIR, 'libraries', lib.downloads.artifact.path);
-        if (!fs.existsSync(libDest)) await downloadFile(lib.downloads.artifact.url, libDest);
+        if (!fs.existsSync(libDest) || fs.statSync(libDest).size < 10) {
+          await downloadFile(lib.downloads.artifact.url, libDest);
+        }
         classpath.push(libDest);
       }
 
+      // Windows ARM64 Natives
       if (lib.downloads && lib.downloads.classifiers) {
         const cls = lib.downloads.classifiers;
         const nativeKey = cls['natives-windows-arm64'] ? 'natives-windows-arm64' : cls['natives-windows'] ? 'natives-windows' : null;
         if (nativeKey && cls[nativeKey]) {
           const nat = cls[nativeKey];
           const natJar = path.join(MINECRAFT_DIR, 'libraries', nat.path);
-          if (!fs.existsSync(natJar)) await downloadFile(nat.url, natJar);
+          if (!fs.existsSync(natJar) || fs.statSync(natJar).size < 10) {
+            await downloadFile(nat.url, natJar);
+          }
           try {
             execSync(`powershell.exe -NoProfile -Command "Expand-Archive -Path '${natJar}' -DestinationPath '${nativesDir}' -Force"`);
           } catch (e) {}
@@ -697,19 +716,19 @@ ipcMain.on('launch-game', async (event, cfg) => {
     }
     classpath.push(clientJarPath);
 
-    // 4. Download Asset Index
+    // 5. Download Asset Index
     const assetInfo = versionData.assetIndex;
     const assetIndexDir = path.join(MINECRAFT_DIR, 'assets', 'indexes');
-    ensureDirSync(assetIndexDir);
+    safeMkdirSync(assetIndexDir);
     const assetIndexFile = path.join(assetIndexDir, `${assetInfo.id}.json`);
 
-    if (!fs.existsSync(assetIndexFile)) {
+    if (!fs.existsSync(assetIndexFile) || fs.statSync(assetIndexFile).size < 50) {
       sendStatus('Downloading game assets index...');
       await downloadFile(assetInfo.url, assetIndexFile);
     }
 
-    // 5. Build Parameters & Launch
-    sendStatus(`Initializing Minecraft ${versionId} process...`);
+    // 6. Spawn Game Process
+    sendStatus(`Initializing Minecraft ${versionId}...`);
     const account = cfg.account || { name: cfg.offlineUsername || 'Player', id: '00000000000000000000000000000000', token: 'null' };
     const jvmFlags = (cfg.jvmArgs || '').split(' ').filter(Boolean);
 
@@ -731,18 +750,34 @@ ipcMain.on('launch-game', async (event, cfg) => {
       '--userType', account.token !== 'null' ? 'msa' : 'mojang'
     ];
 
-    const game = spawn(javaBin, args, { cwd: MINECRAFT_DIR, detached: true });
+    const game = spawn(javaBin, args, { cwd: MINECRAFT_DIR });
+    let stderrOutput = '';
 
-    game.on('spawn', () => {
-      sendStatus(`Game process active (PID: ${game.pid})`);
-      if (cfg.closeOnLaunch) setTimeout(() => mainWindow.hide(), 1500);
+    game.stderr.on('data', (d) => {
+      stderrOutput += d.toString();
     });
 
-    game.on('error', (err) => sendStatus(`Launch halted: ${err.message}`, true));
+    game.on('spawn', () => {
+      sendStatus(`Game running natively (PID: ${game.pid})`);
+      if (cfg.closeOnLaunch) setTimeout(() => mainWindow.hide(), 2000);
+    });
+
+    game.on('close', (code) => {
+      if (code !== 0 && code !== null) {
+        sendStatus(`Game process exited (Code ${code}): ${stderrOutput.slice(-300) || 'Check JVM memory configuration'}`, true);
+      }
+    });
+
+    game.on('error', (err) => sendStatus(`Execution halted: ${err.message}`, true));
   } catch (err) {
     sendStatus(`Launch failed: ${err.message}`, true);
   }
 });
 
-app.whenReady().then(createWindow);
+// App Lifecycle
+app.whenReady().then(() => {
+  initDirectories();
+  createWindow();
+});
+
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
