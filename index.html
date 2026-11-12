@@ -6,13 +6,12 @@
   <title>Aetheria Launcher</title>
   <style>
     /* ==========================================================================
-       Monochrome Strict Dark System - Kinetic Motion Engine
+       Monochrome Strict Dark System - Anti-Glare Kinetic Engine
        ========================================================================== */
     :root {
       color-scheme: dark;
       --bg: #09090b;
       --card: rgba(18, 18, 21, 0.72);
-      --card-solid: #121215;
       --card-hover: rgba(24, 24, 27, 0.88);
       --border: #27272a;
       --border-hover: #3f3f46;
@@ -47,7 +46,6 @@
       position: relative;
     }
 
-    /* Animated Canvas Background Layer */
     #bg-canvas {
       position: fixed;
       inset: 0;
@@ -58,13 +56,11 @@
       opacity: 0.85;
     }
 
-    /* Custom Anti-Glare Dark Scrollbars */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
 
-    /* Top Drag Header Bar */
     .titlebar {
       height: 46px;
       display: flex;
@@ -102,7 +98,6 @@
       font-weight: 700;
     }
 
-    /* Top-Right Header Action Group */
     .top-right-group {
       display: flex;
       align-items: center;
@@ -110,7 +105,6 @@
       -webkit-app-region: no-drag;
     }
 
-    /* Top-Right Anchored Navigation Dropdown */
     .nav-wrapper { position: relative; }
 
     .nav-trigger {
@@ -134,8 +128,6 @@
       background: var(--card-hover);
       transform: translateY(-1px);
     }
-
-    .nav-trigger:active { transform: translateY(1px) scale(0.98); }
 
     .nav-dropdown {
       position: absolute;
@@ -189,7 +181,6 @@
       font-weight: 600;
     }
 
-    /* Window Controls */
     .win-controls { display: flex; gap: 4px; }
     .win-btn {
       width: 28px; height: 28px; background: transparent; border: none;
@@ -200,7 +191,6 @@
     .win-btn:hover { background: #1c1c20; color: var(--text); }
     .win-btn.close:hover { background: var(--danger); color: #fff; }
 
-    /* Viewport & Dynamic Panels */
     .viewport {
       flex: 1;
       overflow-y: auto;
@@ -221,7 +211,6 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Cards */
     .card {
       background: var(--card);
       backdrop-filter: blur(16px);
@@ -238,7 +227,6 @@
     .panel-header h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
     .panel-header p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
 
-    /* Buttons */
     .btn {
       background: #ffffff;
       color: #09090b;
@@ -273,7 +261,6 @@
     }
     .btn-secondary:active { transform: translateY(1px); }
 
-    /* Inputs */
     .input-field, .select-field {
       width: 100%;
       background: rgba(9, 9, 11, 0.8);
@@ -287,7 +274,6 @@
     }
     .input-field:focus, .select-field:focus { border-color: var(--border-focus); }
 
-    /* Chips */
     .chip-group { display: flex; gap: 8px; margin-bottom: 16px; }
     .chip-btn {
       background: var(--card);
@@ -307,7 +293,6 @@
       border-color: #ffffff;
     }
 
-    /* Items */
     .mod-item {
       display: flex;
       justify-content: space-between;
@@ -330,7 +315,6 @@
       object-fit: cover; flex-shrink: 0;
     }
 
-    /* Account Profile Display */
     .acc-card {
       display: flex;
       align-items: center;
@@ -356,7 +340,6 @@
       padding: 8px 0;
     }
 
-    /* Toast */
     #toast {
       position: fixed;
       bottom: 24px;
@@ -382,17 +365,17 @@
 </head>
 <body>
 
-  <!-- Dynamic Ambient Canvas Layer -->
+  <!-- Ambient Dynamic Canvas -->
   <canvas id="bg-canvas"></canvas>
 
-  <!-- Chromeless Titlebar -->
+  <!-- Titlebar -->
   <header class="titlebar">
     <div class="brand-group">
       <span class="brand-title">Aetheria</span>
       <span class="brand-badge">ARM64 NATIVE</span>
     </div>
 
-    <!-- Top-Right Section -->
+    <!-- Dropdown Navigation -->
     <div class="top-right-group">
       <div class="nav-wrapper">
         <button class="nav-trigger" id="dropdown-btn" onclick="toggleNav()">
@@ -421,7 +404,7 @@
   <!-- Viewport Panels -->
   <main class="viewport">
 
-    <!-- PANEL: OVERVIEW -->
+    <!-- OVERVIEW -->
     <section id="panel-home" class="panel active">
       <div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 34px 28px;">
         <div style="flex: 1;">
@@ -435,7 +418,6 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 16px;">
-          <!-- Real-Time Auto-Updating Version Selector -->
           <div style="text-align: right;">
             <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">VERSION SELECTOR</label>
             <select id="version-selector" class="select-field" style="width: 140px; padding: 8px 12px; cursor: pointer;" onchange="changeVersion(this.value)">
@@ -449,7 +431,6 @@
         </div>
       </div>
 
-      <!-- ARM64 Diagnostic Card -->
       <div class="card" id="jdk-card">
         <div style="display:flex; justify-content: space-between; align-items:center;">
           <div>
@@ -469,7 +450,7 @@
       </div>
     </section>
 
-    <!-- PANEL: MOD HUB (BROWSE) -->
+    <!-- MOD HUB -->
     <section id="panel-mods" class="panel">
       <div class="panel-header">
         <h2>Mod Hub</h2>
@@ -492,7 +473,7 @@
       </div>
     </section>
 
-    <!-- PANEL: MOD MANAGER (INSTALLED CONTENT) -->
+    <!-- MOD MANAGER -->
     <section id="panel-manager" class="panel">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
@@ -511,14 +492,13 @@
       </div>
     </section>
 
-    <!-- PANEL: SKIN STUDIO -->
+    <!-- SKIN STUDIO -->
     <section id="panel-skins" class="panel">
       <div class="panel-header">
         <h2>Skin Studio</h2>
         <p>Search skins, render 3D/2D layouts, and sync with your Mojang account</p>
       </div>
 
-      <!-- Player Skin Lookup -->
       <div class="card" style="margin-bottom: 20px;">
         <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Inspect Player Skin by Username</h3>
         <div style="display: flex; gap: 10px;">
@@ -548,7 +528,7 @@
       </div>
     </section>
 
-    <!-- PANEL: VAULT -->
+    <!-- VAULT -->
     <section id="panel-vault" class="panel">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
@@ -577,7 +557,7 @@
       </div>
     </section>
 
-    <!-- PANEL: ACCOUNTS -->
+    <!-- ACCOUNTS -->
     <section id="panel-accounts" class="panel">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
@@ -601,14 +581,13 @@
       </div>
     </section>
 
-    <!-- PANEL: SETTINGS -->
+    <!-- SETTINGS -->
     <section id="panel-settings" class="panel">
       <div class="panel-header">
         <h2>Settings</h2>
         <p>Visual theme, animated presets, and memory management</p>
       </div>
 
-      <!-- 10 Monochrome Animated Presets Selector -->
       <div class="card">
         <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Animated Background Presets</h3>
         <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">Ambient Canvas Engine</label>
@@ -616,7 +595,7 @@
           <option value="waves">1. Obsidian Waves (Fluid Harmonic Motion)</option>
           <option value="starfield">2. Starfield Warp (3D Celestial Drift)</option>
           <option value="matrix">3. Digital Rain (Monochrome Cyber Cascade)</option>
-          <option value="plexus">4. Geometric Mesh (Connecting Kinetic Nodes)</option>
+          <option value="plexus">4. Geometric Mesh (Kinetic Plexus Nodes)</option>
           <option value="pulse">5. Minimal Pulse (Concentric Dissipating Rings)</option>
           <option value="mist">6. Monochrome Mist (Horizontal Vapor Drift)</option>
           <option value="grid">7. Horizon Grid (3D Retro Perspective)</option>
@@ -661,7 +640,7 @@
 
   <div id="toast"></div>
 
-  <!-- Ambient Animation Engine Script -->
+  <!-- Ambient Animation Script -->
   <script>
     const canvas = document.getElementById('bg-canvas');
     const ctx = canvas.getContext('2d');
@@ -676,21 +655,17 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // 10 Monochrome Procedural Animators
     let tick = 0;
-    const stars = Array.from({ length: 90 }, () => ({ x: Math.random() * width, y: Math.random() * height, z: Math.random() * width }));
-    const nodes = Array.from({ length: 45 }, () => ({ x: Math.random() * width, y: Math.random() * height, vx: (Math.random() - 0.5) * 0.6, vy: (Math.random() - 0.5) * 0.6 }));
-    const rain = Array.from({ length: 50 }, () => ({ x: Math.random() * width, y: Math.random() * height, speed: 2 + Math.random() * 4, len: 10 + Math.random() * 20 }));
-    const voxels = Array.from({ length: 30 }, () => ({ x: Math.random() * width, y: Math.random() * height, size: 8 + Math.random() * 12, speed: 0.5 + Math.random() }));
+    const stars = Array.from({ length: 90 }, () => ({ x: Math.random() * (width || 800), y: Math.random() * (height || 600), z: Math.random() * 800 }));
+    const nodes = Array.from({ length: 45 }, () => ({ x: Math.random() * (width || 800), y: Math.random() * (height || 600), vx: (Math.random() - 0.5) * 0.6, vy: (Math.random() - 0.5) * 0.6 }));
+    const rain = Array.from({ length: 50 }, () => ({ x: Math.random() * (width || 800), y: Math.random() * (height || 600), speed: 2 + Math.random() * 4, len: 10 + Math.random() * 20 }));
+    const voxels = Array.from({ length: 30 }, () => ({ x: Math.random() * (width || 800), y: Math.random() * (height || 600), size: 8 + Math.random() * 12, speed: 0.5 + Math.random() }));
 
     function renderAnimation() {
       tick++;
       ctx.clearRect(0, 0, width, height);
 
-      if (currentPreset === 'none') {
-        // Static Pitch Void
-        return;
-      }
+      if (currentPreset === 'none') return;
 
       if (currentPreset === 'waves') {
         ctx.fillStyle = '#09090b';
@@ -897,13 +872,11 @@
       checkJdkStatus();
       syncVersions();
 
-      // Automatically render active account skin on start
       if (currentConfig.activeAccount) {
         loadAccountSkinAuto(currentConfig.activeAccount.name);
       }
     });
 
-    // Version Sync
     async function syncVersions() {
       const manifest = await ipcRenderer.invoke('get-mc-versions');
       const selector = document.getElementById('version-selector');
@@ -928,7 +901,6 @@
       toast(`Version targeted: ${ver}`);
     }
 
-    // Diagnostics
     async function checkJdkStatus() {
       const diag = document.getElementById('diag-java');
       const btn = document.getElementById('btn-install-jdk');
@@ -971,7 +943,6 @@
       }
     }
 
-    // Installed Mod Manager Logic
     async function loadManager(type = 'mods') {
       activeMgrType = type;
       ['mods', 'resourcepacks', 'shaderpacks'].forEach(t => {
@@ -1022,7 +993,6 @@
       }
     }
 
-    // Skin Canvas Renderer
     function drawSkinToCanvas(imgSrc) {
       const img = new Image();
       img.onload = () => {
@@ -1030,15 +1000,11 @@
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Head Base & Overlay
         ctx.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
         ctx.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
-        // Body
         ctx.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
-        // Arms
         ctx.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
         ctx.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
-        // Legs
         ctx.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
         ctx.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
       };
@@ -1098,7 +1064,6 @@
       }
     }
 
-    // Accounts
     function renderAccounts() {
       const container = document.getElementById('accounts-container');
       container.innerHTML = '';
@@ -1159,7 +1124,6 @@
       toast(`Offline player set to ${name}`);
     }
 
-    // Mod Hub
     function setModType(type) {
       activeModType = type;
       document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
@@ -1214,7 +1178,6 @@
       }
     }
 
-    // Play Minecraft
     function playGame() {
       toast('Starting execution pipeline...');
       const playBtn = document.getElementById('play-button');
@@ -1234,11 +1197,13 @@
 
     ipcRenderer.on('launch-status', (event, res) => {
       document.getElementById('hero-status').innerText = res.message;
-      document.getElementById('play-button').disabled = false;
+      if (res.isError) {
+        document.getElementById('play-button').disabled = false;
+        alert(res.message);
+      }
       toast(res.message);
     });
 
-    // Vault
     async function loadVault() {
       const data = await ipcRenderer.invoke('get-vault-data');
       const wCont = document.getElementById('vault-worlds');
@@ -1289,7 +1254,6 @@
       }
     }
 
-    // Settings
     async function saveSettings() {
       currentConfig.customJavaPath = document.getElementById('cfg-java').value.trim();
       currentConfig.minRam = parseInt(document.getElementById('cfg-min-ram').value, 10) || 2048;
