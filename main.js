@@ -4,6 +4,7 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const { spawn, exec, execSync } = require('child_process');
 
 // -------------------------------------------------------------
@@ -15,10 +16,8 @@ if (!gotTheLock) {
   process.exit(0);
 }
 
-// Global runtime catch: Never let EEXIST crash the application
 process.on('uncaughtException', (err) => {
   if (err && (err.code === 'EEXIST' || err.message.includes('EEXIST'))) {
-    console.warn('[Process Safe Guard] Ignored harmless EEXIST collision:', err.message);
     return;
   }
   console.error('[Uncaught Exception]', err);
@@ -37,87 +36,126 @@ const INSTANCES_DIR = path.join(APP_DIR, 'instances');
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
 
 // -------------------------------------------------------------
-// ATOMIC DIRECTORY RESOLVER (IMMUNE TO EEXIST & JUNCTIONS)
+// ATOMIC DIRECTORY RESOLVER
 // -------------------------------------------------------------
 function safeMkdirSync(targetPath) {
   if (!targetPath) return;
-
   try {
-    // Check path state without following symlinks
     let lstat = null;
     try {
       lstat = fs.lstatSync(targetPath);
-    } catch (e) {
-      // Path does not exist, continue to mkdir
-    }
+    } catch (e) {}
 
     if (lstat) {
-      if (lstat.isDirectory()) {
-        return; // Valid directory exists, nothing to do
-      }
+      if (lstat.isDirectory()) return;
       if (lstat.isSymbolicLink()) {
         try {
           if (fs.statSync(targetPath).isDirectory()) return;
         } catch (symErr) {
-          // Broken symlink/junction, unlink safely
           try { fs.unlinkSync(targetPath); } catch (e) {}
         }
       } else {
-        // Blocked by a file, remove it
         try { fs.unlinkSync(targetPath); } catch (e) {}
       }
     }
-
-    // Attempt creation with recursive flag
     fs.mkdirSync(targetPath, { recursive: true });
   } catch (err) {
-    // If it threw EEXIST, Windows already has an entity there. Verify and ignore.
     if (err.code === 'EEXIST' || err.message.includes('EEXIST')) {
-      try {
-        if (fs.existsSync(targetPath)) return;
-      } catch (e) {}
+      try { if (fs.existsSync(targetPath)) return; } catch (e) {}
     }
-    // Deep fallback: Try resolving full absolute path
     try {
       fs.mkdirSync(path.resolve(targetPath), { recursive: true });
-    } catch (finalErr) {
-      if (finalErr.code !== 'EEXIST') {
-        console.warn(`[SafeMkdir] Notice: ${finalErr.message}`);
-      }
-    }
+    } catch (finalErr) {}
   }
 }
 
-// Backward-compatibility alias
-const ensureDirSync = safeMkdirSync;
-
 function initDirectories() {
-  const dirs = [
-    APP_DIR,
-    RUNTIMES_DIR,
-    INSTANCES_DIR,
-    MINECRAFT_DIR,
-    path.join(MINECRAFT_DIR, 'assets'),
-    path.join(MINECRAFT_DIR, 'assets', 'indexes'),
-    path.join(MINECRAFT_DIR, 'assets', 'objects'),
-    path.join(MINECRAFT_DIR, 'versions'),
-    path.join(MINECRAFT_DIR, 'libraries'),
-    path.join(MINECRAFT_DIR, 'mods'),
-    path.join(MINECRAFT_DIR, 'resourcepacks'),
-    path.join(MINECRAFT_DIR, 'shaderpacks'),
-    path.join(MINECRAFT_DIR, 'saves'),
-    path.join(MINECRAFT_DIR, 'screenshots'),
-    path.join(MINECRAFT_DIR, 'backups')
-  ];
+  safeMkdirSync(APP_DIR);
+  safeMkdirSync(RUNTIMES_DIR);
+  safeMkdirSync(INSTANCES_DIR);
+}
 
-  for (const dir of dirs) {
-    try {
-      safeMkdirSync(dir);
-    } catch (e) {
-      // Individual directory errors are caught and logged without halting execution
-      console.warn(`[Init] Handled: ${dir}`);
+// -------------------------------------------------------------
+// PURE NODE.JS ZIP EXTRACTOR (ZERO POWERSHELL OVERHEAD)
+// -------------------------------------------------------------
+function extractDllsFromZip(zipFilePath, destDir) {
+  safeMkdirSync(destDir);
+  let buf;
+  try {
+    buf = fs.readFileSync(zipFilePath);
+  } catch (e) {
+    return;
+  }
+
+  let eocdOffset = -1;
+  const maxSearch = Math.max(0, buf.length - 65557);
+  for (let i = buf.length - 22; i >= maxSearch; i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) {
+      eocdOffset = i;
+      break;
     }
   }
+  if (eocdOffset === -1) return;
+
+  const totalEntries = buf.readUInt16LE(eocdOffset + 10);
+  const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+
+  let cur = cdOffset;
+  for (let i = 0; i < totalEntries && cur < eocdOffset; i++) {
+    if (buf.readUInt32LE(cur) !== 0x02014b50) break;
+
+    const method = buf.readUInt16LE(cur + 10);
+    const compSize = buf.readUInt32LE(cur + 20);
+    const nameLen = buf.readUInt16LE(cur + 28);
+    const extraLen = buf.readUInt16LE(cur + 30);
+    const commentLen = buf.readUInt16LE(cur + 32);
+    const localHeaderOffset = buf.readUInt32LE(cur + 42);
+
+    const fileName = buf.toString('utf8', cur + 46, cur + 46 + nameLen);
+    cur += 46 + nameLen + extraLen + commentLen;
+
+    const lowerName = fileName.toLowerCase();
+    if (!lowerName.endsWith('.dll')) continue;
+    if (lowerName.includes('/') && !lowerName.endsWith('.dll')) continue;
+
+    if (localHeaderOffset + 30 > buf.length) continue;
+    const localNameLen = buf.readUInt16LE(localHeaderOffset + 26);
+    const localExtraLen = buf.readUInt16LE(localHeaderOffset + 28);
+    const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+    const compressedData = buf.subarray(dataStart, dataStart + compSize);
+
+    let uncompressedData;
+    if (method === 0) {
+      uncompressedData = compressedData;
+    } else if (method === 8) {
+      try {
+        uncompressedData = zlib.inflateRawSync(compressedData);
+      } catch (err) {
+        continue;
+      }
+    } else {
+      continue;
+    }
+
+    const outPath = path.join(destDir, path.basename(fileName));
+    try {
+      fs.writeFileSync(outPath, uncompressedData);
+    } catch (e) {}
+  }
+}
+
+// -------------------------------------------------------------
+// SNAPDRAGON X HIGH PERFORMANCE GPU PROFILER
+// -------------------------------------------------------------
+function setHighPerformanceGpu(javaPath) {
+  if (!javaPath || process.platform !== 'win32') return;
+  try {
+    const javaw = javaPath.replace(/java\.exe$/i, 'javaw.exe');
+    exec(`reg add "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences" /v "${javaPath}" /t REG_SZ /d "GpuPreference=2;" /f`, () => {});
+    if (fs.existsSync(javaw)) {
+      exec(`reg add "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences" /v "${javaw}" /t REG_SZ /d "GpuPreference=2;" /f`, () => {});
+    }
+  } catch (e) {}
 }
 
 // -------------------------------------------------------------
@@ -145,7 +183,7 @@ function loadConfig() {
     maxRam: 4096,
     customJavaPath: '',
     closeOnLaunch: false,
-    jvmArgs: '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=50',
+    jvmArgs: '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25',
     instances: [
       { id: 'default', name: 'Default Instance (.minecraft)', path: MINECRAFT_DIR, version: '1.20.4' }
     ],
@@ -157,9 +195,7 @@ function saveConfig(cfg) {
   safeMkdirSync(APP_DIR);
   try {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
-  } catch (e) {
-    console.error('Failed to save configuration:', e);
-  }
+  } catch (e) {}
 }
 
 function getActiveInstanceDir(cfg) {
@@ -179,10 +215,10 @@ function getActiveInstanceDir(cfg) {
 // -------------------------------------------------------------
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 780,
-    minWidth: 1000,
-    minHeight: 660,
+    width: 1220,
+    height: 800,
+    minWidth: 1020,
+    minHeight: 680,
     frame: false,
     backgroundColor: '#09090b',
     show: false,
@@ -288,12 +324,24 @@ function downloadFile(url, dest, onProgress = null) {
 }
 
 function mavenToPath(coord) {
+  let ext = 'jar';
+  if (coord.includes('@')) {
+    const atParts = coord.split('@');
+    coord = atParts[0];
+    ext = atParts[1] || 'jar';
+  }
   const parts = coord.split(':');
   const group = parts[0].replace(/\./g, '/');
   const artifact = parts[1];
   const version = parts[2];
   const classifier = parts[3] ? `-${parts[3]}` : '';
-  return `${group}/${artifact}/${version}/${artifact}-${version}${classifier}.jar`;
+  return `${group}/${artifact}/${version}/${artifact}-${version}${classifier}.${ext}`;
+}
+
+function extractMcVersion(str) {
+  if (!str) return '1.20.4';
+  const match = str.match(/(?:fabric-loader-[^-]+-)?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/);
+  return match ? match[1] : str;
 }
 
 // -------------------------------------------------------------
@@ -357,23 +405,29 @@ ipcMain.handle('get-mc-versions', async () => {
 // FABRIC & SODIUM/IRIS ENGINE
 // -------------------------------------------------------------
 ipcMain.handle('get-fabric-loaders', async (event, gameVersion = '1.20.4') => {
-  const url = `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(gameVersion)}`;
-  return new Promise((resolve, reject) => {
+  const cleanVer = extractMcVersion(gameVersion);
+  const url = `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(cleanVer)}`;
+  return new Promise((resolve) => {
     https.get(url, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
       let data = '';
       res.on('data', c => data += c);
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
-          resolve(parsed.map(i => ({ version: i.loader.version, stable: !!i.loader.stable })));
+          if (Array.isArray(parsed) && parsed.length) {
+            resolve(parsed.map(i => ({ version: i.loader.version, stable: !!i.loader.stable })));
+          } else {
+            resolve([]);
+          }
         } catch (e) { resolve([]); }
       });
-    }).on('error', reject);
+    }).on('error', () => resolve([]));
   });
 });
 
 ipcMain.handle('install-fabric-profile', async (event, { gameVersion, loaderVersion }) => {
-  const profileUrl = `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(gameVersion)}/${encodeURIComponent(loaderVersion)}/profile/json`;
+  const cleanVer = extractMcVersion(gameVersion);
+  const profileUrl = `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(cleanVer)}/${encodeURIComponent(loaderVersion)}/profile/json`;
   return new Promise((resolve, reject) => {
     https.get(profileUrl, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
       let data = '';
@@ -381,7 +435,7 @@ ipcMain.handle('install-fabric-profile', async (event, { gameVersion, loaderVers
       res.on('end', async () => {
         try {
           const profile = JSON.parse(data);
-          const profileId = profile.id || `fabric-loader-${loaderVersion}-${gameVersion}`;
+          const profileId = profile.id || `fabric-loader-${loaderVersion}-${cleanVer}`;
           const targetDir = path.join(MINECRAFT_DIR, 'versions', profileId);
           safeMkdirSync(targetDir);
           fs.writeFileSync(path.join(targetDir, `${profileId}.json`), JSON.stringify(profile, null, 2));
@@ -393,7 +447,7 @@ ipcMain.handle('install-fabric-profile', async (event, { gameVersion, loaderVers
 });
 
 ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
-  const cleanVer = gameVersion.startsWith('fabric-loader') ? gameVersion.split('-').pop() : gameVersion;
+  const cleanVer = extractMcVersion(gameVersion);
   const cfg = loadConfig();
   const modsFolder = path.join(getActiveInstanceDir(cfg), 'mods');
   safeMkdirSync(modsFolder);
@@ -406,14 +460,26 @@ ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
 
   const results = [];
   for (const t of targets) {
-    const url = `https://api.modrinth.com/v2/project/${t.id}/version?game_versions=["${encodeURIComponent(cleanVer)}"]&loaders=["fabric"]`;
-    const verData = await new Promise((res, rej) => {
+    let url = `https://api.modrinth.com/v2/project/${t.id}/version?game_versions=["${encodeURIComponent(cleanVer)}"]&loaders=["fabric"]`;
+    let verData = await new Promise((res) => {
       https.get(url, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (r) => {
         let b = ''; r.on('data', c => b += c); r.on('end', () => {
           try { res(JSON.parse(b)); } catch (e) { res([]); }
         });
-      }).on('error', rej);
+      }).on('error', () => res([]));
     });
+
+    if (!verData || !verData.length) {
+      // Fallback query matching loader without strict minor version locks
+      const fallbackUrl = `https://api.modrinth.com/v2/project/${t.id}/version?loaders=["fabric"]`;
+      verData = await new Promise((res) => {
+        https.get(fallbackUrl, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (r) => {
+          let b = ''; r.on('data', c => b += c); r.on('end', () => {
+            try { res(JSON.parse(b)); } catch (e) { res([]); }
+          });
+        }).on('error', () => res([]));
+      });
+    }
 
     if (verData && verData.length) {
       const primary = verData[0].files.find(f => f.primary) || verData[0].files[0];
@@ -484,8 +550,11 @@ ipcMain.handle('install-arm-jdk', async (event) => {
     fs.rmSync(tempExtract, { recursive: true, force: true });
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
+    const javaBin = path.join(JDK_DIR, 'bin', 'java.exe');
+    setHighPerformanceGpu(javaBin);
+
     report('ARM64 JDK installed successfully.', 1.0);
-    return { success: true, path: path.join(JDK_DIR, 'bin', 'java.exe') };
+    return { success: true, path: javaBin };
   } catch (err) {
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
     throw err;
@@ -528,12 +597,13 @@ function httpPost(url, data, headers = {}) {
 function httpGet(url, token = null) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
+    const client = u.protocol === 'http:' ? http : https;
     const headers = { 'User-Agent': 'Aetheria-ARM64-Launcher' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const req = https.request({
+    const req = client.request({
       hostname: u.hostname,
-      port: 443,
+      port: u.port || (u.protocol === 'http:' ? 80 : 443),
       path: u.pathname + u.search,
       method: 'GET',
       headers
@@ -628,38 +698,77 @@ ipcMain.handle('start-microsoft-login', async () => {
 });
 
 // -------------------------------------------------------------
-// SKIN STUDIO
+// SKIN STUDIO (MULTI-PROVIDER RESOLVER)
 // -------------------------------------------------------------
+async function downloadSkinAsBase64(skinUrl) {
+  return new Promise((resolve, reject) => {
+    const client = skinUrl.startsWith('https:') ? https : http;
+    client.get(skinUrl, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return downloadSkinAsBase64(res.headers.location).then(resolve).catch(reject);
+      }
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        const b64 = Buffer.concat(chunks).toString('base64');
+        resolve(`data:image/png;base64,${b64}`);
+      });
+    }).on('error', reject);
+  });
+}
+
 ipcMain.handle('fetch-player-skin', async (event, username) => {
+  const cleanUser = username.trim();
+
+  // Tier 1: Mojang Sessionserver
   try {
-    const prof = await httpGet(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(username)}`);
-    if (!prof || !prof.id) throw new Error('Player profile not found');
-
-    const session = await httpGet(`https://sessionserver.mojang.com/session/minecraft/profile/${prof.id}`);
-    const prop = session.properties && session.properties.find(p => p.name === 'textures');
-    if (!prop) throw new Error('Texture property not found');
-
-    const parsed = JSON.parse(Buffer.from(prop.value, 'base64').toString('utf8'));
-    const skinUrl = parsed.textures && parsed.textures.SKIN && parsed.textures.SKIN.url;
-    if (!skinUrl) throw new Error('Skin texture unavailable');
-
-    return new Promise((resolve, reject) => {
-      https.get(skinUrl, (res) => {
-        const chunks = [];
-        res.on('data', c => chunks.push(c));
-        res.on('end', () => {
-          const b64 = Buffer.concat(chunks).toString('base64');
-          resolve({
+    const prof = await httpGet(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(cleanUser)}`);
+    if (prof && prof.id) {
+      const session = await httpGet(`https://sessionserver.mojang.com/session/minecraft/profile/${prof.id}`);
+      const prop = session.properties && session.properties.find(p => p.name === 'textures');
+      if (prop) {
+        const parsed = JSON.parse(Buffer.from(prop.value, 'base64').toString('utf8'));
+        const skinUrl = parsed.textures && parsed.textures.SKIN && parsed.textures.SKIN.url;
+        if (skinUrl) {
+          const skinB64 = await downloadSkinAsBase64(skinUrl);
+          return {
             username: prof.name,
             uuid: prof.id,
-            skinUrl: `data:image/png;base64,${b64}`,
-            isSlim: parsed.textures.SKIN.metadata && parsed.textures.SKIN.metadata.model === 'slim'
-          });
-        });
-      }).on('error', reject);
-    });
+            skinUrl: skinB64,
+            isSlim: !!(parsed.textures.SKIN.metadata && parsed.textures.SKIN.metadata.model === 'slim')
+          };
+        }
+      }
+    }
+  } catch (e) {}
+
+  // Tier 2: PlayerDB Proxy Fallback
+  try {
+    const pdb = await httpGet(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(cleanUser)}`);
+    if (pdb && pdb.success && pdb.data && pdb.data.player) {
+      const player = pdb.data.player;
+      const skinB64 = await downloadSkinAsBase64(player.skin_texture);
+      return {
+        username: player.username,
+        uuid: player.id,
+        skinUrl: skinB64,
+        isSlim: false
+      };
+    }
+  } catch (e) {}
+
+  // Tier 3: Minotar Raw Fallback
+  try {
+    const minotarUrl = `https://minotar.net/skin/${encodeURIComponent(cleanUser)}`;
+    const skinB64 = await downloadSkinAsBase64(minotarUrl);
+    return {
+      username: cleanUser,
+      uuid: 'Unknown',
+      skinUrl: skinB64,
+      isSlim: false
+    };
   } catch (e) {
-    throw new Error('Skin search failed: ' + e.message);
+    throw new Error(`Unable to fetch skin for ${cleanUser}. Verify name and network connection.`);
   }
 });
 
@@ -681,7 +790,9 @@ ipcMain.handle('get-installed-content', async (event, type = 'mods') => {
 
   return fs.readdirSync(folder).map(file => {
     const full = path.join(folder, file);
-    const stat = fs.statSync(full);
+    let stat = { size: 0, mtime: new Date(), isDirectory: () => false };
+    try { stat = fs.statSync(full); } catch (e) {}
+
     return {
       fileName: file,
       name: file.replace(/\.disabled$/, ''),
@@ -771,14 +882,14 @@ ipcMain.handle('import-dropped-files', async (event, { folderType, filePaths }) 
 // DUAL PROVIDER (MODRINH + CURSEFORGE)
 // -------------------------------------------------------------
 ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version = '1.20.4' }) => {
-  const cleanVer = version.startsWith('fabric-loader') ? version.split('-').pop() : version;
+  const cleanVer = extractMcVersion(version);
   const facets = [
     [`project_type:${type}`],
     [`versions:${cleanVer}`]
   ];
-  const url = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(query || '')}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=20`;
+  let url = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(query || '')}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=20`;
 
-  return new Promise((resolve) => {
+  let hits = await new Promise((resolve) => {
     https.get(url, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
       let data = '';
       res.on('data', c => data += c);
@@ -787,54 +898,76 @@ ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version =
       });
     }).on('error', () => resolve([]));
   });
+
+  if (!hits.length && query) {
+    const relaxedFacets = [[`project_type:${type}`]];
+    const fallbackUrl = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(query)}&facets=${encodeURIComponent(JSON.stringify(relaxedFacets))}&limit=20`;
+    hits = await new Promise((resolve) => {
+      https.get(fallbackUrl, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try { resolve(JSON.parse(data).hits || []); } catch (e) { resolve([]); }
+        });
+      }).on('error', () => resolve([]));
+    });
+  }
+
+  return hits;
 });
 
 ipcMain.handle('install-modrinth-item', async (event, { projectId, type, version = '1.20.4' }) => {
-  const cleanVer = version.startsWith('fabric-loader') ? version.split('-').pop() : version;
-  const versionsUrl = `https://api.modrinth.com/v2/project/${projectId}/version?game_versions=["${encodeURIComponent(cleanVer)}"]`;
+  const cleanVer = extractMcVersion(version);
+  let versionsUrl = `https://api.modrinth.com/v2/project/${projectId}/version?game_versions=["${encodeURIComponent(cleanVer)}"]`;
 
-  return new Promise((resolve, reject) => {
+  let versions = await new Promise((resolve, reject) => {
     https.get(versionsUrl, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
       let data = '';
       res.on('data', c => data += c);
-      res.on('end', async () => {
-        try {
-          const versions = JSON.parse(data);
-          if (!versions || !versions.length) throw new Error(`No compatible release found for ${cleanVer}`);
-
-          const primary = versions[0].files.find(f => f.primary) || versions[0].files[0];
-          let targetFolder = 'mods';
-          if (type === 'resourcepack') targetFolder = 'resourcepacks';
-          if (type === 'shader') targetFolder = 'shaderpacks';
-
-          const cfg = loadConfig();
-          const destDir = path.join(getActiveInstanceDir(cfg), targetFolder);
-          safeMkdirSync(destDir);
-
-          const filePath = path.join(destDir, primary.filename);
-          await downloadFile(primary.url, filePath);
-          resolve(primary.filename);
-        } catch (e) { reject(e); }
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch (e) { resolve([]); }
       });
     }).on('error', reject);
   });
+
+  if (!versions || !versions.length) {
+    versions = await new Promise((resolve, reject) => {
+      https.get(`https://api.modrinth.com/v2/project/${projectId}/version`, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); } catch (e) { resolve([]); }
+        });
+      }).on('error', reject);
+    });
+  }
+
+  if (!versions || !versions.length) throw new Error(`No compatible release found.`);
+
+  const primary = versions[0].files.find(f => f.primary) || versions[0].files[0];
+  let targetFolder = 'mods';
+  if (type === 'resourcepack') targetFolder = 'resourcepacks';
+  if (type === 'shader') targetFolder = 'shaderpacks';
+
+  const cfg = loadConfig();
+  const destDir = path.join(getActiveInstanceDir(cfg), targetFolder);
+  safeMkdirSync(destDir);
+
+  const filePath = path.join(destDir, primary.filename);
+  await downloadFile(primary.url, filePath);
+  return primary.filename;
 });
 
 ipcMain.handle('search-curseforge', async (event, { query, type = 'mod', version = '1.20.4' }) => {
-  const cleanVer = version.startsWith('fabric-loader') ? version.split('-').pop() : version;
+  const cleanVer = extractMcVersion(version);
   let classId = 6;
   if (type === 'resourcepack') classId = 12;
   if (type === 'shader') classId = 6552;
 
-  const url = `https://api.curseforge.com/v1/mods/search?gameId=432&classId=${classId}&searchFilter=${encodeURIComponent(query || '')}&gameVersion=${encodeURIComponent(cleanVer)}&pageSize=20&sortField=2&sortOrder=desc`;
+  let url = `https://api.curseforge.com/v1/mods/search?gameId=432&classId=${classId}&searchFilter=${encodeURIComponent(query || '')}&gameVersion=${encodeURIComponent(cleanVer)}&pageSize=20&sortField=2&sortOrder=desc`;
 
-  return new Promise((resolve) => {
-    https.get(url, {
-      headers: {
-        'Accept': 'application/json',
-        'x-api-key': CF_API_KEY
-      }
-    }, (res) => {
+  let results = await new Promise((resolve) => {
+    https.get(url, { headers: { 'Accept': 'application/json', 'x-api-key': CF_API_KEY } }, (res) => {
       let data = '';
       res.on('data', c => data += c);
       res.on('end', () => {
@@ -852,31 +985,63 @@ ipcMain.handle('search-curseforge', async (event, { query, type = 'mod', version
       });
     }).on('error', () => resolve([]));
   });
+
+  if (!results.length && query) {
+    const fallbackUrl = `https://api.curseforge.com/v1/mods/search?gameId=432&classId=${classId}&searchFilter=${encodeURIComponent(query)}&pageSize=20&sortField=2&sortOrder=desc`;
+    results = await new Promise((resolve) => {
+      https.get(fallbackUrl, { headers: { 'Accept': 'application/json', 'x-api-key': CF_API_KEY } }, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            resolve((parsed.data || []).map(m => ({
+              id: m.id,
+              title: m.name,
+              author: m.authors && m.authors[0] ? m.authors[0].name : 'Unknown',
+              description: m.summary,
+              icon_url: m.logo ? m.logo.thumbnailUrl : null,
+              provider: 'curseforge'
+            })));
+          } catch (e) { resolve([]); }
+        });
+      }).on('error', () => resolve([]));
+    });
+  }
+
+  return results;
 });
 
 ipcMain.handle('install-curseforge-item', async (event, { modId, type, version = '1.20.4' }) => {
-  const cleanVer = version.startsWith('fabric-loader') ? version.split('-').pop() : version;
+  const cleanVer = extractMcVersion(version);
   const filesUrl = `https://api.curseforge.com/v1/mods/${modId}/files?gameVersion=${encodeURIComponent(cleanVer)}`;
 
   return new Promise((resolve, reject) => {
-    https.get(filesUrl, {
-      headers: {
-        'Accept': 'application/json',
-        'x-api-key': CF_API_KEY
-      }
-    }, (res) => {
+    https.get(filesUrl, { headers: { 'Accept': 'application/json', 'x-api-key': CF_API_KEY } }, (res) => {
       let data = '';
       res.on('data', c => data += c);
       res.on('end', async () => {
         try {
           const parsed = JSON.parse(data);
-          const files = parsed.data || [];
-          if (!files.length) throw new Error(`No CurseForge build available for ${cleanVer}`);
+          let files = parsed.data || [];
+          if (!files.length) {
+            // Attempt query without version filter
+            const allFiles = await new Promise((rRes) => {
+              https.get(`https://api.curseforge.com/v1/mods/${modId}/files`, { headers: { 'Accept': 'application/json', 'x-api-key': CF_API_KEY } }, (r) => {
+                let d = ''; r.on('data', chunk => d += chunk); r.on('end', () => {
+                  try { rRes(JSON.parse(d).data || []); } catch (e) { rRes([]); }
+                });
+              }).on('error', () => rRes([]));
+            });
+            files = allFiles;
+          }
+
+          if (!files.length) throw new Error(`No compatible CurseForge build found.`);
 
           const file = files[0];
           let downloadUrl = file.downloadUrl;
           if (!downloadUrl) {
-            downloadUrl = `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${file.fileName}`;
+            downloadUrl = `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName)}`;
           }
 
           let targetFolder = 'mods';
@@ -961,16 +1126,15 @@ async function resolveVanillaDescriptor(versionId, sendStatus) {
   if (!fs.existsSync(versionJsonPath) || fs.statSync(versionJsonPath).size < 100) {
     sendStatus(`Fetching vanilla manifest for ${versionId}...`);
     if (!cachedManifest) {
-      const raw = await new Promise((res, rej) => {
+      cachedManifest = await new Promise((res, rej) => {
         https.get('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json', (r) => {
           let b = ''; r.on('data', c => b += c); r.on('end', () => res(JSON.parse(b)));
         }).on('error', rej);
       });
-      cachedManifest = raw;
     }
 
     const entry = cachedManifest.versions.find(v => v.id === versionId);
-    if (!entry) throw new Error(`Version ${versionId} not present in Mojang manifest.`);
+    if (!entry) throw new Error(`Version ${versionId} is not in Mojang's official manifest.`);
     await downloadFile(entry.url, versionJsonPath);
   }
 
@@ -987,11 +1151,12 @@ ipcMain.on('launch-game', async (event, cfg) => {
     let javaBin = cfg.customJavaPath;
     if (!javaBin || !fs.existsSync(javaBin)) {
       const detected = findSystemArmJava();
-      if (!detected.found) return sendStatus('No native ARM64 JDK found. Install Microsoft OpenJDK below.', true);
+      if (!detected.found) return sendStatus('Native ARM64 JDK runtime required. Install Microsoft OpenJDK 21 below.', true);
       javaBin = detected.path;
     }
 
-    sendStatus(`Preparing execution pipeline for ${versionId}...`);
+    setHighPerformanceGpu(javaBin);
+    sendStatus(`Preparing native ARM64 launch pipeline for ${versionId}...`);
 
     const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
     const versionJsonPath = path.join(versionsDir, `${versionId}.json`);
@@ -1011,23 +1176,23 @@ ipcMain.on('launch-game', async (event, cfg) => {
     if (versionData.inheritsFrom) {
       isInherited = true;
       baseGameVersion = versionData.inheritsFrom;
-      sendStatus(`Resolving base vanilla runtime (${baseGameVersion}) for Fabric...`);
+      sendStatus(`Resolving base Minecraft client (${baseGameVersion}) for Fabric Knot engine...`);
       parentData = await resolveVanillaDescriptor(baseGameVersion, sendStatus);
     }
 
     const effectiveBaseDir = path.join(MINECRAFT_DIR, 'versions', baseGameVersion);
     const clientJarPath = path.join(effectiveBaseDir, `${baseGameVersion}.jar`);
-    const nativesDir = path.join(effectiveBaseDir, 'natives');
+    const nativesDir = path.join(effectiveBaseDir, 'natives-arm64');
     safeMkdirSync(nativesDir);
 
     const clientDownloadUrl = (parentData || versionData).downloads?.client?.url;
     if (!fs.existsSync(clientJarPath) || fs.statSync(clientJarPath).size < 1000) {
-      if (!clientDownloadUrl) throw new Error(`Missing client binary URL for ${baseGameVersion}`);
-      sendStatus(`Downloading base Minecraft client (${baseGameVersion}.jar)...`);
+      if (!clientDownloadUrl) throw new Error(`Missing client binary specification for ${baseGameVersion}`);
+      sendStatus(`Downloading client binary (${baseGameVersion}.jar)...`);
       await downloadFile(clientDownloadUrl, clientJarPath);
     }
 
-    sendStatus('Verifying native ARM64 libraries & dependencies...');
+    sendStatus('Verifying native ARM64 dependencies and libraries...');
     const classpath = [];
 
     // Fabric Libraries
@@ -1053,11 +1218,12 @@ ipcMain.on('launch-game', async (event, cfg) => {
       if (lib.rules) {
         allowed = false;
         for (const rule of lib.rules) {
-          if (rule.action === 'allow') {
-            if (!rule.os || rule.os.name === 'windows') allowed = true;
-          } else if (rule.action === 'disallow') {
-            if (rule.os && rule.os.name === 'windows') allowed = false;
+          let matches = true;
+          if (rule.os) {
+            if (rule.os.name && rule.os.name !== 'windows') matches = false;
+            if (rule.os.arch && rule.os.arch !== 'arm64' && rule.os.arch !== 'aarch64') matches = false;
           }
+          if (matches) allowed = (rule.action === 'allow');
         }
       }
       if (!allowed) continue;
@@ -1068,21 +1234,41 @@ ipcMain.on('launch-game', async (event, cfg) => {
           await downloadFile(lib.downloads.artifact.url, libDest);
         }
         classpath.push(libDest);
+
+        // Modern 1.20+ ARM64 native artifact
+        if (lib.name && lib.name.includes('natives-windows-arm64')) {
+          extractDllsFromZip(libDest, nativesDir);
+        }
       }
 
-      // Windows ARM64 LWJGL Natives
+      // Windows ARM64 Classified Natives
       if (lib.downloads && lib.downloads.classifiers) {
         const cls = lib.downloads.classifiers;
-        const nativeKey = cls['natives-windows-arm64'] ? 'natives-windows-arm64' : cls['natives-windows'] ? 'natives-windows' : null;
-        if (nativeKey && cls[nativeKey]) {
+        let nativeKey = cls['natives-windows-arm64'] ? 'natives-windows-arm64' : null;
+
+        // Auto-resolve ARM64 LWJGL natives from Maven Central if absent
+        if (!nativeKey && lib.name && lib.name.startsWith('org.lwjgl')) {
+          const parts = lib.name.split(':');
+          const artifact = parts[1];
+          const ver = parts[2];
+          const arm64RelPath = `org/lwjgl/${artifact}/${ver}/${artifact}-${ver}-natives-windows-arm64.jar`;
+          const arm64Dest = path.join(MINECRAFT_DIR, 'libraries', arm64RelPath);
+          if (!fs.existsSync(arm64Dest) || fs.statSync(arm64Dest).size < 10) {
+            try {
+              const centralUrl = `https://repo1.maven.org/maven2/${arm64RelPath}`;
+              await downloadFile(centralUrl, arm64Dest);
+            } catch (e) {}
+          }
+          if (fs.existsSync(arm64Dest) && fs.statSync(arm64Dest).size > 100) {
+            extractDllsFromZip(arm64Dest, nativesDir);
+          }
+        } else if (nativeKey && cls[nativeKey]) {
           const nat = cls[nativeKey];
           const natJar = path.join(MINECRAFT_DIR, 'libraries', nat.path);
           if (!fs.existsSync(natJar) || fs.statSync(natJar).size < 10) {
             await downloadFile(nat.url, natJar);
           }
-          try {
-            execSync(`powershell.exe -NoProfile -Command "Expand-Archive -Path '${natJar}' -DestinationPath '${nativesDir}' -Force"`);
-          } catch (e) {}
+          extractDllsFromZip(natJar, nativesDir);
         }
       }
     }
@@ -1101,15 +1287,18 @@ ipcMain.on('launch-game', async (event, cfg) => {
 
     const mainClass = versionData.mainClass || (parentData && parentData.mainClass) || 'net.minecraft.client.main.Main';
     const account = cfg.account || { name: cfg.offlineUsername || 'Player', id: '00000000000000000000000000000000', token: 'null' };
-    const jvmFlags = (cfg.jvmArgs || '').split(' ').filter(Boolean);
+    const userJvmFlags = (cfg.jvmArgs || '').split(' ').filter(Boolean);
 
-    sendStatus(`Booting ${isInherited ? 'Fabric' : 'Minecraft'} on ARM64...`);
+    sendStatus(`Booting ${isInherited ? 'Fabric' : 'Minecraft'} on Snapdragon X ARM64...`);
 
     const args = [
       `-Xms${cfg.minRam || 2048}M`,
       `-Xmx${cfg.maxRam || 4096}M`,
-      ...jvmFlags,
       `-Djava.library.path=${nativesDir}`,
+      `-Dorg.lwjgl.librarypath=${nativesDir}`,
+      `-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=false`,
+      `-Dio.netty.tryReflectionSetAccessible=true`,
+      ...userJvmFlags,
       '-cp',
       classpath.join(';'),
       mainClass,
@@ -1126,10 +1315,21 @@ ipcMain.on('launch-game', async (event, cfg) => {
     const game = spawn(javaBin, args, { cwd: activeGameDir });
     let stderrOutput = '';
 
-    game.stderr.on('data', (d) => { stderrOutput += d.toString(); });
+    // Crucial: Stream and drain stdout to prevent pipe buffer deadlocks that freeze the title screen
+    game.stdout.on('data', (d) => {
+      const line = d.toString();
+      if (line.includes('Setting user:') || line.includes('Backend library:')) {
+        sendStatus('Minecraft graphics initialized natively.');
+      }
+    });
+
+    game.stderr.on('data', (d) => {
+      stderrOutput += d.toString();
+    });
+
     game.on('spawn', () => {
-      sendStatus(`Game running natively (PID: ${game.pid})`);
-      if (cfg.closeOnLaunch) setTimeout(() => mainWindow.hide(), 2000);
+      sendStatus(`Minecraft running (PID: ${game.pid})`);
+      if (cfg.closeOnLaunch) setTimeout(() => mainWindow.hide(), 2500);
     });
 
     game.on('close', (code) => {
@@ -1138,7 +1338,7 @@ ipcMain.on('launch-game', async (event, cfg) => {
       }
     });
 
-    game.on('error', (err) => sendStatus(`Execution halted: ${err.message}`, true));
+    game.on('error', (err) => sendStatus(`Execution failed: ${err.message}`, true));
   } catch (err) {
     sendStatus(`Launch failed: ${err.message}`, true);
   }
