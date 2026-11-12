@@ -34,6 +34,24 @@ const MINECRAFT_DIR = path.join(app.getPath('appData'), '.minecraft');
 const INSTANCES_DIR = path.join(APP_DIR, 'instances');
 
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
+const DEFAULT_ORYON_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
+
+// Real-time console log ring buffer (5000 lines max)
+const LOG_BUFFER_MAX = 5000;
+const gameLogs = [];
+
+function appendLog(line, stream = 'stdout') {
+  const entry = {
+    time: new Date().toLocaleTimeString(),
+    stream,
+    text: line.trimEnd()
+  };
+  gameLogs.push(entry);
+  if (gameLogs.length > LOG_BUFFER_MAX) gameLogs.shift();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('game-log-stream', entry);
+  }
+}
 
 // -------------------------------------------------------------
 // ATOMIC DIRECTORY RESOLVER
@@ -76,7 +94,7 @@ function initDirectories() {
 }
 
 // -------------------------------------------------------------
-// PURE NODE.JS ZIP EXTRACTOR (ZERO POWERSHELL OVERHEAD)
+// PURE NODE.JS ZIP EXTRACTOR (ZERO POWERSHELL CHILD PROCESSES)
 // -------------------------------------------------------------
 function extractDllsFromZip(zipFilePath, destDir) {
   safeMkdirSync(destDir);
@@ -167,7 +185,17 @@ function loadConfig() {
     try {
       const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
       if (!cfg.instances || !cfg.instances.length) {
-        cfg.instances = [{ id: 'default', name: 'Default Instance (.minecraft)', path: MINECRAFT_DIR, version: '1.20.4' }];
+        cfg.instances = [{
+          id: 'default',
+          name: 'Default Instance (.minecraft)',
+          path: MINECRAFT_DIR,
+          version: '1.20.4',
+          loader: 'vanilla',
+          minRam: 2048,
+          maxRam: 4096,
+          jvmArgs: DEFAULT_ORYON_JVM,
+          customJavaPath: ''
+        }];
         cfg.activeInstanceId = 'default';
       }
       return cfg;
@@ -183,9 +211,19 @@ function loadConfig() {
     maxRam: 4096,
     customJavaPath: '',
     closeOnLaunch: false,
-    jvmArgs: '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25',
+    jvmArgs: DEFAULT_ORYON_JVM,
     instances: [
-      { id: 'default', name: 'Default Instance (.minecraft)', path: MINECRAFT_DIR, version: '1.20.4' }
+      {
+        id: 'default',
+        name: 'Default Instance (.minecraft)',
+        path: MINECRAFT_DIR,
+        version: '1.20.4',
+        loader: 'vanilla',
+        minRam: 2048,
+        maxRam: 4096,
+        jvmArgs: DEFAULT_ORYON_JVM,
+        customJavaPath: ''
+      }
     ],
     activeInstanceId: 'default'
   };
@@ -198,12 +236,28 @@ function saveConfig(cfg) {
   } catch (e) {}
 }
 
-function getActiveInstanceDir(cfg) {
-  if (!cfg.activeInstanceId || cfg.activeInstanceId === 'default') {
-    return MINECRAFT_DIR;
+function getActiveInstance(cfg) {
+  const id = cfg.activeInstanceId || 'default';
+  let inst = (cfg.instances || []).find(i => i.id === id);
+  if (!inst) {
+    inst = {
+      id: 'default',
+      name: 'Default Instance (.minecraft)',
+      path: MINECRAFT_DIR,
+      version: cfg.selectedVersion || '1.20.4',
+      loader: 'vanilla',
+      minRam: cfg.minRam || 2048,
+      maxRam: cfg.maxRam || 4096,
+      jvmArgs: cfg.jvmArgs || DEFAULT_ORYON_JVM,
+      customJavaPath: cfg.customJavaPath || ''
+    };
   }
-  const inst = (cfg.instances || []).find(i => i.id === cfg.activeInstanceId);
-  if (inst && inst.path) {
+  return inst;
+}
+
+function getActiveInstanceDir(cfg) {
+  const inst = getActiveInstance(cfg);
+  if (inst.path && inst.id !== 'default') {
     safeMkdirSync(inst.path);
     return inst.path;
   }
@@ -215,10 +269,10 @@ function getActiveInstanceDir(cfg) {
 // -------------------------------------------------------------
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1220,
-    height: 800,
-    minWidth: 1020,
-    minHeight: 680,
+    width: 1240,
+    height: 840,
+    minWidth: 1040,
+    minHeight: 700,
     frame: false,
     backgroundColor: '#09090b',
     show: false,
@@ -254,23 +308,45 @@ ipcMain.handle('get-config', () => loadConfig());
 ipcMain.handle('save-config', (e, cfg) => { saveConfig(cfg); return true; });
 
 // -------------------------------------------------------------
-// INSTANCE CRUD
+// INSTANCE CRUD & SETTINGS
 // -------------------------------------------------------------
-ipcMain.handle('create-instance', async (e, { name, version }) => {
+ipcMain.handle('create-instance', async (e, { name, version, loader = 'vanilla' }) => {
   const cfg = loadConfig();
   const id = 'inst-' + Date.now();
   const instPath = path.join(INSTANCES_DIR, id);
 
-  ['mods', 'resourcepacks', 'shaderpacks', 'saves', 'screenshots'].forEach(sub => {
+  ['mods', 'resourcepacks', 'shaderpacks', 'saves', 'screenshots', 'config'].forEach(sub => {
     safeMkdirSync(path.join(instPath, sub));
   });
 
-  const newInst = { id, name, path: instPath, version };
+  const newInst = {
+    id,
+    name,
+    path: instPath,
+    version,
+    loader,
+    minRam: cfg.minRam || 2048,
+    maxRam: cfg.maxRam || 4096,
+    jvmArgs: DEFAULT_ORYON_JVM,
+    customJavaPath: ''
+  };
+
   cfg.instances.push(newInst);
   cfg.activeInstanceId = id;
   cfg.selectedVersion = version;
   saveConfig(cfg);
   return newInst;
+});
+
+ipcMain.handle('update-instance-settings', async (e, updatedData) => {
+  const cfg = loadConfig();
+  const idx = cfg.instances.findIndex(i => i.id === updatedData.id);
+  if (idx !== -1) {
+    cfg.instances[idx] = { ...cfg.instances[idx], ...updatedData };
+    saveConfig(cfg);
+    return true;
+  }
+  return false;
 });
 
 ipcMain.handle('delete-instance', async (e, instanceId) => {
@@ -340,7 +416,7 @@ function mavenToPath(coord) {
 
 function extractMcVersion(str) {
   if (!str) return '1.20.4';
-  const match = str.match(/(?:fabric-loader-[^-]+-)?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/);
+  const match = str.match(/(?:fabric-loader-[^-]+-|neoforge-|forge-)?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/);
   return match ? match[1] : str;
 }
 
@@ -361,10 +437,15 @@ function scanInstalledVersions() {
         if (fs.existsSync(jsonPath)) {
           try {
             const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+            const isNeo = entry.name.toLowerCase().includes('neoforge');
+            const isForge = !isNeo && entry.name.toLowerCase().includes('forge');
+            const isFabric = entry.name.startsWith('fabric-loader') || !!data.inheritsFrom;
             list.push({
               id: entry.name,
               inheritsFrom: data.inheritsFrom || null,
-              isFabric: entry.name.startsWith('fabric-loader') || !!data.inheritsFrom
+              isFabric,
+              isNeoForge: isNeo,
+              isForge: isForge
             });
           } catch (e) {}
         }
@@ -402,7 +483,7 @@ ipcMain.handle('get-mc-versions', async () => {
 });
 
 // -------------------------------------------------------------
-// FABRIC & SODIUM/IRIS ENGINE
+// FABRIC & NEOFORGE SETUP
 // -------------------------------------------------------------
 ipcMain.handle('get-fabric-loaders', async (event, gameVersion = '1.20.4') => {
   const cleanVer = extractMcVersion(gameVersion);
@@ -446,6 +527,60 @@ ipcMain.handle('install-fabric-profile', async (event, { gameVersion, loaderVers
   });
 });
 
+// NeoForge Version Metadata & Silent Headless Installer
+ipcMain.handle('get-neoforge-versions', async (event, gameVersion = '1.20.4') => {
+  const cleanVer = extractMcVersion(gameVersion);
+  // NeoForge maven metadata query
+  const url = 'https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml';
+  return new Promise((resolve) => {
+    https.get(url, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
+      let xml = '';
+      res.on('data', c => xml += c);
+      res.on('end', () => {
+        try {
+          const versionMatches = xml.match(/<version>([^<]+)<\/version>/g) || [];
+          const allVersions = versionMatches.map(v => v.replace(/<\/?version>/g, ''));
+          // Filter matching Minecraft major/minor version (e.g. 20.4 matches 1.20.4)
+          const majorMinor = cleanVer.split('.').slice(1).join('.');
+          const matched = allVersions.filter(v => v.startsWith(majorMinor) || v.startsWith(`20.${cleanVer.split('.')[2] || 0}`));
+          resolve(matched.reverse());
+        } catch (e) { resolve([]); }
+      });
+    }).on('error', () => resolve([]));
+  });
+});
+
+ipcMain.handle('install-neoforge-profile', async (event, { neoforgeVersion }) => {
+  const detected = findSystemArmJava();
+  if (!detected.found) throw new Error('ARM64 JDK required to execute NeoForge processor graph.');
+
+  const installerUrl = `https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoforgeVersion}/neoforge-${neoforgeVersion}-installer.jar`;
+  const tempInstaller = path.join(RUNTIMES_DIR, `neoforge-installer-${neoforgeVersion}.jar`);
+
+  appendLog(`Downloading NeoForge installer (${neoforgeVersion})...`);
+  await downloadFile(installerUrl, tempInstaller);
+
+  appendLog(`Executing headless NeoForge client installation pipeline...`);
+  return new Promise((resolve, reject) => {
+    const proc = spawn(detected.path, ['-jar', tempInstaller, '--installClient', MINECRAFT_DIR], {
+      cwd: MINECRAFT_DIR
+    });
+
+    proc.stdout.on('data', d => appendLog(d.toString(), 'stdout'));
+    proc.stderr.on('data', d => appendLog(d.toString(), 'stderr'));
+
+    proc.on('close', (code) => {
+      try { fs.unlinkSync(tempInstaller); } catch (e) {}
+      if (code === 0) {
+        appendLog(`NeoForge installed successfully.`);
+        resolve({ success: true, profileId: `neoforge-${neoforgeVersion}` });
+      } else {
+        reject(new Error(`NeoForge installer exited with error code ${code}`));
+      }
+    });
+  });
+});
+
 ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
   const cleanVer = extractMcVersion(gameVersion);
   const cfg = loadConfig();
@@ -470,7 +605,6 @@ ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
     });
 
     if (!verData || !verData.length) {
-      // Fallback query matching loader without strict minor version locks
       const fallbackUrl = `https://api.modrinth.com/v2/project/${t.id}/version?loaders=["fabric"]`;
       verData = await new Promise((res) => {
         https.get(fallbackUrl, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (r) => {
@@ -491,6 +625,326 @@ ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
 
   return results;
 });
+
+// -------------------------------------------------------------
+// PRISM LAUNCHER INSTANCE IMPORTER
+// -------------------------------------------------------------
+function parseIni(content) {
+  const map = {};
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx !== -1) {
+      map[trimmed.slice(0, eqIdx).trim()] = trimmed.slice(eqIdx + 1).trim();
+    }
+  }
+  return map;
+}
+
+ipcMain.handle('detect-prism-instances', async (event, customPrismDir = null) => {
+  let instancesRoot = customPrismDir;
+  if (!instancesRoot) {
+    const appData = process.env.APPDATA || '';
+    const candidate = path.join(appData, 'PrismLauncher', 'instances');
+    if (fs.existsSync(candidate)) instancesRoot = candidate;
+  }
+
+  if (!instancesRoot || !fs.existsSync(instancesRoot)) {
+    return { detected: false, instances: [], root: instancesRoot };
+  }
+
+  const discovered = [];
+  try {
+    const dirs = fs.readdirSync(instancesRoot, { withFileTypes: true });
+    for (const d of dirs) {
+      if (d.isDirectory()) {
+        const instDir = path.join(instancesRoot, d.name);
+        const cfgFile = path.join(instDir, 'instance.cfg');
+        const packFile = path.join(instDir, 'mmc-pack.json');
+
+        let name = d.name;
+        let mcVersion = 'Unknown';
+        let loader = 'Vanilla';
+        let minRam = 2048;
+        let maxRam = 4096;
+
+        if (fs.existsSync(cfgFile)) {
+          try {
+            const ini = parseIni(fs.readFileSync(cfgFile, 'utf-8'));
+            if (ini.name) name = ini.name;
+            if (ini.MinMemAlloc) minRam = parseInt(ini.MinMemAlloc, 10) || minRam;
+            if (ini.MaxMemAlloc) maxRam = parseInt(ini.MaxMemAlloc, 10) || maxRam;
+          } catch (e) {}
+        }
+
+        if (fs.existsSync(packFile)) {
+          try {
+            const pack = JSON.parse(fs.readFileSync(packFile, 'utf-8'));
+            if (Array.isArray(pack.components)) {
+              const mcComp = pack.components.find(c => c.uid === 'net.minecraft');
+              if (mcComp) mcVersion = mcComp.version;
+
+              if (pack.components.some(c => c.uid === 'net.fabricmc.fabric-loader')) loader = 'Fabric';
+              else if (pack.components.some(c => c.uid === 'net.neoforged')) loader = 'NeoForge';
+              else if (pack.components.some(c => c.uid === 'net.minecraftforge')) loader = 'Forge';
+              else if (pack.components.some(c => c.uid === 'org.quiltmc.quilt-loader')) loader = 'Quilt';
+            }
+          } catch (e) {}
+        }
+
+        discovered.push({
+          folderName: d.name,
+          fullPath: instDir,
+          name,
+          mcVersion,
+          loader,
+          minRam,
+          maxRam
+        });
+      }
+    }
+  } catch (e) {}
+
+  return { detected: true, instances: discovered, root: instancesRoot };
+});
+
+ipcMain.handle('import-prism-instance', async (event, { prismInstancePath, targetName }) => {
+  if (!fs.existsSync(prismInstancePath)) throw new Error('Selected Prism instance directory not found.');
+
+  const cfg = loadConfig();
+  const id = 'prism-' + Date.now();
+  const destDir = path.join(INSTANCES_DIR, id);
+  safeMkdirSync(destDir);
+
+  const cfgFile = path.join(prismInstancePath, 'instance.cfg');
+  const packFile = path.join(prismInstancePath, 'mmc-pack.json');
+  let mcVersion = '1.20.4';
+  let loader = 'vanilla';
+  let minRam = 2048;
+  let maxRam = 4096;
+
+  if (fs.existsSync(cfgFile)) {
+    try {
+      const ini = parseIni(fs.readFileSync(cfgFile, 'utf-8'));
+      if (ini.MinMemAlloc) minRam = parseInt(ini.MinMemAlloc, 10) || 2048;
+      if (ini.MaxMemAlloc) maxRam = parseInt(ini.MaxMemAlloc, 10) || 4096;
+    } catch (e) {}
+  }
+
+  if (fs.existsSync(packFile)) {
+    try {
+      const pack = JSON.parse(fs.readFileSync(packFile, 'utf-8'));
+      if (Array.isArray(pack.components)) {
+        const mcComp = pack.components.find(c => c.uid === 'net.minecraft');
+        if (mcComp) mcVersion = mcComp.version;
+        if (pack.components.some(c => c.uid === 'net.fabricmc.fabric-loader')) loader = 'fabric';
+        else if (pack.components.some(c => c.uid === 'net.neoforged')) loader = 'neoforge';
+        else if (pack.components.some(c => c.uid === 'net.minecraftforge')) loader = 'forge';
+      }
+    } catch (e) {}
+  }
+
+  const prismMcDir = path.join(prismInstancePath, '.minecraft');
+  const sourceRoot = fs.existsSync(prismMcDir) ? prismMcDir : prismInstancePath;
+
+  const copyFolderRecursive = (src, dest) => {
+    if (!fs.existsSync(src)) return;
+    safeMkdirSync(dest);
+    for (const item of fs.readdirSync(src)) {
+      const srcItem = path.join(src, item);
+      const destItem = path.join(dest, item);
+      if (fs.statSync(srcItem).isDirectory()) {
+        copyFolderRecursive(srcItem, destItem);
+      } else {
+        try { fs.copyFileSync(srcItem, destItem); } catch (e) {}
+      }
+    }
+  };
+
+  const copyPayload = ['mods', 'config', 'resourcepacks', 'shaderpacks', 'saves', 'options.txt', 'servers.dat'];
+  for (const item of copyPayload) {
+    const src = path.join(sourceRoot, item);
+    const dest = path.join(destDir, item);
+    if (fs.existsSync(src)) {
+      if (fs.statSync(src).isDirectory()) {
+        copyFolderRecursive(src, dest);
+      } else {
+        try { fs.copyFileSync(src, dest); } catch (e) {}
+      }
+    } else {
+      if (item !== 'options.txt' && item !== 'servers.dat') safeMkdirSync(dest);
+    }
+  }
+
+  const newInstance = {
+    id,
+    name: targetName || path.basename(prismInstancePath),
+    path: destDir,
+    version: mcVersion,
+    loader,
+    minRam,
+    maxRam,
+    jvmArgs: DEFAULT_ORYON_JVM,
+    customJavaPath: ''
+  };
+
+  cfg.instances.push(newInstance);
+  cfg.activeInstanceId = id;
+  cfg.selectedVersion = mcVersion;
+  saveConfig(cfg);
+
+  return newInstance;
+});
+
+// -------------------------------------------------------------
+// AUTOMATIC MOD UPDATE CHECKER (MODRINH SHA1 BATCH API)
+// -------------------------------------------------------------
+function hashFileSha1(filePath) {
+  return new Promise((resolve) => {
+    try {
+      const hash = crypto.createHash('sha1');
+      const stream = fs.createReadStream(filePath);
+      stream.on('data', data => hash.update(data));
+      stream.on('end', () => resolve(hash.digest('hex')));
+      stream.on('error', () => resolve(null));
+    } catch (e) { resolve(null); }
+  });
+}
+
+ipcMain.handle('check-mod-updates', async () => {
+  const cfg = loadConfig();
+  const modsFolder = path.join(getActiveInstanceDir(cfg), 'mods');
+  safeMkdirSync(modsFolder);
+
+  const jarFiles = fs.readdirSync(modsFolder).filter(f => f.endsWith('.jar') && !f.endsWith('.disabled'));
+  if (!jarFiles.length) return [];
+
+  const hashesMap = {};
+  for (const file of jarFiles) {
+    const full = path.join(modsFolder, file);
+    const sha = await hashFileSha1(full);
+    if (sha) hashesMap[sha] = file;
+  }
+
+  const hashes = Object.keys(hashesMap);
+  if (!hashes.length) return [];
+
+  const updateHits = [];
+  try {
+    const bodyStr = JSON.stringify({ hashes, algorithm: 'sha1' });
+    const versionFilesRes = await new Promise((resolve, reject) => {
+      const req = https.request('https://api.modrinth.com/v2/version_files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Aetheria-ARM64-Launcher'
+        }
+      }, (res) => {
+        let b = '';
+        res.on('data', c => b += c);
+        res.on('end', () => {
+          try { resolve(JSON.parse(b)); } catch (e) { resolve({}); }
+        });
+      });
+      req.on('error', reject);
+      req.write(bodyStr);
+      req.end();
+    });
+
+    const activeMcVer = extractMcVersion(cfg.selectedVersion || '1.20.4');
+
+    for (const [currHash, verInfo] of Object.entries(versionFilesRes)) {
+      const projectId = verInfo.project_id;
+      const fileName = hashesMap[currHash];
+
+      const projVersions = await new Promise((resolve) => {
+        https.get(`https://api.modrinth.com/v2/project/${projectId}/version?game_versions=["${encodeURIComponent(activeMcVer)}"]`, {
+          headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' }
+        }, (res) => {
+          let b = '';
+          res.on('data', c => b += c);
+          res.on('end', () => {
+            try { resolve(JSON.parse(b)); } catch (e) { resolve([]); }
+          });
+        }).on('error', () => resolve([]));
+      });
+
+      if (projVersions && projVersions.length) {
+        const latestVersion = projVersions[0];
+        if (latestVersion.id !== verInfo.id) {
+          const primaryFile = latestVersion.files.find(f => f.primary) || latestVersion.files[0];
+          updateHits.push({
+            currentFileName: fileName,
+            currentVersionNumber: verInfo.version_number,
+            newVersionNumber: latestVersion.version_number,
+            newFileName: primaryFile.filename,
+            downloadUrl: primaryFile.url,
+            projectId: projectId
+          });
+        }
+      }
+    }
+  } catch (err) {
+    appendLog(`Update check fault: ${err.message}`, 'stderr');
+  }
+
+  return updateHits;
+});
+
+ipcMain.handle('apply-mod-update', async (event, updateItem) => {
+  const cfg = loadConfig();
+  const modsFolder = path.join(getActiveInstanceDir(cfg), 'mods');
+  const oldPath = path.join(modsFolder, updateItem.currentFileName);
+  const bakPath = path.join(modsFolder, `${updateItem.currentFileName}.bak`);
+  const newPath = path.join(modsFolder, updateItem.newFileName);
+
+  if (fs.existsSync(oldPath)) {
+    try { fs.renameSync(oldPath, bakPath); } catch (e) {}
+  }
+
+  await downloadFile(updateItem.downloadUrl, newPath);
+  if (fs.existsSync(bakPath)) {
+    try { fs.unlinkSync(bakPath); } catch (e) {}
+  }
+
+  return updateItem.newFileName;
+});
+
+// -------------------------------------------------------------
+// LIVE CONSOLE & ARM64 CRASH HEURISTICS
+// -------------------------------------------------------------
+ipcMain.handle('get-console-logs', () => gameLogs);
+ipcMain.handle('clear-console-logs', () => { gameLogs.length = 0; return true; });
+
+function diagnoseCrash(fullLogs) {
+  const summary = {
+    faultIdentified: false,
+    title: 'Unknown JVM Termination',
+    recommendation: 'Check that standard JVM flags are valid and no conflicting mod combinations are loaded.'
+  };
+
+  if (fullLogs.includes('EXCEPTION_ACCESS_VIOLATION') || fullLogs.includes('0xc0000005')) {
+    summary.faultIdentified = true;
+    summary.title = 'ARM64 Native Execution Trap (Access Violation)';
+    summary.recommendation = 'An unmapped x86/x64 instruction faulted inside Windows ARM64 emulation. Ensure native ARM64 LWJGL binaries are being used and your Qualcomm Adreno GPU DirectX drivers are up to date.';
+  } else if (fullLogs.includes('java.lang.UnsatisfiedLinkError')) {
+    summary.faultIdentified = true;
+    summary.title = 'Missing Native ARM64 DLL / Library Mismatch';
+    summary.recommendation = 'Minecraft attempted to link an x86/x64 native dynamic library. Verify that the ARM64 LWJGL native jar unpack pipeline completed without permission errors.';
+  } else if (fullLogs.includes('java.lang.OutOfMemoryError') || fullLogs.includes('Metaspace')) {
+    summary.faultIdentified = true;
+    summary.title = 'JVM Heap / Metaspace Exhaustion';
+    summary.recommendation = 'The game exceeded allocated RAM limits. Open Instance Settings and increase Max Memory allocation to 4096MB or 6144MB.';
+  } else if (fullLogs.includes('UnsupportedClassVersionError')) {
+    summary.faultIdentified = true;
+    summary.title = 'Java Runtime Version Mismatch';
+    summary.recommendation = 'Minecraft 1.20.5+ requires Java 21, and 1.17 - 1.20.4 requires Java 17+. Install and switch to the managed Microsoft OpenJDK 21 ARM64 build in Diagnostics.';
+  }
+
+  return summary;
+}
 
 // -------------------------------------------------------------
 // NATIVE ARM64 JDK RUNTIME
@@ -698,7 +1152,7 @@ ipcMain.handle('start-microsoft-login', async () => {
 });
 
 // -------------------------------------------------------------
-// SKIN STUDIO (MULTI-PROVIDER RESOLVER)
+// SKIN STUDIO
 // -------------------------------------------------------------
 async function downloadSkinAsBase64(skinUrl) {
   return new Promise((resolve, reject) => {
@@ -720,7 +1174,6 @@ async function downloadSkinAsBase64(skinUrl) {
 ipcMain.handle('fetch-player-skin', async (event, username) => {
   const cleanUser = username.trim();
 
-  // Tier 1: Mojang Sessionserver
   try {
     const prof = await httpGet(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(cleanUser)}`);
     if (prof && prof.id) {
@@ -742,7 +1195,6 @@ ipcMain.handle('fetch-player-skin', async (event, username) => {
     }
   } catch (e) {}
 
-  // Tier 2: PlayerDB Proxy Fallback
   try {
     const pdb = await httpGet(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(cleanUser)}`);
     if (pdb && pdb.success && pdb.data && pdb.data.player) {
@@ -757,7 +1209,6 @@ ipcMain.handle('fetch-player-skin', async (event, username) => {
     }
   } catch (e) {}
 
-  // Tier 3: Minotar Raw Fallback
   try {
     const minotarUrl = `https://minotar.net/skin/${encodeURIComponent(cleanUser)}`;
     const skinB64 = await downloadSkinAsBase64(minotarUrl);
@@ -768,7 +1219,7 @@ ipcMain.handle('fetch-player-skin', async (event, username) => {
       isSlim: false
     };
   } catch (e) {
-    throw new Error(`Unable to fetch skin for ${cleanUser}. Verify name and network connection.`);
+    throw new Error(`Unable to fetch skin for ${cleanUser}.`);
   }
 });
 
@@ -986,29 +1437,6 @@ ipcMain.handle('search-curseforge', async (event, { query, type = 'mod', version
     }).on('error', () => resolve([]));
   });
 
-  if (!results.length && query) {
-    const fallbackUrl = `https://api.curseforge.com/v1/mods/search?gameId=432&classId=${classId}&searchFilter=${encodeURIComponent(query)}&pageSize=20&sortField=2&sortOrder=desc`;
-    results = await new Promise((resolve) => {
-      https.get(fallbackUrl, { headers: { 'Accept': 'application/json', 'x-api-key': CF_API_KEY } }, (res) => {
-        let data = '';
-        res.on('data', c => data += c);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            resolve((parsed.data || []).map(m => ({
-              id: m.id,
-              title: m.name,
-              author: m.authors && m.authors[0] ? m.authors[0].name : 'Unknown',
-              description: m.summary,
-              icon_url: m.logo ? m.logo.thumbnailUrl : null,
-              provider: 'curseforge'
-            })));
-          } catch (e) { resolve([]); }
-        });
-      }).on('error', () => resolve([]));
-    });
-  }
-
   return results;
 });
 
@@ -1025,7 +1453,6 @@ ipcMain.handle('install-curseforge-item', async (event, { modId, type, version =
           const parsed = JSON.parse(data);
           let files = parsed.data || [];
           if (!files.length) {
-            // Attempt query without version filter
             const allFiles = await new Promise((rRes) => {
               https.get(`https://api.curseforge.com/v1/mods/${modId}/files`, { headers: { 'Accept': 'application/json', 'x-api-key': CF_API_KEY } }, (r) => {
                 let d = ''; r.on('data', chunk => d += chunk); r.on('end', () => {
@@ -1116,7 +1543,7 @@ ipcMain.handle('backup-world', async (event, folderName) => {
 });
 
 // -------------------------------------------------------------
-// GAME EXECUTION ENGINE
+// GAME LAUNCH PIPELINE
 // -------------------------------------------------------------
 async function resolveVanillaDescriptor(versionId, sendStatus) {
   const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
@@ -1134,24 +1561,29 @@ async function resolveVanillaDescriptor(versionId, sendStatus) {
     }
 
     const entry = cachedManifest.versions.find(v => v.id === versionId);
-    if (!entry) throw new Error(`Version ${versionId} is not in Mojang's official manifest.`);
+    if (!entry) throw new Error(`Version ${versionId} is not in Mojang's manifest.`);
     await downloadFile(entry.url, versionJsonPath);
   }
 
   return JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
 }
 
-ipcMain.on('launch-game', async (event, cfg) => {
-  const sendStatus = (message, isError = false) => event.reply('launch-status', { message, isError });
+ipcMain.on('launch-game', async (event, reqCfg) => {
+  const sendStatus = (message, isError = false) => {
+    appendLog(message, isError ? 'stderr' : 'stdout');
+    event.reply('launch-status', { message, isError });
+  };
 
   try {
-    const versionId = cfg.selectedVersion || '1.20.4';
-    const activeGameDir = getActiveInstanceDir(cfg);
+    const globalCfg = loadConfig();
+    const inst = getActiveInstance(globalCfg);
+    const versionId = inst.version || reqCfg.selectedVersion || '1.20.4';
+    const activeGameDir = getActiveInstanceDir(globalCfg);
 
-    let javaBin = cfg.customJavaPath;
+    let javaBin = inst.customJavaPath || globalCfg.customJavaPath;
     if (!javaBin || !fs.existsSync(javaBin)) {
       const detected = findSystemArmJava();
-      if (!detected.found) return sendStatus('Native ARM64 JDK runtime required. Install Microsoft OpenJDK 21 below.', true);
+      if (!detected.found) return sendStatus('Native ARM64 JDK runtime required. Install Microsoft OpenJDK 21.', true);
       javaBin = detected.path;
     }
 
@@ -1176,7 +1608,7 @@ ipcMain.on('launch-game', async (event, cfg) => {
     if (versionData.inheritsFrom) {
       isInherited = true;
       baseGameVersion = versionData.inheritsFrom;
-      sendStatus(`Resolving base Minecraft client (${baseGameVersion}) for Fabric Knot engine...`);
+      sendStatus(`Resolving base client (${baseGameVersion})...`);
       parentData = await resolveVanillaDescriptor(baseGameVersion, sendStatus);
     }
 
@@ -1192,10 +1624,9 @@ ipcMain.on('launch-game', async (event, cfg) => {
       await downloadFile(clientDownloadUrl, clientJarPath);
     }
 
-    sendStatus('Verifying native ARM64 dependencies and libraries...');
+    sendStatus('Verifying native ARM64 libraries and dependencies...');
     const classpath = [];
 
-    // Fabric Libraries
     if (isInherited && Array.isArray(versionData.libraries)) {
       for (const lib of versionData.libraries) {
         if (!lib.name) continue;
@@ -1205,13 +1636,12 @@ ipcMain.on('launch-game', async (event, cfg) => {
         if (!fs.existsSync(libDest) || fs.statSync(libDest).size < 10) {
           const baseUrl = lib.url || 'https://maven.fabricmc.net/';
           const fullUrl = baseUrl.endsWith('/') ? `${baseUrl}${libRelPath}` : `${baseUrl}/${libRelPath}`;
-          await downloadFile(fullUrl, libDest);
+          try { await downloadFile(fullUrl, libDest); } catch (e) {}
         }
-        classpath.push(libDest);
+        if (fs.existsSync(libDest)) classpath.push(libDest);
       }
     }
 
-    // Vanilla Libraries & Natives
     const vanillaLibs = (parentData || versionData).libraries || [];
     for (const lib of vanillaLibs) {
       let allowed = true;
@@ -1235,18 +1665,15 @@ ipcMain.on('launch-game', async (event, cfg) => {
         }
         classpath.push(libDest);
 
-        // Modern 1.20+ ARM64 native artifact
         if (lib.name && lib.name.includes('natives-windows-arm64')) {
           extractDllsFromZip(libDest, nativesDir);
         }
       }
 
-      // Windows ARM64 Classified Natives
       if (lib.downloads && lib.downloads.classifiers) {
         const cls = lib.downloads.classifiers;
         let nativeKey = cls['natives-windows-arm64'] ? 'natives-windows-arm64' : null;
 
-        // Auto-resolve ARM64 LWJGL natives from Maven Central if absent
         if (!nativeKey && lib.name && lib.name.startsWith('org.lwjgl')) {
           const parts = lib.name.split(':');
           const artifact = parts[1];
@@ -1286,14 +1713,17 @@ ipcMain.on('launch-game', async (event, cfg) => {
     }
 
     const mainClass = versionData.mainClass || (parentData && parentData.mainClass) || 'net.minecraft.client.main.Main';
-    const account = cfg.account || { name: cfg.offlineUsername || 'Player', id: '00000000000000000000000000000000', token: 'null' };
-    const userJvmFlags = (cfg.jvmArgs || '').split(' ').filter(Boolean);
+    const account = globalCfg.activeAccount || { name: globalCfg.offlineUsername || 'Player', id: '00000000000000000000000000000000', token: 'null' };
+    const userJvmFlags = (inst.jvmArgs || globalCfg.jvmArgs || DEFAULT_ORYON_JVM).split(' ').filter(Boolean);
 
-    sendStatus(`Booting ${isInherited ? 'Fabric' : 'Minecraft'} on Snapdragon X ARM64...`);
+    sendStatus(`Booting instance on Snapdragon X Oryon ARM64...`);
+
+    const minRam = inst.minRam || globalCfg.minRam || 2048;
+    const maxRam = inst.maxRam || globalCfg.maxRam || 4096;
 
     const args = [
-      `-Xms${cfg.minRam || 2048}M`,
-      `-Xmx${cfg.maxRam || 4096}M`,
+      `-Xms${minRam}M`,
+      `-Xmx${maxRam}M`,
       `-Djava.library.path=${nativesDir}`,
       `-Dorg.lwjgl.librarypath=${nativesDir}`,
       `-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=false`,
@@ -1313,32 +1743,39 @@ ipcMain.on('launch-game', async (event, cfg) => {
     ];
 
     const game = spawn(javaBin, args, { cwd: activeGameDir });
-    let stderrOutput = '';
+    let totalOutput = '';
 
-    // Crucial: Stream and drain stdout to prevent pipe buffer deadlocks that freeze the title screen
     game.stdout.on('data', (d) => {
       const line = d.toString();
+      totalOutput += line;
+      appendLog(line, 'stdout');
       if (line.includes('Setting user:') || line.includes('Backend library:')) {
-        sendStatus('Minecraft graphics initialized natively.');
+        sendStatus('Minecraft window and graphical pipeline active.');
       }
     });
 
     game.stderr.on('data', (d) => {
-      stderrOutput += d.toString();
+      const line = d.toString();
+      totalOutput += line;
+      appendLog(line, 'stderr');
     });
 
     game.on('spawn', () => {
       sendStatus(`Minecraft running (PID: ${game.pid})`);
-      if (cfg.closeOnLaunch) setTimeout(() => mainWindow.hide(), 2500);
+      if (globalCfg.closeOnLaunch) setTimeout(() => mainWindow.hide(), 2500);
     });
 
     game.on('close', (code) => {
       if (code !== 0 && code !== null) {
-        sendStatus(`Process exited (Code ${code}): ${stderrOutput.slice(-300) || 'Check JVM parameters'}`, true);
+        const diag = diagnoseCrash(totalOutput);
+        event.reply('game-crashed', { code, diag });
+        sendStatus(`Game crashed (Exit Code ${code}): ${diag.title}`, true);
+      } else {
+        sendStatus('Minecraft exited normally.');
       }
     });
 
-    game.on('error', (err) => sendStatus(`Execution failed: ${err.message}`, true));
+    game.on('error', (err) => sendStatus(`Execution error: ${err.message}`, true));
   } catch (err) {
     sendStatus(`Launch failed: ${err.message}`, true);
   }
