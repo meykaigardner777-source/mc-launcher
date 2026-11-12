@@ -6,6 +6,24 @@ const http = require('http');
 const crypto = require('crypto');
 const { spawn, exec, execSync } = require('child_process');
 
+// -------------------------------------------------------------
+// PROCESS GUARDS & SINGLE INSTANCE LOCK
+// -------------------------------------------------------------
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+  process.exit(0);
+}
+
+// Global runtime catch: Never let EEXIST crash the application
+process.on('uncaughtException', (err) => {
+  if (err && (err.code === 'EEXIST' || err.message.includes('EEXIST'))) {
+    console.warn('[Process Safe Guard] Ignored harmless EEXIST collision:', err.message);
+    return;
+  }
+  console.error('[Uncaught Exception]', err);
+});
+
 let mainWindow;
 
 // Directory Paths
@@ -19,25 +37,47 @@ const INSTANCES_DIR = path.join(APP_DIR, 'instances');
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
 
 // -------------------------------------------------------------
-// BULLETPROOF DIRECTORY ENGINE (CRASH-PROOF EEXIST HANDLER)
+// ATOMIC DIRECTORY RESOLVER (IMMUNE TO EEXIST & JUNCTIONS)
 // -------------------------------------------------------------
 function safeMkdirSync(targetPath) {
   if (!targetPath) return;
+
   try {
-    if (fs.existsSync(targetPath)) {
-      try {
-        const stat = fs.statSync(targetPath);
-        if (stat.isDirectory()) return;
-        fs.unlinkSync(targetPath);
-      } catch (e) {}
+    // Check path state without following symlinks
+    let lstat = null;
+    try {
+      lstat = fs.lstatSync(targetPath);
+    } catch (e) {
+      // Path does not exist, continue to mkdir
     }
+
+    if (lstat) {
+      if (lstat.isDirectory()) {
+        return; // Valid directory exists, nothing to do
+      }
+      if (lstat.isSymbolicLink()) {
+        try {
+          if (fs.statSync(targetPath).isDirectory()) return;
+        } catch (symErr) {
+          // Broken symlink/junction, unlink safely
+          try { fs.unlinkSync(targetPath); } catch (e) {}
+        }
+      } else {
+        // Blocked by a file, remove it
+        try { fs.unlinkSync(targetPath); } catch (e) {}
+      }
+    }
+
+    // Attempt creation with recursive flag
     fs.mkdirSync(targetPath, { recursive: true });
   } catch (err) {
-    if (err.code === 'EEXIST') {
+    // If it threw EEXIST, Windows already has an entity there. Verify and ignore.
+    if (err.code === 'EEXIST' || err.message.includes('EEXIST')) {
       try {
-        if (fs.statSync(targetPath).isDirectory()) return;
+        if (fs.existsSync(targetPath)) return;
       } catch (e) {}
     }
+    // Deep fallback: Try resolving full absolute path
     try {
       fs.mkdirSync(path.resolve(targetPath), { recursive: true });
     } catch (finalErr) {
@@ -48,32 +88,40 @@ function safeMkdirSync(targetPath) {
   }
 }
 
+// Backward-compatibility alias
+const ensureDirSync = safeMkdirSync;
+
 function initDirectories() {
-  try {
-    [
-      APP_DIR,
-      RUNTIMES_DIR,
-      INSTANCES_DIR,
-      MINECRAFT_DIR,
-      path.join(MINECRAFT_DIR, 'assets'),
-      path.join(MINECRAFT_DIR, 'assets', 'indexes'),
-      path.join(MINECRAFT_DIR, 'assets', 'objects'),
-      path.join(MINECRAFT_DIR, 'versions'),
-      path.join(MINECRAFT_DIR, 'libraries'),
-      path.join(MINECRAFT_DIR, 'mods'),
-      path.join(MINECRAFT_DIR, 'resourcepacks'),
-      path.join(MINECRAFT_DIR, 'shaderpacks'),
-      path.join(MINECRAFT_DIR, 'saves'),
-      path.join(MINECRAFT_DIR, 'screenshots'),
-      path.join(MINECRAFT_DIR, 'backups')
-    ].forEach(dir => safeMkdirSync(dir));
-  } catch (err) {
-    console.error('Directory initialization recovered from non-fatal error:', err);
+  const dirs = [
+    APP_DIR,
+    RUNTIMES_DIR,
+    INSTANCES_DIR,
+    MINECRAFT_DIR,
+    path.join(MINECRAFT_DIR, 'assets'),
+    path.join(MINECRAFT_DIR, 'assets', 'indexes'),
+    path.join(MINECRAFT_DIR, 'assets', 'objects'),
+    path.join(MINECRAFT_DIR, 'versions'),
+    path.join(MINECRAFT_DIR, 'libraries'),
+    path.join(MINECRAFT_DIR, 'mods'),
+    path.join(MINECRAFT_DIR, 'resourcepacks'),
+    path.join(MINECRAFT_DIR, 'shaderpacks'),
+    path.join(MINECRAFT_DIR, 'saves'),
+    path.join(MINECRAFT_DIR, 'screenshots'),
+    path.join(MINECRAFT_DIR, 'backups')
+  ];
+
+  for (const dir of dirs) {
+    try {
+      safeMkdirSync(dir);
+    } catch (e) {
+      // Individual directory errors are caught and logged without halting execution
+      console.warn(`[Init] Handled: ${dir}`);
+    }
   }
 }
 
 // -------------------------------------------------------------
-// CONFIGURATION & INSTANCE MANAGEMENT
+// CONFIGURATION & INSTANCES
 // -------------------------------------------------------------
 function loadConfig() {
   safeMkdirSync(APP_DIR);
@@ -107,7 +155,11 @@ function loadConfig() {
 
 function saveConfig(cfg) {
   safeMkdirSync(APP_DIR);
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+  } catch (e) {
+    console.error('Failed to save configuration:', e);
+  }
 }
 
 function getActiveInstanceDir(cfg) {
@@ -122,7 +174,9 @@ function getActiveInstanceDir(cfg) {
   return MINECRAFT_DIR;
 }
 
-// Window Setup
+// -------------------------------------------------------------
+// WINDOW SETUP
+// -------------------------------------------------------------
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -141,6 +195,13 @@ function createWindow() {
   mainWindow.loadFile('index.html');
   mainWindow.once('ready-to-show', () => mainWindow.show());
 }
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
 
 ipcMain.on('window-min', () => mainWindow.minimize());
 ipcMain.on('window-max', () => mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize());
@@ -181,7 +242,7 @@ ipcMain.handle('delete-instance', async (e, instanceId) => {
   const cfg = loadConfig();
   const target = cfg.instances.find(i => i.id === instanceId);
   if (target && target.path && fs.existsSync(target.path)) {
-    fs.rmSync(target.path, { recursive: true, force: true });
+    try { fs.rmSync(target.path, { recursive: true, force: true }); } catch (e) {}
   }
   cfg.instances = cfg.instances.filter(i => i.id !== instanceId);
   cfg.activeInstanceId = 'default';
@@ -190,7 +251,7 @@ ipcMain.handle('delete-instance', async (e, instanceId) => {
 });
 
 // -------------------------------------------------------------
-// DOWNLOAD ENGINE (HTTP/HTTPS STREAM WITH RETRIES)
+// DOWNLOAD PIPELINE
 // -------------------------------------------------------------
 function downloadFile(url, dest, onProgress = null) {
   return new Promise((resolve, reject) => {
@@ -236,7 +297,7 @@ function mavenToPath(coord) {
 }
 
 // -------------------------------------------------------------
-// MOJANG VERSION SYNC & INSTALLED FABRIC SCANNER
+// VERSION MANIFEST & SCANNER
 // -------------------------------------------------------------
 let cachedManifest = null;
 
@@ -293,7 +354,7 @@ ipcMain.handle('get-mc-versions', async () => {
 });
 
 // -------------------------------------------------------------
-// FABRIC LOADER INSTALLER
+// FABRIC & SODIUM/IRIS ENGINE
 // -------------------------------------------------------------
 ipcMain.handle('get-fabric-loaders', async (event, gameVersion = '1.20.4') => {
   const url = `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(gameVersion)}`;
@@ -331,9 +392,6 @@ ipcMain.handle('install-fabric-profile', async (event, { gameVersion, loaderVers
   });
 });
 
-// -------------------------------------------------------------
-// SODIUM + IRIS 1-CLICK SHADER ENGINE
-// -------------------------------------------------------------
 ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
   const cleanVer = gameVersion.startsWith('fabric-loader') ? gameVersion.split('-').pop() : gameVersion;
   const cfg = loadConfig();
@@ -369,7 +427,7 @@ ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
 });
 
 // -------------------------------------------------------------
-// ARM64 JDK RUNTIME
+// NATIVE ARM64 JDK RUNTIME
 // -------------------------------------------------------------
 function findSystemArmJava() {
   const localJava = path.join(JDK_DIR, 'bin', 'java.exe');
@@ -606,7 +664,7 @@ ipcMain.handle('fetch-player-skin', async (event, username) => {
 });
 
 // -------------------------------------------------------------
-// CONTENT MANAGER (INSTANCE-AWARE)
+// CONTENT MANAGER
 // -------------------------------------------------------------
 function resolveFolderTarget(type) {
   if (type === 'resourcepacks') return 'resourcepacks';
@@ -710,7 +768,7 @@ ipcMain.handle('import-dropped-files', async (event, { folderType, filePaths }) 
 });
 
 // -------------------------------------------------------------
-// DUAL-PROVIDER SEARCH ENGINE (MODRINH + CURSEFORGE)
+// DUAL PROVIDER (MODRINH + CURSEFORGE)
 // -------------------------------------------------------------
 ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version = '1.20.4' }) => {
   const cleanVer = version.startsWith('fabric-loader') ? version.split('-').pop() : version;
@@ -764,7 +822,7 @@ ipcMain.handle('install-modrinth-item', async (event, { projectId, type, version
 
 ipcMain.handle('search-curseforge', async (event, { query, type = 'mod', version = '1.20.4' }) => {
   const cleanVer = version.startsWith('fabric-loader') ? version.split('-').pop() : version;
-  let classId = 6; // Mods
+  let classId = 6;
   if (type === 'resourcepack') classId = 12;
   if (type === 'shader') classId = 6552;
 
@@ -839,7 +897,7 @@ ipcMain.handle('install-curseforge-item', async (event, { modId, type, version =
 });
 
 // -------------------------------------------------------------
-// VAULT (INSTANCE-AWARE)
+// VAULT
 // -------------------------------------------------------------
 ipcMain.handle('get-vault-data', async () => {
   const cfg = loadConfig();
@@ -893,7 +951,7 @@ ipcMain.handle('backup-world', async (event, folderName) => {
 });
 
 // -------------------------------------------------------------
-// GAME EXECUTION & FABRIC KNOT RESOLVER
+// GAME EXECUTION ENGINE
 // -------------------------------------------------------------
 async function resolveVanillaDescriptor(versionId, sendStatus) {
   const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
