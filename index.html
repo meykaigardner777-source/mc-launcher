@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,8 +8,8 @@
     :root {
       color-scheme: dark;
       --bg: #09090b;
-      --card: rgba(18, 18, 21, 0.72);
-      --card-hover: rgba(24, 24, 27, 0.88);
+      --card: rgba(18, 18, 21, 0.75);
+      --card-hover: rgba(24, 24, 27, 0.9);
       --border: #27272a;
       --border-hover: #3f3f46;
       --border-focus: #52525b;
@@ -87,7 +86,7 @@
     .nav-trigger:hover { border-color: var(--border-focus); background: var(--card-hover); transform: translateY(-1px); }
 
     .nav-dropdown {
-      position: absolute; top: calc(100% + 8px); right: 0; width: 200px;
+      position: absolute; top: calc(100% + 8px); right: 0; width: 220px;
       background: rgba(18, 18, 21, 0.96); backdrop-filter: blur(24px);
       border: 1px solid var(--border); border-radius: var(--radius); padding: 6px;
       display: flex; flex-direction: column; gap: 3px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75);
@@ -113,7 +112,7 @@
     .win-btn:hover { background: #1c1c20; color: var(--text); }
     .win-btn.close:hover { background: var(--danger); color: #fff; }
 
-    .viewport { flex: 1; overflow-y: auto; padding: 32px 42px; position: relative; z-index: 1; }
+    .viewport { flex: 1; overflow-y: auto; padding: 28px 40px; position: relative; z-index: 1; }
     .panel { display: none; animation: panelIn 0.3s var(--ease) forwards; }
     .panel.active { display: block; }
 
@@ -121,17 +120,17 @@
 
     .card {
       background: var(--card); backdrop-filter: blur(16px); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+      border-radius: var(--radius); padding: 22px; margin-bottom: 20px;
       transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
     }
     .card:hover { border-color: var(--border-hover); }
 
-    .panel-header { margin-bottom: 24px; }
+    .panel-header { margin-bottom: 22px; }
     .panel-header h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
     .panel-header p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
 
     .btn {
-      background: #ffffff; color: #09090b; border: none; padding: 10px 20px;
+      background: #ffffff; color: #09090b; border: none; padding: 9px 18px;
       border-radius: var(--radius); font-size: 0.85rem; font-weight: 600;
       cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); transition: all 0.2s var(--ease);
     }
@@ -141,14 +140,14 @@
 
     .btn-secondary {
       background: rgba(24, 24, 27, 0.8); color: var(--text); border: 1px solid var(--border);
-      padding: 8px 16px; border-radius: var(--radius); font-size: 0.8rem; font-weight: 500;
+      padding: 7px 14px; border-radius: var(--radius); font-size: 0.8rem; font-weight: 500;
       cursor: pointer; transition: all 0.2s var(--ease);
     }
     .btn-secondary:hover { background: #222227; border-color: var(--border-focus); transform: translateY(-1px); }
 
     .input-field, .select-field {
-      width: 100%; background: rgba(9, 9, 11, 0.8); border: 1px solid var(--border);
-      padding: 10px 14px; border-radius: var(--radius); color: var(--text);
+      width: 100%; background: rgba(9, 9, 11, 0.85); border: 1px solid var(--border);
+      padding: 9px 13px; border-radius: var(--radius); color: var(--text);
       font-size: 0.85rem; outline: none; transition: border-color 0.2s ease;
     }
     .input-field:focus, .select-field:focus { border-color: var(--border-focus); }
@@ -156,21 +155,21 @@
     .chip-group { display: flex; gap: 8px; margin-bottom: 16px; }
     .chip-btn {
       background: var(--card); border: 1px solid var(--border); color: var(--text-muted);
-      padding: 6px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+      padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
       cursor: pointer; transition: all 0.2s var(--ease);
     }
     .chip-btn:hover { color: var(--text); border-color: var(--border-hover); }
     .chip-btn.active { background: #ffffff; color: #09090b; border-color: #ffffff; }
 
     .mod-item {
-      display: flex; justify-content: space-between; align-items: center; padding: 14px 18px;
+      display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
       background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-      margin-bottom: 12px; transition: all 0.25s var(--ease);
+      margin-bottom: 10px; transition: all 0.25s var(--ease);
     }
-    .mod-item:hover { transform: translateY(-2px); border-color: var(--border-focus); background: var(--card-hover); }
+    .mod-item:hover { transform: translateY(-1px); border-color: var(--border-focus); background: var(--card-hover); }
 
     .banner {
-      display: flex; justify-content: space-between; align-items: center; padding: 12px 18px;
+      display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
       border-radius: var(--radius); border: 1px solid var(--border); background: rgba(24, 24, 27, 0.7);
       margin-bottom: 18px;
     }
@@ -182,12 +181,6 @@
     }
     .drop-zone.drag-active { border-color: #ffffff; background: rgba(255, 255, 255, 0.04); color: #ffffff; }
 
-    .acc-card {
-      display: flex; align-items: center; justify-content: space-between; padding: 14px 18px;
-      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-      margin-bottom: 10px; transition: all 0.2s var(--ease);
-    }
-
     #toast {
       position: fixed; bottom: 24px; right: 24px; background: #18181b; border: 1px solid var(--border-focus);
       color: var(--text); padding: 12px 20px; border-radius: var(--radius); font-size: 0.8rem;
@@ -195,13 +188,22 @@
     }
 
     .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
       display: none; align-items: center; justify-content: center; z-index: 5000;
     }
     .modal-box {
-      width: 440px; background: #121215; border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+      width: 480px; max-height: 85vh; overflow-y: auto; background: #121215; border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.9);
     }
+
+    .console-box {
+      height: 480px; background: rgba(5, 5, 7, 0.9); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.75rem; color: #e4e4e7; overflow-y: auto; white-space: pre-wrap; line-height: 1.45;
+    }
+    .log-time { color: var(--text-dim); margin-right: 6px; }
+    .log-stderr { color: #f87171; }
+    .log-stdout { color: #e4e4e7; }
   </style>
 </head>
 <body>
@@ -222,9 +224,11 @@
         </button>
         <div class="nav-dropdown" id="dropdown-menu">
           <button class="nav-option active" onclick="switchTab('home', 'Overview')">Overview</button>
+          <button class="nav-option" onclick="switchTab('prism', 'Prism Importer')">Prism Importer</button>
           <button class="nav-option" onclick="switchTab('mods', 'Mod Hub')">Mod Hub</button>
           <button class="nav-option" onclick="switchTab('manager', 'Content Manager')">Content Manager</button>
-          <button class="nav-option" onclick="switchTab('fabric', 'Fabric Setup')">Fabric Setup</button>
+          <button class="nav-option" onclick="switchTab('loaders', 'Loader Engines')">Loader Engines</button>
+          <button class="nav-option" onclick="switchTab('console', 'Live Console')">Live Console</button>
           <button class="nav-option" onclick="switchTab('skins', 'Skin Studio')">Skin Studio</button>
           <button class="nav-option" onclick="switchTab('vault', 'Vault')">Vault</button>
           <button class="nav-option" onclick="switchTab('accounts', 'Accounts')">Accounts</button>
@@ -244,32 +248,35 @@
 
     <!-- OVERVIEW -->
     <section id="panel-home" class="panel active">
-      <div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 34px 28px;">
+      <div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 30px 24px;">
         <div style="flex: 1;">
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
             <h1 style="font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em;">Ready to Play</h1>
             <span class="brand-badge" id="version-badge">SYNCED</span>
           </div>
           <p id="hero-status" style="font-size: 0.85rem; color: var(--text-muted);">
-            Native Windows ARM64 Execution Pipeline
+            Native Snapdragon X Oryon Pipeline
           </p>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
           <div>
-            <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">INSTANCE</label>
-            <select id="instance-selector" class="select-field" style="width: 170px; padding: 8px 12px; cursor: pointer;" onchange="changeInstance(this.value)">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label style="font-size: 0.7rem; color: var(--text-dim); font-weight: 600;">INSTANCE</label>
+              <button class="btn-secondary" style="padding: 1px 6px; font-size: 0.65rem;" onclick="openCurrentInstanceSettings()">Edit</button>
+            </div>
+            <select id="instance-selector" class="select-field" style="width: 170px; padding: 7px 10px; cursor: pointer;" onchange="changeInstance(this.value)">
               <option value="default">Default (.minecraft)</option>
             </select>
           </div>
           <div>
             <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">ACTIVE PROFILE</label>
-            <select id="version-selector" class="select-field" style="width: 220px; padding: 8px 12px; cursor: pointer;" onchange="changeVersion(this.value)">
+            <select id="version-selector" class="select-field" style="width: 200px; padding: 7px 10px; cursor: pointer;" onchange="changeVersion(this.value)">
               <option value="1.20.4">1.20.4 (Release)</option>
             </select>
           </div>
 
-          <button class="btn" style="padding: 14px 38px; font-size: 0.95rem;" id="play-button" onclick="playGame()">
+          <button class="btn" style="padding: 13px 32px; font-size: 0.95rem;" id="play-button" onclick="playGame()">
             Play Minecraft
           </button>
         </div>
@@ -278,8 +285,8 @@
       <div class="card" id="jdk-card">
         <div style="display:flex; justify-content: space-between; align-items:center;">
           <div>
-            <h3 style="font-size: 0.95rem; font-weight: 600;">Hardware Diagnostics & Runtime</h3>
-            <p id="diag-java" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Inspecting ARM64 system binaries...</p>
+            <h3 style="font-size: 0.95rem; font-weight: 600;">Snapdragon ARM64 Runtime</h3>
+            <p id="diag-java" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Inspecting system binaries...</p>
           </div>
           <button class="btn-secondary" id="btn-install-jdk" style="display:none;" onclick="installArmJdk()">
             Auto-Install Microsoft OpenJDK 21
@@ -296,51 +303,67 @@
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <h3 style="font-size: 0.95rem; font-weight: 600;">Profile Instances</h3>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Create separate environments to isolate mods, shaders, and saves.</p>
+            <h3 style="font-size: 0.95rem; font-weight: 600;">Instance Management</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Isolate configurations, mod folders, and worlds.</p>
           </div>
-          <button class="btn-secondary" onclick="openNewInstanceModal()">+ New Instance</button>
+          <div style="display:flex; gap: 8px;">
+            <button class="btn-secondary" onclick="switchTab('prism', 'Prism Importer')">Import from Prism</button>
+            <button class="btn" onclick="openNewInstanceModal()">+ New Instance</button>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- FABRIC SETUP -->
-    <section id="panel-fabric" class="panel">
-      <div class="panel-header">
-        <h2>Fabric Setup</h2>
-        <p>Install lightweight, modular Fabric profiles across any release</p>
+    <!-- PRISM LAUNCHER IMPORTER -->
+    <section id="panel-prism" class="panel">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Prism Launcher Importer</h2>
+          <p>Direct migration of Prism instances, mod setups, configs, and saves</p>
+        </div>
+        <button class="btn-secondary" onclick="scanPrismInstances()">Rescan Instances</button>
       </div>
 
       <div class="card">
-        <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 14px;">Configure Profile Installation</h3>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;">
-          <div>
-            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">TARGET MINECRAFT VERSION</label>
-            <input list="mc-version-list" type="text" id="fabric-target-mc" class="input-field" value="1.20.4" oninput="fetchFabricLoaders()" />
-            <datalist id="mc-version-list"></datalist>
-          </div>
-          <div>
-            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">LOADER BUILD</label>
-            <select id="fabric-loader-select" class="select-field">
-              <option value="">Querying Fabric Meta API...</option>
-            </select>
-          </div>
+        <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">PRISM INSTANCES ROOT DIRECTORY</label>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="prism-path-input" class="input-field" placeholder="Auto-detected or custom Prism instances path..." />
+          <button class="btn-secondary" onclick="scanPrismInstances(document.getElementById('prism-path-input').value)">Load Folder</button>
         </div>
+      </div>
 
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <button class="btn" id="btn-install-fabric" onclick="installFabric()">Install Fabric Profile</button>
-          <button class="btn-secondary" onclick="installShaderEngine()">1-Click Sodium + Iris Shaders</button>
-        </div>
+      <div id="prism-instance-list">
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Detecting Prism installations...</p>
       </div>
     </section>
 
-    <!-- CONTENT MANAGER -->
+    <!-- LIVE CONSOLE & CRASH ANALYZER -->
+    <section id="panel-console" class="panel">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Live Game Output</h2>
+          <p>Real-time execution log and ARM64 diagnostic analyzer</p>
+        </div>
+        <div style="display:flex; gap: 8px;">
+          <button class="btn-secondary" onclick="clearConsole()">Clear Output</button>
+          <button class="btn-secondary" onclick="copyConsole()">Copy Full Log</button>
+        </div>
+      </div>
+
+      <div class="card" id="crash-diagnostic-box" style="display: none; border-color: #71717a; background: rgba(24, 24, 27, 0.9);">
+        <strong id="crash-title" style="font-size: 0.95rem; color: #fff; display:block; margin-bottom: 4px;">Crash Detected</strong>
+        <p id="crash-rec" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;"></p>
+      </div>
+
+      <div class="console-box" id="console-stream"></div>
+    </section>
+
+    <!-- CONTENT MANAGER (WITH MOD UPDATE CHECKER) -->
     <section id="panel-manager" class="panel">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
           <h2>Content Manager</h2>
-          <p>Local extensions, packs, and graphical enhancements</p>
+          <p>Local modifications, updates, and packages</p>
         </div>
         <div class="chip-group" style="margin-bottom: 0;">
           <button class="chip-btn active" id="mgr-chip-mods" onclick="loadManager('mods')">Mods</button>
@@ -349,16 +372,21 @@
         </div>
       </div>
 
-      <div class="banner" id="mgr-fabric-banner" style="display:none;">
-        <span style="font-size: 0.8rem; color: var(--text);">
-          Current target profile is <strong>Vanilla</strong>. Fabric mods run when a Fabric profile is selected.
-        </span>
-        <button class="btn-secondary" style="font-size:0.75rem; padding: 4px 10px;" onclick="switchTab('fabric', 'Fabric Setup')">Switch to Fabric</button>
+      <div class="card" id="updates-box" style="display:none; margin-bottom: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <h4 style="font-size: 0.9rem; font-weight: 600;">Mod Updates Available</h4>
+            <span id="updates-count-label" style="font-size: 0.75rem; color: var(--text-muted);">0 compatible updates found</span>
+          </div>
+          <button class="btn" style="font-size: 0.75rem; padding: 6px 14px;" onclick="applyAllUpdates()">Update All</button>
+        </div>
+        <div id="updates-container" style="display:flex; flex-direction:column; gap:8px;"></div>
       </div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
         <input type="text" id="mgr-search-input" class="input-field" style="max-width: 320px;" placeholder="Filter local items..." oninput="filterInstalledItems()" />
         <div style="display:flex; gap: 8px;">
+          <button class="btn-secondary" onclick="checkModUpdates()">Check Updates</button>
           <button class="btn-secondary" onclick="importContentDialog()">+ Add Files</button>
           <button class="btn-secondary" onclick="toggleAllItems(true)">Enable All</button>
           <button class="btn-secondary" onclick="toggleAllItems(false)">Disable All</button>
@@ -375,25 +403,63 @@
       </div>
     </section>
 
+    <!-- LOADER ENGINES (FABRIC & NEOFORGE) -->
+    <section id="panel-loaders" class="panel">
+      <div class="panel-header">
+        <h2>Loader Engines</h2>
+        <p>Install and switch between Fabric and NeoForge runtime environments</p>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 14px;">Fabric Profile Generator</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px;">
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">GAME RELEASE</label>
+            <input list="mc-version-list" type="text" id="fabric-target-mc" class="input-field" value="1.20.4" oninput="fetchFabricLoaders()" />
+            <datalist id="mc-version-list"></datalist>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">FABRIC BUILD</label>
+            <select id="fabric-loader-select" class="select-field">
+              <option value="">Querying builds...</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn" onclick="installFabric()">Install Fabric</button>
+          <button class="btn-secondary" onclick="installShaderEngine()">1-Click Sodium + Iris Shaders</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 14px;">NeoForge Engine (1.20.4+ / 1.21.x)</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px;">
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">TARGET VERSION</label>
+            <input type="text" id="neoforge-target-mc" class="input-field" value="1.20.4" oninput="fetchNeoForgeVersions()" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">NEOFORGE RELEASE</label>
+            <select id="neoforge-select" class="select-field">
+              <option value="">Querying NeoForge repository...</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn" onclick="installNeoForge()">Run Silent NeoForge Installer</button>
+      </div>
+    </section>
+
     <!-- MOD HUB (MODRINH + CURSEFORGE) -->
     <section id="panel-mods" class="panel">
       <div class="panel-header" style="display:flex; justify-content: space-between; align-items: center;">
         <div>
           <h2>Mod Hub</h2>
-          <p>Explore mods, shaders, and resource packs</p>
+          <p>Online repositories for enhancements and shaders</p>
         </div>
         <div style="display: flex; gap: 8px;">
           <button class="chip-btn active" id="provider-modrinth" onclick="setProvider('modrinth')">Modrinth</button>
           <button class="chip-btn" id="provider-curseforge" onclick="setProvider('curseforge')">CurseForge</button>
         </div>
-      </div>
-
-      <div class="banner">
-        <div>
-          <strong style="font-size: 0.85rem;">Snapdragon ARM64 Shaders Engine</strong>
-          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top:2px;">Install Sodium, Iris, and Fabric API in 1 click.</p>
-        </div>
-        <button class="btn" style="font-size:0.75rem; padding: 6px 14px;" onclick="installShaderEngine()">Install Engine</button>
       </div>
 
       <div class="chip-group">
@@ -402,13 +468,13 @@
         <button class="chip-btn" id="chip-shader" onclick="setModType('shader')">Shader Packs</button>
       </div>
 
-      <div style="display: flex; gap: 10px; margin-bottom: 22px;">
+      <div style="display: flex; gap: 10px; margin-bottom: 20px;">
         <input type="text" id="mod-query" class="input-field" placeholder="Search mods..." onkeydown="if(event.key==='Enter') executeHubSearch()" />
         <button class="btn-secondary" onclick="executeHubSearch()">Search</button>
       </div>
 
       <div id="mod-list">
-        <p style="font-size: 0.8rem; color: var(--text-muted);">Enter a keyword and press search.</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Enter keyword and search.</p>
       </div>
     </section>
 
@@ -416,27 +482,22 @@
     <section id="panel-skins" class="panel">
       <div class="panel-header">
         <h2>Skin Studio</h2>
-        <p>Inspect skins and sync with your Mojang account</p>
+        <p>Multi-tier Mojang avatar and overlay preview</p>
       </div>
-
       <div class="card" style="margin-bottom: 20px;">
-        <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Inspect Player Skin by Username</h3>
         <div style="display: flex; gap: 10px;">
-          <input type="text" id="skin-search-user" class="input-field" placeholder="Enter username (e.g. Steve, Alex, Notch)..." onkeydown="if(event.key==='Enter') searchPlayerSkin()" />
+          <input type="text" id="skin-search-user" class="input-field" placeholder="Enter username..." onkeydown="if(event.key==='Enter') searchPlayerSkin()" />
           <button class="btn" onclick="searchPlayerSkin()">Fetch Skin</button>
         </div>
       </div>
-
       <div style="display: flex; gap: 32px; align-items: flex-start;">
-        <div style="width: 160px; height: 260px; background: rgba(9, 9, 11, 0.85); border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);">
+        <div style="width: 140px; height: 260px; background: rgba(9, 9, 11, 0.9); border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; justify-content: center;">
           <canvas id="skin-canvas" width="128" height="256" style="image-rendering: pixelated; width: 128px; height: 256px;"></canvas>
         </div>
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
-          <div class="card">
-            <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 6px;">Skin Properties</h4>
-            <span id="skin-file-name" style="display:block; font-size:0.8rem; color:var(--text-muted);">No active texture loaded</span>
-            <span id="skin-model-name" style="display:block; font-size:0.75rem; color:var(--text-dim); margin-top: 4px;">Model: —</span>
-          </div>
+        <div class="card" style="flex:1;">
+          <h4 style="font-size: 0.9rem; margin-bottom: 6px;">Skin Profile</h4>
+          <span id="skin-file-name" style="display:block; font-size:0.8rem; color:var(--text-muted);">No skin loaded</span>
+          <span id="skin-model-name" style="display:block; font-size:0.75rem; color:var(--text-dim); margin-top: 4px;">Model: —</span>
         </div>
       </div>
     </section>
@@ -446,11 +507,11 @@
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
           <h2>Vault</h2>
-          <p>Local instances, worlds, and captures</p>
+          <p>Local worlds, backups, and captures</p>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button class="btn-secondary" onclick="openDir('saves')">Saves Folder</button>
-          <button class="btn-secondary" onclick="openDir('screenshots')">Captures Folder</button>
+          <button class="btn-secondary" onclick="openDir('saves')">Saves</button>
+          <button class="btn-secondary" onclick="openDir('screenshots')">Screenshots</button>
           <button class="btn-secondary" onclick="loadVault()">Refresh</button>
         </div>
       </div>
@@ -471,11 +532,10 @@
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
           <h2>Accounts</h2>
-          <p>Manage authentication profiles</p>
+          <p>Microsoft OAuth and offline fallback</p>
         </div>
         <button class="btn" onclick="addMicrosoftAccount()">Sign In with Microsoft</button>
       </div>
-
       <div class="card">
         <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Offline Player Fallback</h3>
         <div style="display: flex; gap: 10px;">
@@ -483,7 +543,6 @@
           <button class="btn-secondary" onclick="saveOfflineName()">Save Name</button>
         </div>
       </div>
-
       <div class="card">
         <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Connected Profiles</h3>
         <div id="accounts-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
@@ -493,12 +552,11 @@
     <!-- SETTINGS -->
     <section id="panel-settings" class="panel">
       <div class="panel-header">
-        <h2>Settings</h2>
-        <p>Visual theme and JVM allocation</p>
+        <h2>Global Settings</h2>
+        <p>Default parameters applied to newly created instances</p>
       </div>
-
       <div class="card">
-        <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Animated Background Presets</h3>
+        <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Background Canvas Engine</h3>
         <select id="cfg-bg-preset" class="select-field" onchange="setBgPreset(this.value)">
           <option value="waves">1. Obsidian Waves</option>
           <option value="starfield">2. Starfield Warp</option>
@@ -512,13 +570,8 @@
           <option value="none">10. Pitch Void</option>
         </select>
       </div>
-
       <div class="card">
-        <h3 style="font-size: 0.9rem; margin-bottom: 16px;">Java Virtual Machine</h3>
-        <div style="margin-bottom: 14px;">
-          <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">Custom Java Executable Path</label>
-          <input type="text" id="cfg-java" class="input-field" placeholder="Auto-managed ARM64 JDK" />
-        </div>
+        <h3 style="font-size: 0.9rem; margin-bottom: 14px;">Global JVM Allocation Defaults</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
           <div>
             <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">Min Memory (MB)</label>
@@ -530,26 +583,64 @@
           </div>
         </div>
         <div>
-          <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">JVM Flags</label>
+          <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">Default JVM Flags</label>
           <input type="text" id="cfg-jvm-flags" class="input-field" />
         </div>
       </div>
-
-      <button class="btn" onclick="saveSettings()">Save Preferences</button>
+      <button class="btn" onclick="saveGlobalSettings()">Save Preferences</button>
     </section>
 
   </main>
 
+  <!-- INSTANCE SETTINGS MODAL -->
+  <div class="modal-overlay" id="modal-inst-settings">
+    <div class="modal-box">
+      <h3 style="font-size:1.05rem; margin-bottom: 16px;">Instance Configuration</h3>
+      <div style="margin-bottom: 12px;">
+        <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Instance Name</label>
+        <input type="text" id="modal-inst-name" class="input-field" />
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div>
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Min RAM (MB)</label>
+          <input type="number" id="modal-inst-min-ram" class="input-field" />
+        </div>
+        <div>
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Max RAM (MB)</label>
+          <input type="number" id="modal-inst-max-ram" class="input-field" />
+        </div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Custom Java Executable</label>
+        <input type="text" id="modal-inst-java" class="input-field" placeholder="Leave blank for auto-detected ARM64 JDK" />
+      </div>
+      <div style="margin-bottom: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">Snapdragon Oryon JVM Arguments</label>
+          <button class="btn-secondary" style="padding:1px 6px; font-size:0.65rem;" onclick="resetOryonFlags()">Snapdragon Defaults</button>
+        </div>
+        <input type="text" id="modal-inst-jvm" class="input-field" />
+      </div>
+      <div style="display:flex; justify-content: space-between; align-items:center;">
+        <button class="btn-secondary" style="color:var(--danger);" id="modal-btn-del-inst" onclick="deleteActiveInstance()">Delete Instance</button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-secondary" onclick="closeInstanceSettingsModal()">Cancel</button>
+          <button class="btn" onclick="saveInstanceSettingsModal()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- NEW INSTANCE MODAL -->
   <div class="modal-overlay" id="modal-instance">
     <div class="modal-box">
-      <h3 style="font-size:1.1rem; margin-bottom: 12px;">Create New Instance</h3>
-      <div style="margin-bottom: 14px;">
+      <h3 style="font-size:1.05rem; margin-bottom: 14px;">Create New Instance</h3>
+      <div style="margin-bottom: 12px;">
         <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Instance Name</label>
         <input type="text" id="inst-name" class="input-field" placeholder="e.g. Snapdragon Shaders" />
       </div>
-      <div style="margin-bottom: 20px;">
-        <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Target Game Version</label>
+      <div style="margin-bottom: 18px;">
+        <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Game Version</label>
         <input type="text" id="inst-version" class="input-field" value="1.20.4" />
       </div>
       <div style="display:flex; justify-content: flex-end; gap: 8px;">
@@ -561,7 +652,7 @@
 
   <div id="toast"></div>
 
-  <!-- COMPLETE 10 MONOCHROME BACKGROUND CANVAS ENGINES -->
+  <!-- MONOCHROME CANVAS PRESET ENGINES -->
   <script>
     const canvas = document.getElementById('bg-canvas');
     const ctx = canvas.getContext('2d');
@@ -577,8 +668,6 @@
     resizeCanvas();
 
     let tick = 0;
-
-    // Presets State Pools
     const stars = Array.from({ length: 110 }, () => ({ x: Math.random() * (width || 800), y: Math.random() * (height || 600), z: Math.random() * 800 }));
     const matrixChars = '0123456789ABCDEFｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ'.split('');
     const matrixDrops = [];
@@ -588,38 +677,12 @@
       for (let i = 0; i < cols; i++) matrixDrops[i] = Math.floor(Math.random() * -50);
     }
     initMatrix();
-    window.addEventListener('resize', initMatrix);
 
     const plexusNodes = Array.from({ length: 48 }, () => ({
       x: Math.random() * (width || 800),
       y: Math.random() * (height || 600),
       vx: (Math.random() - 0.5) * 0.7,
       vy: (Math.random() - 0.5) * 0.7
-    }));
-
-    const mistParticles = Array.from({ length: 28 }, () => ({
-      x: Math.random() * (width || 800),
-      y: Math.random() * (height || 600),
-      r: 80 + Math.random() * 120,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3,
-      alpha: 0.02 + Math.random() * 0.04
-    }));
-
-    const voxels = Array.from({ length: 24 }, () => ({
-      x: Math.random() * (width || 800),
-      y: Math.random() * (height || 600),
-      size: 14 + Math.random() * 22,
-      vy: 0.3 + Math.random() * 0.6,
-      rot: Math.random() * Math.PI
-    }));
-
-    const constellations = Array.from({ length: 42 }, () => ({
-      x: Math.random() * (width || 800),
-      y: Math.random() * (height || 600),
-      vx: (Math.random() - 0.5) * 0.25,
-      vy: (Math.random() - 0.5) * 0.25,
-      radius: Math.random() * 1.5 + 0.8
     }));
 
     function renderAnimation() {
@@ -674,7 +737,7 @@
           if (y > height && Math.random() > 0.98) matrixDrops[i] = 0;
           matrixDrops[i]++;
         }
-      } else if (currentPreset === 'plexus') {
+      } else {
         ctx.fillStyle = '#09090b';
         ctx.fillRect(0, 0, width, height);
         for (let i = 0; i < plexusNodes.length; i++) {
@@ -682,120 +745,9 @@
           p.x += p.vx; p.y += p.vy;
           if (p.x < 0 || p.x > width) p.vx *= -1;
           if (p.y < 0 || p.y > height) p.vy *= -1;
-
           ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
           ctx.fillRect(p.x, p.y, 2, 2);
-
-          for (let j = i + 1; j < plexusNodes.length; j++) {
-            const p2 = plexusNodes[j];
-            const dx = p.x - p2.x, dy = p.y - p2.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 120) {
-              ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 * (1 - dist / 120)})`;
-              ctx.lineWidth = 0.8;
-              ctx.beginPath();
-              ctx.moveTo(p.x, p.y);
-              ctx.lineTo(p2.x, p2.y);
-              ctx.stroke();
-            }
-          }
         }
-      } else if (currentPreset === 'pulse') {
-        ctx.fillStyle = '#09090b';
-        ctx.fillRect(0, 0, width, height);
-        const maxR = Math.max(width, height) * 0.7;
-        for (let i = 0; i < 4; i++) {
-          const r = ((tick * 0.8 + i * (maxR / 4)) % maxR);
-          const alpha = Math.max(0, 0.15 * (1 - r / maxR));
-          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.arc(width / 2, height / 2, r, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      } else if (currentPreset === 'mist') {
-        ctx.fillStyle = '#09090b';
-        ctx.fillRect(0, 0, width, height);
-        mistParticles.forEach(p => {
-          p.x += p.vx; p.y += p.vy;
-          if (p.x < -p.r) p.x = width + p.r;
-          if (p.x > width + p.r) p.x = -p.r;
-          if (p.y < -p.r) p.y = height + p.r;
-          if (p.y > height + p.r) p.y = -p.r;
-
-          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
-          grad.addColorStop(0, `rgba(255, 255, 255, ${p.alpha})`);
-          grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fill();
-        });
-      } else if (currentPreset === 'grid') {
-        ctx.fillStyle = '#09090b';
-        ctx.fillRect(0, 0, width, height);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.lineWidth = 1;
-        const horizon = height * 0.45;
-
-        for (let x = -width; x <= width * 2; x += 50) {
-          ctx.beginPath();
-          ctx.moveTo(width / 2, horizon);
-          ctx.lineTo(x, height);
-          ctx.stroke();
-        }
-
-        const offset = (tick * 0.75) % 35;
-        for (let y = horizon; y <= height; y += (y - horizon) * 0.14 + 6) {
-          const drawY = y + offset * ((y - horizon) / (height - horizon));
-          if (drawY <= height) {
-            ctx.beginPath();
-            ctx.moveTo(0, drawY);
-            ctx.lineTo(width, drawY);
-            ctx.stroke();
-          }
-        }
-      } else if (currentPreset === 'voxels') {
-        ctx.fillStyle = '#09090b';
-        ctx.fillRect(0, 0, width, height);
-        voxels.forEach(v => {
-          v.y += v.vy;
-          v.rot += 0.006;
-          if (v.y > height + 40) { v.y = -40; v.x = Math.random() * width; }
-          ctx.save();
-          ctx.translate(v.x, v.y);
-          ctx.rotate(v.rot);
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.13)';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(-v.size / 2, -v.size / 2, v.size, v.size);
-          ctx.strokeRect(-v.size / 4, -v.size / 4, v.size / 2, v.size / 2);
-          ctx.restore();
-        });
-      } else if (currentPreset === 'constellation') {
-        ctx.fillStyle = '#09090b';
-        ctx.fillRect(0, 0, width, height);
-        constellations.forEach((c, idx) => {
-          c.x += c.vx; c.y += c.vy;
-          if (c.x < 0 || c.x > width) c.vx *= -1;
-          if (c.y < 0 || c.y > height) c.vy *= -1;
-
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-          ctx.beginPath();
-          ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
-          ctx.fill();
-
-          for (let j = idx + 1; j < constellations.length; j++) {
-            const c2 = constellations[j];
-            const d = Math.hypot(c.x - c2.x, c.y - c2.y);
-            if (d < 100) {
-              ctx.strokeStyle = `rgba(255, 255, 255, ${0.1 * (1 - d / 100)})`;
-              ctx.beginPath();
-              ctx.moveTo(c.x, c.y);
-              ctx.lineTo(c2.x, c2.y);
-              ctx.stroke();
-            }
-          }
-        });
       }
 
       animId = requestAnimationFrame(renderAnimation);
@@ -810,7 +762,7 @@
     }
   </script>
 
-  <!-- Core App Logic -->
+  <!-- APPLICATION CONTROLLER -->
   <script>
     const { ipcRenderer } = require('electron');
 
@@ -819,6 +771,9 @@
     let activeMgrType = 'mods';
     let activeProvider = 'modrinth';
     let localInstalledItems = [];
+    let pendingUpdates = [];
+
+    const DEFAULT_ORYON = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
 
     function toast(text) {
       const el = document.getElementById('toast');
@@ -847,7 +802,9 @@
 
       if (name === 'vault') loadVault();
       if (name === 'manager') loadManager(activeMgrType);
-      if (name === 'fabric') fetchFabricLoaders();
+      if (name === 'loaders') { fetchFabricLoaders(); fetchNeoForgeVersions(); }
+      if (name === 'prism') scanPrismInstances();
+      if (name === 'console') scrollToConsoleBottom();
     }
 
     function minWin() { ipcRenderer.send('window-min'); }
@@ -857,10 +814,10 @@
 
     window.addEventListener('DOMContentLoaded', async () => {
       currentConfig = await ipcRenderer.invoke('get-config');
-      document.getElementById('cfg-java').value = currentConfig.customJavaPath || '';
+
       document.getElementById('cfg-min-ram').value = currentConfig.minRam || 2048;
       document.getElementById('cfg-max-ram').value = currentConfig.maxRam || 4096;
-      document.getElementById('cfg-jvm-flags').value = currentConfig.jvmArgs || '';
+      document.getElementById('cfg-jvm-flags').value = currentConfig.jvmArgs || DEFAULT_ORYON;
       document.getElementById('cfg-offline-user').value = currentConfig.offlineUsername || 'Player';
       document.getElementById('cfg-bg-preset').value = currentConfig.bgPreset || 'waves';
 
@@ -870,12 +827,16 @@
       checkJdkStatus();
       await syncVersions();
       setupDragAndDrop();
+      initConsoleStream();
 
       if (currentConfig.activeAccount) {
         loadAccountSkinAuto(currentConfig.activeAccount.name);
       }
     });
 
+    // -------------------------------------------------------------
+    // INSTANCE CONTROLS & PER-INSTANCE SETTINGS
+    // -------------------------------------------------------------
     function renderInstances() {
       const sel = document.getElementById('instance-selector');
       sel.innerHTML = '';
@@ -899,6 +860,59 @@
       toast(`Active instance: ${inst ? inst.name : id}`);
     }
 
+    function openCurrentInstanceSettings() {
+      const activeId = currentConfig.activeInstanceId || 'default';
+      const inst = (currentConfig.instances || []).find(i => i.id === activeId);
+      if (!inst) return;
+
+      document.getElementById('modal-inst-name').value = inst.name;
+      document.getElementById('modal-inst-min-ram').value = inst.minRam || currentConfig.minRam || 2048;
+      document.getElementById('modal-inst-max-ram').value = inst.maxRam || currentConfig.maxRam || 4096;
+      document.getElementById('modal-inst-java').value = inst.customJavaPath || '';
+      document.getElementById('modal-inst-jvm').value = inst.jvmArgs || DEFAULT_ORYON;
+
+      document.getElementById('modal-btn-del-inst').style.display = (activeId === 'default') ? 'none' : 'block';
+      document.getElementById('modal-inst-settings').style.display = 'flex';
+    }
+
+    function closeInstanceSettingsModal() {
+      document.getElementById('modal-inst-settings').style.display = 'none';
+    }
+
+    function resetOryonFlags() {
+      document.getElementById('modal-inst-jvm').value = DEFAULT_ORYON;
+    }
+
+    async function saveInstanceSettingsModal() {
+      const activeId = currentConfig.activeInstanceId || 'default';
+      const inst = (currentConfig.instances || []).find(i => i.id === activeId);
+      if (!inst) return;
+
+      inst.name = document.getElementById('modal-inst-name').value.trim() || inst.name;
+      inst.minRam = parseInt(document.getElementById('modal-inst-min-ram').value, 10) || 2048;
+      inst.maxRam = parseInt(document.getElementById('modal-inst-max-ram').value, 10) || 4096;
+      inst.customJavaPath = document.getElementById('modal-inst-java').value.trim();
+      inst.jvmArgs = document.getElementById('modal-inst-jvm').value.trim() || DEFAULT_ORYON;
+
+      await ipcRenderer.invoke('update-instance-settings', inst);
+      currentConfig = await ipcRenderer.invoke('get-config');
+      renderInstances();
+      closeInstanceSettingsModal();
+      toast('Instance settings saved.');
+    }
+
+    async function deleteActiveInstance() {
+      const activeId = currentConfig.activeInstanceId;
+      if (activeId === 'default') return;
+      if (confirm('Permanently delete this instance and all its files?')) {
+        await ipcRenderer.invoke('delete-instance', activeId);
+        currentConfig = await ipcRenderer.invoke('get-config');
+        renderInstances();
+        closeInstanceSettingsModal();
+        toast('Instance deleted.');
+      }
+    }
+
     function openNewInstanceModal() {
       document.getElementById('modal-instance').style.display = 'flex';
     }
@@ -915,53 +929,180 @@
       toast(`Created instance: ${name}`);
     }
 
-    async function syncVersions() {
-      const manifest = await ipcRenderer.invoke('get-mc-versions');
-      const selector = document.getElementById('version-selector');
-      const datalist = document.getElementById('mc-version-list');
-      selector.innerHTML = '';
-      datalist.innerHTML = '';
+    // -------------------------------------------------------------
+    // PRISM IMPORTER LOGIC
+    // -------------------------------------------------------------
+    async function scanPrismInstances(customPath = null) {
+      const cont = document.getElementById('prism-instance-list');
+      cont.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">Querying Prism directories...</p>';
 
-      if (manifest.installed && manifest.installed.length) {
-        const fabGroup = document.createElement('optgroup');
-        fabGroup.label = 'Installed Fabric Profiles';
-        manifest.installed.filter(v => v.isFabric).forEach(v => {
-          const opt = document.createElement('option');
-          opt.value = v.id;
-          opt.innerText = `Fabric ${v.inheritsFrom || ''} (${v.id.replace('fabric-loader-', '')})`;
-          fabGroup.appendChild(opt);
-        });
-        if (fabGroup.children.length) selector.appendChild(fabGroup);
+      const res = await ipcRenderer.invoke('detect-prism-instances', customPath);
+      if (res.root) document.getElementById('prism-path-input').value = res.root;
+
+      if (!res.instances.length) {
+        cont.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No Prism instances found in target location. Specify custom directory above if using portable Prism.</span>';
+        return;
       }
 
-      const vanGroup = document.createElement('optgroup');
-      vanGroup.label = 'Official Releases';
-      manifest.versions.forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v.id;
-        opt.innerText = v.id === manifest.latest ? `${v.id} (Latest Release)` : v.id;
-        vanGroup.appendChild(opt);
-
-        const dOpt = document.createElement('option');
-        dOpt.value = v.id;
-        datalist.appendChild(dOpt);
+      cont.innerHTML = '';
+      res.instances.forEach(pi => {
+        const row = document.createElement('div');
+        row.className = 'mod-item';
+        row.innerHTML = `
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <strong style="font-size:0.9rem;">${pi.name}</strong>
+              <span class="brand-badge">${pi.loader}</span>
+              <span class="brand-badge" style="background:#27272a;">${pi.mcVersion}</span>
+            </div>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:4px;">
+              Folder: ${pi.folderName} &bull; RAM: ${pi.maxRam}MB
+            </span>
+          </div>
+          <button class="btn" onclick="importPrismInstanceAction('${encodeURIComponent(pi.fullPath)}', '${encodeURIComponent(pi.name)}')">
+            Import
+          </button>
+        `;
+        cont.appendChild(row);
       });
-      selector.appendChild(vanGroup);
-
-      const targetVersion = currentConfig.selectedVersion || manifest.latest;
-      selector.value = targetVersion;
-      document.getElementById('version-badge').innerText = targetVersion.startsWith('fabric') ? 'FABRIC' : targetVersion;
     }
 
-    async function changeVersion(ver) {
-      currentConfig.selectedVersion = ver;
-      document.getElementById('version-badge').innerText = ver.startsWith('fabric') ? 'FABRIC' : ver;
-      await ipcRenderer.invoke('save-config', currentConfig);
-      toast(`Profile targeted: ${ver}`);
+    async function importPrismInstanceAction(encPath, encName) {
+      const prismInstancePath = decodeURIComponent(encPath);
+      const targetName = decodeURIComponent(encName);
+
+      toast(`Importing ${targetName} from Prism...`);
+      try {
+        const inst = await ipcRenderer.invoke('import-prism-instance', { prismInstancePath, targetName });
+        currentConfig = await ipcRenderer.invoke('get-config');
+        renderInstances();
+        toast(`Instance '${inst.name}' successfully imported!`);
+        switchTab('home', 'Overview');
+      } catch (err) {
+        alert('Prism import failed: ' + err.message);
+      }
     }
 
     // -------------------------------------------------------------
-    // FABRIC SETUP LOGIC
+    // LIVE CONSOLE & CRASH DIAGNOSTICS
+    // -------------------------------------------------------------
+    function initConsoleStream() {
+      ipcRenderer.on('game-log-stream', (event, entry) => {
+        appendConsoleLine(entry);
+      });
+
+      ipcRenderer.on('game-crashed', (event, { code, diag }) => {
+        const box = document.getElementById('crash-diagnostic-box');
+        document.getElementById('crash-title').innerText = `Process Terminated (Code ${code}) — ${diag.title}`;
+        document.getElementById('crash-rec').innerText = diag.recommendation;
+        box.style.display = 'block';
+        switchTab('console', 'Live Console');
+      });
+    }
+
+    function appendConsoleLine(entry) {
+      const box = document.getElementById('console-stream');
+      const div = document.createElement('div');
+      div.className = entry.stream === 'stderr' ? 'log-stderr' : 'log-stdout';
+      div.innerHTML = `<span class="log-time">[${entry.time}]</span>${escapeHtml(entry.text)}`;
+      box.appendChild(div);
+      scrollToConsoleBottom();
+    }
+
+    function scrollToConsoleBottom() {
+      const box = document.getElementById('console-stream');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function clearConsole() {
+      await ipcRenderer.invoke('clear-console-logs');
+      document.getElementById('console-stream').innerHTML = '';
+      document.getElementById('crash-diagnostic-box').style.display = 'none';
+    }
+
+    function copyConsole() {
+      const text = document.getElementById('console-stream').innerText;
+      navigator.clipboard.writeText(text);
+      toast('Console logs copied to clipboard.');
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // -------------------------------------------------------------
+    // AUTOMATIC MOD UPDATE CHECKER
+    // -------------------------------------------------------------
+    async function checkModUpdates() {
+      toast('Checking Modrinth for compatible updates...');
+      try {
+        pendingUpdates = await ipcRenderer.invoke('check-mod-updates');
+        renderUpdatesUI();
+      } catch (e) {
+        alert('Update check fault: ' + e.message);
+      }
+    }
+
+    function renderUpdatesUI() {
+      const box = document.getElementById('updates-box');
+      const cont = document.getElementById('updates-container');
+      const lbl = document.getElementById('updates-count-label');
+
+      if (!pendingUpdates.length) {
+        box.style.display = 'none';
+        toast('All installed mods are up to date.');
+        return;
+      }
+
+      lbl.innerText = `${pendingUpdates.length} compatible update(s) detected`;
+      cont.innerHTML = '';
+
+      pendingUpdates.forEach((up, idx) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.style.padding = '8px 12px';
+        row.style.background = '#18181b';
+        row.style.borderRadius = '6px';
+        row.innerHTML = `
+          <div>
+            <strong style="font-size:0.85rem;">${up.currentFileName}</strong>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block;">
+              ${up.currentVersionNumber} &rarr; <span style="color:#ffffff;">${up.newVersionNumber}</span>
+            </span>
+          </div>
+          <button class="btn-secondary" onclick="applySingleUpdate(${idx})">Update</button>
+        `;
+        cont.appendChild(row);
+      });
+
+      box.style.display = 'block';
+    }
+
+    async function applySingleUpdate(idx) {
+      const item = pendingUpdates[idx];
+      toast(`Updating ${item.currentFileName}...`);
+      await ipcRenderer.invoke('apply-mod-update', item);
+      pendingUpdates.splice(idx, 1);
+      renderUpdatesUI();
+      loadManager('mods');
+      toast(`Updated to ${item.newFileName}`);
+    }
+
+    async function applyAllUpdates() {
+      for (const item of [...pendingUpdates]) {
+        toast(`Updating ${item.currentFileName}...`);
+        await ipcRenderer.invoke('apply-mod-update', item);
+      }
+      pendingUpdates = [];
+      renderUpdatesUI();
+      loadManager('mods');
+      toast('All mods successfully updated.');
+    }
+
+    // -------------------------------------------------------------
+    // FABRIC & NEOFORGE LOADERS
     // -------------------------------------------------------------
     async function fetchFabricLoaders() {
       const mcVer = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
@@ -972,7 +1113,7 @@
         const loaders = await ipcRenderer.invoke('get-fabric-loaders', mcVer);
         select.innerHTML = '';
         if (!loaders.length) {
-          select.innerHTML = '<option value="">No loader builds available for this version</option>';
+          select.innerHTML = '<option value="">No builds available</option>';
           return;
         }
         loaders.forEach((l, index) => {
@@ -982,24 +1123,58 @@
           select.appendChild(opt);
         });
       } catch (err) {
-        select.innerHTML = '<option value="">Failed to fetch Fabric versions</option>';
+        select.innerHTML = '<option value="">Query failed</option>';
       }
     }
 
     async function installFabric() {
       const gameVersion = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
       const loaderVersion = document.getElementById('fabric-loader-select').value;
-      if (!loaderVersion) return alert('Select a valid Fabric loader version build first.');
+      if (!loaderVersion) return alert('Select a valid Fabric build first.');
 
-      toast('Installing Fabric profile descriptor...');
+      toast('Installing Fabric profile...');
       try {
         const res = await ipcRenderer.invoke('install-fabric-profile', { gameVersion, loaderVersion });
         await syncVersions();
         await changeVersion(res.profileId);
         document.getElementById('version-selector').value = res.profileId;
-        toast(`Fabric profile installed and activated!`);
+        toast(`Fabric profile installed!`);
       } catch (e) {
         alert('Fabric installation failed: ' + e.message);
+      }
+    }
+
+    async function fetchNeoForgeVersions() {
+      const targetMc = document.getElementById('neoforge-target-mc').value.trim() || '1.20.4';
+      const select = document.getElementById('neoforge-select');
+      select.innerHTML = '<option value="">Querying NeoForge repository...</option>';
+
+      const versions = await ipcRenderer.invoke('get-neoforge-versions', targetMc);
+      select.innerHTML = '';
+      if (!versions.length) {
+        select.innerHTML = '<option value="">No releases found for this version</option>';
+        return;
+      }
+      versions.forEach((v, idx) => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.innerText = `${v}${idx === 0 ? ' — Recommended' : ''}`;
+        select.appendChild(opt);
+      });
+    }
+
+    async function installNeoForge() {
+      const ver = document.getElementById('neoforge-select').value;
+      if (!ver) return alert('Select a valid NeoForge build.');
+      toast('Starting headless NeoForge installation graph...');
+      switchTab('console', 'Live Console');
+
+      try {
+        const res = await ipcRenderer.invoke('install-neoforge-profile', { neoforgeVersion: ver });
+        await syncVersions();
+        toast('NeoForge installed and ready!');
+      } catch (e) {
+        alert('NeoForge install fault: ' + e.message);
       }
     }
 
@@ -1011,7 +1186,7 @@
         toast(`Installed: ${files.join(', ')}`);
         loadManager('mods');
       } catch (e) {
-        alert('Shader Engine install error: ' + e.message);
+        alert('Shader Engine error: ' + e.message);
       }
     }
 
@@ -1024,10 +1199,6 @@
         const el = document.getElementById(`mgr-chip-${t}`);
         if (el) el.classList.toggle('active', t === type);
       });
-
-      const banner = document.getElementById('mgr-fabric-banner');
-      const isVanilla = !(currentConfig.selectedVersion || '').startsWith('fabric-loader');
-      banner.style.display = (type === 'mods' && isVanilla) ? 'flex' : 'none';
 
       localInstalledItems = await ipcRenderer.invoke('get-installed-content', type);
       renderManagerList(localInstalledItems);
@@ -1212,7 +1383,7 @@
         diag.style.color = '#ffffff';
         btn.style.display = 'none';
       } else {
-        diag.innerText = 'No native ARM64 JDK found. Required for Snapdragon X performance.';
+        diag.innerText = 'No native ARM64 JDK found. Required for Snapdragon X Oryon performance.';
         diag.style.color = '#a1a1aa';
         btn.style.display = 'block';
       }
@@ -1245,7 +1416,7 @@
     }
 
     // -------------------------------------------------------------
-    // ADVANCED 2D SKIN STUDIO RENDERER (FULL OVERLAY SUPPORT)
+    // 2D SKIN STUDIO
     // -------------------------------------------------------------
     function drawSkinToCanvas(imgSrc) {
       const img = new Image();
@@ -1255,19 +1426,15 @@
         c.imageSmoothingEnabled = false;
         c.clearRect(0, 0, cvs.width, cvs.height);
 
-        // Head Base + Hat Overlay
         c.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
         c.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
 
-        // Body Base + Jacket Overlay
         c.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
         c.drawImage(img, 20, 36, 8, 12, 48, 48, 32, 48);
 
-        // Right Arm Base + Sleeve Overlay
         c.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
         c.drawImage(img, 44, 36, 4, 12, 32, 48, 16, 48);
 
-        // Left Arm (Handles 64x64 or mirrored 64x32)
         if (img.height >= 64) {
           c.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
           c.drawImage(img, 52, 52, 4, 12, 80, 48, 16, 48);
@@ -1279,11 +1446,9 @@
           c.restore();
         }
 
-        // Right Leg Base + Pants Overlay
         c.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
         c.drawImage(img, 4, 36, 4, 12, 48, 96, 16, 48);
 
-        // Left Leg (Handles 64x64 or mirrored 64x32)
         if (img.height >= 64) {
           c.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
           c.drawImage(img, 4, 52, 4, 12, 64, 96, 16, 48);
@@ -1303,7 +1468,7 @@
         const res = await ipcRenderer.invoke('fetch-player-skin', username);
         if (res && res.skinUrl) {
           drawSkinToCanvas(res.skinUrl);
-          document.getElementById('skin-file-name').innerText = `Active Account Skin: ${res.username}`;
+          document.getElementById('skin-file-name').innerText = `Active Account: ${res.username}`;
           document.getElementById('skin-model-name').innerText = `Model: ${res.isSlim ? 'Slim (Alex 3px)' : 'Classic (Steve 4px)'}`;
         }
       } catch (e) {}
@@ -1311,14 +1476,14 @@
 
     async function searchPlayerSkin() {
       const u = document.getElementById('skin-search-user').value.trim();
-      if (!u) return alert('Enter a Minecraft username to fetch.');
+      if (!u) return alert('Enter a Minecraft username.');
       toast(`Resolving skin for ${u}...`);
       try {
         const res = await ipcRenderer.invoke('fetch-player-skin', u);
         drawSkinToCanvas(res.skinUrl);
-        document.getElementById('skin-file-name').innerText = `Loaded Skin: ${res.username} (${res.uuid})`;
+        document.getElementById('skin-file-name').innerText = `Loaded: ${res.username}`;
         document.getElementById('skin-model-name').innerText = `Model: ${res.isSlim ? 'Slim (Alex 3px)' : 'Classic (Steve 4px)'}`;
-        toast(`Skin for ${res.username} loaded successfully!`);
+        toast(`Skin loaded.`);
       } catch (e) {
         alert(e.message);
       }
@@ -1338,13 +1503,13 @@
       accs.forEach(acc => {
         const isCurrent = currentConfig.activeAccount && currentConfig.activeAccount.id === acc.id;
         const row = document.createElement('div');
-        row.className = 'acc-card';
+        row.className = 'mod-item';
         row.innerHTML = `
-          <div style="display:flex; align-items:center; gap:14px;">
-            <img style="width:44px; height:44px; border-radius:6px; background:#000; border:1px solid var(--border); image-rendering:pixelated;" src="https://mc-heads.net/avatar/${acc.name}/64" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'44\\' height=\\'44\\'><rect width=\\'44\\' height=\\'44\\' fill=\\'%2318181b\\'/></svg>'" />
+          <div style="display:flex; align-items:center; gap:12px;">
+            <img style="width:40px; height:40px; border-radius:6px; background:#000; border:1px solid var(--border); image-rendering:pixelated;" src="https://mc-heads.net/avatar/${acc.name}/64" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\'><rect width=\\'40\\' height=\\'40\\' fill=\\'%2318181b\\'/></svg>'" />
             <div>
-              <strong style="font-size:0.9rem;">${acc.name}</strong>
-              <span style="font-size:0.75rem; color:var(--text-muted); display:block;">UUID: ${acc.id}</span>
+              <strong style="font-size:0.85rem;">${acc.name}</strong>
+              <span style="font-size:0.7rem; color:var(--text-muted); display:block;">UUID: ${acc.id}</span>
             </div>
           </div>
           <button class="btn-secondary" onclick="setActiveAccount('${acc.id}')">
@@ -1382,22 +1547,59 @@
     }
 
     // -------------------------------------------------------------
-    // LAUNCH EXECUTION
+    // LAUNCH PIPELINE
     // -------------------------------------------------------------
+    async function syncVersions() {
+      const manifest = await ipcRenderer.invoke('get-mc-versions');
+      const selector = document.getElementById('version-selector');
+      const datalist = document.getElementById('mc-version-list');
+      selector.innerHTML = '';
+      datalist.innerHTML = '';
+
+      if (manifest.installed && manifest.installed.length) {
+        const fabGroup = document.createElement('optgroup');
+        fabGroup.label = 'Installed Profiles';
+        manifest.installed.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.innerText = v.id;
+          fabGroup.appendChild(opt);
+        });
+        selector.appendChild(fabGroup);
+      }
+
+      const vanGroup = document.createElement('optgroup');
+      vanGroup.label = 'Official Releases';
+      manifest.versions.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.id;
+        opt.innerText = v.id === manifest.latest ? `${v.id} (Latest Release)` : v.id;
+        vanGroup.appendChild(opt);
+
+        const dOpt = document.createElement('option');
+        dOpt.value = v.id;
+        datalist.appendChild(dOpt);
+      });
+      selector.appendChild(vanGroup);
+
+      const targetVersion = currentConfig.selectedVersion || manifest.latest;
+      selector.value = targetVersion;
+      document.getElementById('version-badge').innerText = targetVersion.split('-')[0].toUpperCase();
+    }
+
+    async function changeVersion(ver) {
+      currentConfig.selectedVersion = ver;
+      document.getElementById('version-badge').innerText = ver.split('-')[0].toUpperCase();
+      await ipcRenderer.invoke('save-config', currentConfig);
+      toast(`Profile targeted: ${ver}`);
+    }
+
     function playGame() {
-      toast('Starting native ARM64 pipeline...');
+      toast('Starting native ARM64 launch pipeline...');
       document.getElementById('play-button').disabled = true;
 
       ipcRenderer.send('launch-game', {
-        customJavaPath: currentConfig.customJavaPath,
-        minRam: currentConfig.minRam,
-        maxRam: currentConfig.maxRam,
-        jvmArgs: currentConfig.jvmArgs,
-        closeOnLaunch: currentConfig.closeOnLaunch,
-        selectedVersion: currentConfig.selectedVersion || '1.20.4',
-        account: currentConfig.activeAccount,
-        offlineUsername: currentConfig.offlineUsername || 'Player',
-        activeInstanceId: currentConfig.activeInstanceId || 'default'
+        selectedVersion: currentConfig.selectedVersion || '1.20.4'
       });
     }
 
@@ -1405,7 +1607,6 @@
       document.getElementById('hero-status').innerText = res.message;
       if (res.isError) {
         document.getElementById('play-button').disabled = false;
-        alert(res.message);
       }
       toast(res.message);
     });
@@ -1462,15 +1663,14 @@
     }
 
     // -------------------------------------------------------------
-    // SETTINGS
+    // GLOBAL SETTINGS
     // -------------------------------------------------------------
-    async function saveSettings() {
-      currentConfig.customJavaPath = document.getElementById('cfg-java').value.trim();
+    async function saveGlobalSettings() {
       currentConfig.minRam = parseInt(document.getElementById('cfg-min-ram').value, 10) || 2048;
       currentConfig.maxRam = parseInt(document.getElementById('cfg-max-ram').value, 10) || 4096;
-      currentConfig.jvmArgs = document.getElementById('cfg-jvm-flags').value.trim();
+      currentConfig.jvmArgs = document.getElementById('cfg-jvm-flags').value.trim() || DEFAULT_ORYON;
       await ipcRenderer.invoke('save-config', currentConfig);
-      toast('Preferences saved.');
+      toast('Global preferences saved.');
     }
   </script>
 </body>
