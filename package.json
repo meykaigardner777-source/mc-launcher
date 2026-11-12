@@ -1,6 +1,6 @@
 {
   "name": "aetheria-launcher",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Monochrome ARM64 Native Minecraft Desktop Launcher",
   "author": "Aetheria",
   "main": "main.js",
@@ -13,7 +13,6 @@
     "electron-builder": "24.13.3"
   },
   "build": {
-    "publish": null,
     "appId": "com.aetheria.launcher",
     "productName": "Aetheria Launcher",
     "win": {
@@ -21,7 +20,10 @@
     },
     "nsis": {
       "oneClick": true,
-      "perMachine": false
+      "perMachine": false,
+      "allowElevation": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
     }
   }
 }
