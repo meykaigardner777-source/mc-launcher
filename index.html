@@ -168,12 +168,6 @@
     }
     .mod-item:hover { transform: translateY(-1px); border-color: var(--border-focus); background: var(--card-hover); }
 
-    .banner {
-      display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
-      border-radius: var(--radius); border: 1px solid var(--border); background: rgba(24, 24, 27, 0.7);
-      margin-bottom: 18px;
-    }
-
     .drop-zone {
       border: 1px dashed var(--border-hover); border-radius: var(--radius); padding: 18px;
       text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
@@ -192,7 +186,7 @@
       display: none; align-items: center; justify-content: center; z-index: 5000;
     }
     .modal-box {
-      width: 520px; max-height: 85vh; overflow-y: auto; background: #121215; border: 1px solid var(--border);
+      width: 540px; max-height: 85vh; overflow-y: auto; background: #121215; border: 1px solid var(--border);
       border-radius: var(--radius); padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.9);
     }
 
@@ -281,17 +275,21 @@
         </div>
       </div>
 
+      <!-- SNAPDRAGON ARM64 MULTI-RUNTIME MATRIX -->
       <div class="card" id="jdk-card">
-        <div style="display:flex; justify-content: space-between; align-items:center;">
+        <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 14px;">
           <div>
-            <h3 style="font-size: 0.95rem; font-weight: 600;">Snapdragon ARM64 Runtime</h3>
-            <p id="diag-java" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Inspecting system binaries...</p>
+            <h3 style="font-size: 0.95rem; font-weight: 600;">Snapdragon ARM64 Java Runtimes</h3>
+            <p id="diag-java" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Detecting runtime environments...</p>
           </div>
-          <button class="btn-secondary" id="btn-install-jdk" style="display:none;" onclick="installArmJdk()">
-            Auto-Install Microsoft OpenJDK 21
-          </button>
+          <button class="btn-secondary" onclick="checkJdkStatus()">Refresh Status</button>
         </div>
-        <div id="jdk-progress-box" style="display:none; margin-top:14px;">
+
+        <div id="jdk-matrix" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <!-- Dynamically populated with Java 8, 17, 21, 25 -->
+        </div>
+
+        <div id="jdk-progress-box" style="display:none; margin-top:16px;">
           <div style="height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;">
             <div id="jdk-progress-bar" style="height: 100%; width: 0%; background: #fff; transition: width 0.3s var(--ease);"></div>
           </div>
@@ -331,7 +329,7 @@
       <div class="console-box" id="console-stream"></div>
     </section>
 
-    <!-- CONTENT MANAGER (WITH MOD UPDATE CHECKER) -->
+    <!-- CONTENT MANAGER -->
     <section id="panel-manager" class="panel">
       <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
@@ -422,7 +420,7 @@
       </div>
     </section>
 
-    <!-- MOD HUB (MODRINH + CURSEFORGE) -->
+    <!-- MOD HUB (WITH TARGET GAME VERSION SELECTOR) -->
     <section id="panel-mods" class="panel">
       <div class="panel-header" style="display:flex; justify-content: space-between; align-items: center;">
         <div>
@@ -441,8 +439,14 @@
         <button class="chip-btn" id="chip-shader" onclick="setModType('shader')">Shader Packs</button>
       </div>
 
+      <!-- SEARCH TOOLBAR WITH DEDICATED GAME VERSION SELECTOR -->
       <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <input type="text" id="mod-query" class="input-field" placeholder="Search mods..." onkeydown="if(event.key==='Enter') executeHubSearch()" />
+        <div style="min-width: 170px;">
+          <select id="hub-version-filter" class="select-field" style="cursor: pointer;" onchange="executeHubSearch()">
+            <!-- Automatically populated from versions manifest -->
+          </select>
+        </div>
+        <input type="text" id="mod-query" class="input-field" placeholder="Search mods, resource packs, shaders..." onkeydown="if(event.key==='Enter') executeHubSearch()" />
         <button class="btn-secondary" onclick="executeHubSearch()">Search</button>
       </div>
 
@@ -547,9 +551,17 @@
       <div class="card">
         <h3 style="font-size: 0.9rem; margin-bottom: 14px;">Global Java Runtime & Environment Variables</h3>
         <div style="margin-bottom: 12px;">
-          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Default Java Executable</label>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="cfg-global-java" class="input-field" placeholder="Auto-managed ARM64 JDK" />
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Default Runtime Mode</label>
+          <select id="cfg-global-runtime-select" class="select-field" style="margin-bottom: 8px;" onchange="toggleGlobalCustomJava(this.value)">
+            <option value="auto">Auto-Detect per Minecraft Version</option>
+            <option value="8">Managed Java 8 ARM64 (Azul Zulu)</option>
+            <option value="17">Managed Java 17 ARM64 (Microsoft)</option>
+            <option value="21">Managed Java 21 ARM64 (Microsoft)</option>
+            <option value="25">Managed Java 25 ARM64 (OpenJDK Early Access)</option>
+            <option value="custom">Custom Executable Path</option>
+          </select>
+          <div id="cfg-global-custom-row" style="display:flex; gap:8px;">
+            <input type="text" id="cfg-global-java" class="input-field" placeholder="Custom java.exe or javaw.exe" />
             <button class="btn-secondary" onclick="browseGlobalJava()">Browse...</button>
           </div>
         </div>
@@ -577,7 +589,7 @@
 
   </main>
 
-  <!-- INSTANCE SETTINGS MODAL -->
+  <!-- INSTANCE SETTINGS MODAL (WITH PER-INSTANCE RUNTIME SWITCHER) -->
   <div class="modal-overlay" id="modal-inst-settings">
     <div class="modal-box">
       <h3 style="font-size:1.05rem; margin-bottom: 16px;">Instance Configuration</h3>
@@ -585,13 +597,24 @@
         <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Instance Name</label>
         <input type="text" id="modal-inst-name" class="input-field" />
       </div>
+
+      <!-- PER-INSTANCE JAVA RUNTIME SWITCHER -->
       <div style="margin-bottom: 12px;">
-        <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Custom Java Runtime</label>
-        <div style="display:flex; gap:8px;">
-          <input type="text" id="modal-inst-java" class="input-field" placeholder="Leave blank to use global runtime" />
+        <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Java Runtime Environment</label>
+        <select id="modal-inst-runtime" class="select-field" style="margin-bottom: 8px;" onchange="toggleInstanceCustomJava(this.value)">
+          <option value="auto">Auto-Detect (Matches Minecraft Version)</option>
+          <option value="8">Managed Java 8 ARM64 (Azul Zulu — &lt; 1.17)</option>
+          <option value="17">Managed Java 17 ARM64 (Microsoft — 1.17 – 1.20.4)</option>
+          <option value="21">Managed Java 21 ARM64 (Microsoft — 1.20.5+)</option>
+          <option value="25">Managed Java 25 ARM64 (OpenJDK Early Access)</option>
+          <option value="custom">Custom Binary Path</option>
+        </select>
+        <div id="modal-inst-custom-row" style="display:flex; gap:8px;">
+          <input type="text" id="modal-inst-java" class="input-field" placeholder="Custom java.exe or javaw.exe path" />
           <button class="btn-secondary" onclick="browseInstanceJava()">Browse...</button>
         </div>
       </div>
+
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
         <div>
           <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Min RAM (MB)</label>
@@ -636,9 +659,19 @@
           <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Instance Name</label>
           <input type="text" id="inst-name" class="input-field" placeholder="e.g. Snapdragon Shaders" />
         </div>
-        <div style="margin-bottom: 18px;">
+        <div style="margin-bottom: 12px;">
           <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Game Version</label>
           <input type="text" id="inst-version" class="input-field" value="1.20.4" />
+        </div>
+        <div style="margin-bottom: 18px;">
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Java Runtime</label>
+          <select id="inst-runtime" class="select-field">
+            <option value="auto">Auto-Detect for Version</option>
+            <option value="8">Managed Java 8 ARM64</option>
+            <option value="17">Managed Java 17 ARM64</option>
+            <option value="21">Managed Java 21 ARM64</option>
+            <option value="25">Managed Java 25 ARM64</option>
+          </select>
         </div>
         <div style="display:flex; justify-content: flex-end; gap: 8px;">
           <button class="btn-secondary" onclick="closeNewInstanceModal()">Cancel</button>
@@ -683,21 +716,6 @@
 
     let tick = 0;
     const stars = Array.from({ length: 110 }, () => ({ x: Math.random() * (width || 800), y: Math.random() * (height || 600), z: Math.random() * 800 }));
-    const matrixChars = '0123456789ABCDEFｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ'.split('');
-    const matrixDrops = [];
-    function initMatrix() {
-      const cols = Math.floor(window.innerWidth / 18) + 1;
-      matrixDrops.length = 0;
-      for (let i = 0; i < cols; i++) matrixDrops[i] = Math.floor(Math.random() * -50);
-    }
-    initMatrix();
-
-    const plexusNodes = Array.from({ length: 48 }, () => ({
-      x: Math.random() * (width || 800),
-      y: Math.random() * (height || 600),
-      vx: (Math.random() - 0.5) * 0.7,
-      vy: (Math.random() - 0.5) * 0.7
-    }));
 
     function renderAnimation() {
       tick++;
@@ -739,14 +757,6 @@
       } else {
         ctx.fillStyle = '#09090b';
         ctx.fillRect(0, 0, width, height);
-        for (let i = 0; i < plexusNodes.length; i++) {
-          const p = plexusNodes[i];
-          p.x += p.vx; p.y += p.vy;
-          if (p.x < 0 || p.x > width) p.vx *= -1;
-          if (p.y < 0 || p.y > height) p.vy *= -1;
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-          ctx.fillRect(p.x, p.y, 2, 2);
-        }
       }
 
       animId = requestAnimationFrame(renderAnimation);
@@ -816,7 +826,9 @@
       document.getElementById('cfg-min-ram').value = currentConfig.minRam || 2048;
       document.getElementById('cfg-max-ram').value = currentConfig.maxRam || 4096;
       document.getElementById('cfg-jvm-flags').value = currentConfig.jvmArgs || DEFAULT_ORYON;
+      document.getElementById('cfg-global-runtime-select').value = currentConfig.globalJavaRuntime || 'auto';
       document.getElementById('cfg-global-java').value = currentConfig.customJavaPath || '';
+      toggleGlobalCustomJava(currentConfig.globalJavaRuntime || 'auto');
       document.getElementById('cfg-global-env').value = currentConfig.envVars || '';
       document.getElementById('cfg-offline-user').value = currentConfig.offlineUsername || 'Player';
       document.getElementById('cfg-bg-preset').value = currentConfig.bgPreset || 'waves';
@@ -855,9 +867,19 @@
       if (inst && inst.version) {
         currentConfig.selectedVersion = inst.version;
         document.getElementById('version-selector').value = inst.version;
+        const hubVer = document.getElementById('hub-version-filter');
+        if (hubVer) hubVer.value = inst.version;
       }
       await ipcRenderer.invoke('save-config', currentConfig);
       toast(`Active instance: ${inst ? inst.name : id}`);
+    }
+
+    function toggleInstanceCustomJava(mode) {
+      document.getElementById('modal-inst-custom-row').style.display = (mode === 'custom') ? 'flex' : 'none';
+    }
+
+    function toggleGlobalCustomJava(mode) {
+      document.getElementById('cfg-global-custom-row').style.display = (mode === 'custom') ? 'flex' : 'none';
     }
 
     function openCurrentInstanceSettings() {
@@ -866,6 +888,8 @@
       if (!inst) return;
 
       document.getElementById('modal-inst-name').value = inst.name;
+      document.getElementById('modal-inst-runtime').value = inst.javaRuntime || 'auto';
+      toggleInstanceCustomJava(inst.javaRuntime || 'auto');
       document.getElementById('modal-inst-min-ram').value = inst.minRam || currentConfig.minRam || 2048;
       document.getElementById('modal-inst-max-ram').value = inst.maxRam || currentConfig.maxRam || 4096;
       document.getElementById('modal-inst-java').value = inst.customJavaPath || '';
@@ -900,6 +924,7 @@
       if (!inst) return;
 
       inst.name = document.getElementById('modal-inst-name').value.trim() || inst.name;
+      inst.javaRuntime = document.getElementById('modal-inst-runtime').value;
       inst.minRam = parseInt(document.getElementById('modal-inst-min-ram').value, 10) || 2048;
       inst.maxRam = parseInt(document.getElementById('modal-inst-max-ram').value, 10) || 4096;
       inst.customJavaPath = document.getElementById('modal-inst-java').value.trim();
@@ -944,11 +969,83 @@
     async function submitNewInstance() {
       const name = document.getElementById('inst-name').value.trim() || 'New Instance';
       const version = document.getElementById('inst-version').value.trim() || '1.20.4';
-      await ipcRenderer.invoke('create-instance', { name, version });
+      const javaRuntime = document.getElementById('inst-runtime').value || 'auto';
+      await ipcRenderer.invoke('create-instance', { name, version, javaRuntime });
       currentConfig = await ipcRenderer.invoke('get-config');
       renderInstances();
       closeNewInstanceModal();
       toast(`Created instance: ${name}`);
+    }
+
+    // -------------------------------------------------------------
+    // MULTI-VERSION JAVA RUNTIMES (8, 17, 21, 25)
+    // -------------------------------------------------------------
+    async function checkJdkStatus() {
+      const diag = document.getElementById('diag-java');
+      const matrix = document.getElementById('jdk-matrix');
+      const managed = await ipcRenderer.invoke('get-managed-jdks');
+      const sys = await ipcRenderer.invoke('detect-arm-java');
+
+      diag.innerText = sys.found ? `System Default: ${sys.source}` : 'No native ARM64 JDK registered in PATH.';
+      matrix.innerHTML = '';
+
+      managed.forEach(jdk => {
+        const item = document.createElement('div');
+        item.style.padding = '12px 14px';
+        item.style.background = '#18181b';
+        item.style.border = '1px solid var(--border)';
+        item.style.borderRadius = 'var(--radius)';
+        item.style.display = 'flex';
+        item.style.flexDirection = 'column';
+        item.style.justifyContent = 'space-between';
+        item.style.gap = '8px';
+
+        item.innerHTML = `
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="font-size:0.85rem; color:#fff;">Java ${jdk.version}</strong>
+              <span class="brand-badge" style="${jdk.installed ? 'background:#fff; color:#09090b;' : ''}">
+                ${jdk.installed ? 'INSTALLED' : 'NOT INSTALLED'}
+              </span>
+            </div>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:2px;">${jdk.desc}</span>
+            <span style="font-size:0.7rem; color:var(--text-dim); display:block; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+              ${jdk.installed ? jdk.path : 'Managed distribution'}
+            </span>
+          </div>
+          <button class="btn-secondary" style="font-size:0.75rem; padding:5px 10px; width:100%;" onclick="installJdkVersion('${jdk.version}')">
+            ${jdk.installed ? 'Reinstall' : 'Install Runtime'}
+          </button>
+        `;
+        matrix.appendChild(item);
+      });
+    }
+
+    async function installJdkVersion(version) {
+      const box = document.getElementById('jdk-progress-box');
+      const bar = document.getElementById('jdk-progress-bar');
+      const txt = document.getElementById('jdk-progress-text');
+
+      box.style.display = 'block';
+      bar.style.width = '0%';
+      txt.innerText = `Connecting to Java ${version} distribution CDN...`;
+
+      ipcRenderer.on('jdk-install-status', (e, data) => {
+        if (data.version === version) {
+          txt.innerText = data.step;
+          bar.style.width = `${Math.round((data.progress || 0) * 100)}%`;
+        }
+      });
+
+      try {
+        await ipcRenderer.invoke('install-managed-jdk', { version });
+        toast(`Java ${version} ARM64 runtime ready!`);
+        await checkJdkStatus();
+      } catch (err) {
+        alert(`Java ${version} installation error: ` + err.message);
+      } finally {
+        box.style.display = 'none';
+      }
     }
 
     // -------------------------------------------------------------
@@ -1320,7 +1417,7 @@
     }
 
     // -------------------------------------------------------------
-    // MOD HUB PROVIDERS
+    // MOD HUB PROVIDERS & VERSION SELECTOR
     // -------------------------------------------------------------
     function setProvider(p) {
       activeProvider = p;
@@ -1340,8 +1437,10 @@
     async function executeHubSearch() {
       const q = document.getElementById('mod-query').value.trim();
       const list = document.getElementById('mod-list');
-      const ver = currentConfig.selectedVersion || '1.20.4';
-      list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">Querying ${activeProvider}...</span>`;
+      const verFilter = document.getElementById('hub-version-filter');
+      const ver = (verFilter && verFilter.value) ? verFilter.value : (currentConfig.selectedVersion || '1.20.4');
+
+      list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">Querying ${activeProvider} for MC ${ver}...</span>`;
 
       let hits = [];
       if (activeProvider === 'curseforge') {
@@ -1352,7 +1451,7 @@
 
       list.innerHTML = '';
       if (!hits.length) {
-        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No releases found on ${activeProvider}.</span>`;
+        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No releases found on ${activeProvider} for MC ${ver}.</span>`;
         return;
       }
 
@@ -1380,7 +1479,9 @@
     async function installHubItem(id, name) {
       toast(`Downloading ${name}...`);
       try {
-        const ver = currentConfig.selectedVersion || '1.20.4';
+        const verFilter = document.getElementById('hub-version-filter');
+        const ver = (verFilter && verFilter.value) ? verFilter.value : (currentConfig.selectedVersion || '1.20.4');
+
         let file;
         if (activeProvider === 'curseforge') {
           file = await ipcRenderer.invoke('install-curseforge-item', { modId: id, type: activeModType, version: ver });
@@ -1390,51 +1491,6 @@
         toast(`Installed: ${file}`);
       } catch (e) {
         alert('Download error: ' + e.message);
-      }
-    }
-
-    // -------------------------------------------------------------
-    // RUNTIME & HARDWARE DIAGNOSTICS
-    // -------------------------------------------------------------
-    async function checkJdkStatus() {
-      const diag = document.getElementById('diag-java');
-      const btn = document.getElementById('btn-install-jdk');
-      const res = await ipcRenderer.invoke('detect-arm-java');
-
-      if (res.found) {
-        diag.innerText = `Native Runtime Located: ${res.path} (${res.source})`;
-        diag.style.color = '#ffffff';
-        btn.style.display = 'none';
-      } else {
-        diag.innerText = 'No native ARM64 JDK found. Required for Snapdragon X Oryon performance.';
-        diag.style.color = '#a1a1aa';
-        btn.style.display = 'block';
-      }
-    }
-
-    async function installArmJdk() {
-      const btn = document.getElementById('btn-install-jdk');
-      const box = document.getElementById('jdk-progress-box');
-      const bar = document.getElementById('jdk-progress-bar');
-      const txt = document.getElementById('jdk-progress-text');
-
-      btn.disabled = true;
-      box.style.display = 'block';
-
-      ipcRenderer.on('jdk-install-status', (e, data) => {
-        txt.innerText = data.step;
-        bar.style.width = `${Math.round((data.progress || 0) * 100)}%`;
-      });
-
-      try {
-        await ipcRenderer.invoke('install-arm-jdk');
-        toast('Microsoft OpenJDK 21 installed!');
-        checkJdkStatus();
-      } catch (err) {
-        alert('JDK setup error: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        box.style.display = 'none';
       }
     }
 
@@ -1576,8 +1632,11 @@
       const manifest = await ipcRenderer.invoke('get-mc-versions');
       const selector = document.getElementById('version-selector');
       const datalist = document.getElementById('mc-version-list');
+      const hubFilter = document.getElementById('hub-version-filter');
+
       selector.innerHTML = '';
       datalist.innerHTML = '';
+      if (hubFilter) hubFilter.innerHTML = '';
 
       if (manifest.installed && manifest.installed.length) {
         const fabGroup = document.createElement('optgroup');
@@ -1602,17 +1661,27 @@
         const dOpt = document.createElement('option');
         dOpt.value = v.id;
         datalist.appendChild(dOpt);
+
+        if (hubFilter) {
+          const hOpt = document.createElement('option');
+          hOpt.value = v.id;
+          hOpt.innerText = v.id;
+          hubFilter.appendChild(hOpt);
+        }
       });
       selector.appendChild(vanGroup);
 
       const targetVersion = currentConfig.selectedVersion || manifest.latest;
       selector.value = targetVersion;
+      if (hubFilter) hubFilter.value = targetVersion;
       document.getElementById('version-badge').innerText = targetVersion.split('-')[0].toUpperCase();
     }
 
     async function changeVersion(ver) {
       currentConfig.selectedVersion = ver;
       document.getElementById('version-badge').innerText = ver.split('-')[0].toUpperCase();
+      const hubFilter = document.getElementById('hub-version-filter');
+      if (hubFilter) hubFilter.value = ver;
       await ipcRenderer.invoke('save-config', currentConfig);
       toast(`Profile targeted: ${ver}`);
     }
@@ -1689,10 +1758,11 @@
     // GLOBAL SETTINGS
     // -------------------------------------------------------------
     async function saveGlobalSettings() {
+      currentConfig.globalJavaRuntime = document.getElementById('cfg-global-runtime-select').value;
+      currentConfig.customJavaPath = document.getElementById('cfg-global-java').value.trim();
       currentConfig.minRam = parseInt(document.getElementById('cfg-min-ram').value, 10) || 2048;
       currentConfig.maxRam = parseInt(document.getElementById('cfg-max-ram').value, 10) || 4096;
       currentConfig.jvmArgs = document.getElementById('cfg-jvm-flags').value.trim() || DEFAULT_ORYON;
-      currentConfig.customJavaPath = document.getElementById('cfg-global-java').value.trim();
       currentConfig.envVars = document.getElementById('cfg-global-env').value.trim();
 
       await ipcRenderer.invoke('save-config', currentConfig);
