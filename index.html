@@ -1,1 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aetheria Launcher</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09090b;
+      --card: rgba(18, 18, 21, 0.75);
+      --card-hover: rgba(24, 24, 27, 0.9);
+      --border: #27272a;
+      --border-hover: #3f3f46;
+      --border-focus: #52525b;
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+      --accent: #ffffff;
+      --accent-bg: #27272a;
+      --danger: #ef4444;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --radius: 8px;
+    }
 
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      position: relative;
+    }
+
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.9;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+    .titlebar {
+      height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(9, 9, 11, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-app-region: drag;
+      z-index: 1000;
+    }
+
+    .brand-group { display: flex; align-items: center; gap: 12px; }
+    .brand-title { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text); }
+    .brand-badge { background: #18181b; border: 1px solid var(--border); color: var(--text-muted); padding: 2px 7px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; }
+
+    .top-right-group { display: flex; align-items: center; gap: 12px; -webkit-app-region: no-drag; }
+    .nav-wrapper { position: relative; }
+    .nav-trigger {
+      display: flex; align-items: center; gap: 9px; background: rgba(24, 24, 27, 0.7);
+      backdrop-filter: blur(12px); border: 1px solid var(--border); color: var(--text);
+      padding: 6px 14px; border-radius: var(--radius); font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; transition: all 0.25s var(--ease);
+    }
+    .nav-trigger:hover { border-color: var(--border-focus); background: var(--card-hover); transform: translateY(-1px); }
+
+    .nav-dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0; width: 200px;
+      background: rgba(18, 18, 21, 0.96); backdrop-filter: blur(24px);
+      border: 1px solid var(--border); border-radius: var(--radius); padding: 6px;
+      display: flex; flex-direction: column; gap: 3px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75);
+      z-index: 2000; opacity: 0; transform: translateY(-8px) scale(0.97); pointer-events: none;
+      transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
+    }
+    .nav-dropdown.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+    .nav-option {
+      background: transparent; border: none; color: var(--text-muted); text-align: left;
+      padding: 8px 12px; font-size: 0.8rem; font-weight: 500; border-radius: 5px;
+      cursor: pointer; transition: all 0.15s var(--ease);
+    }
+    .nav-option:hover { background: #202025; color: var(--text); transform: translateX(2px); }
+    .nav-option.active { background: var(--accent-bg); color: #ffffff; font-weight: 600; }
+
+    .win-controls { display: flex; gap: 4px; }
+    .win-btn {
+      width: 28px; height: 28px; background: transparent; border: none; color: var(--text-muted);
+      border-radius: 4px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 13px; transition: all 0.15s ease;
+    }
+    .win-btn:hover { background: #1c1c20; color: var(--text); }
+    .win-btn.close:hover { background: var(--danger); color: #fff; }
+
+    .viewport { flex: 1; overflow-y: auto; padding: 28px 40px; position: relative; z-index: 1; }
+    .panel { display: none; animation: panelIn 0.3s var(--ease) forwards; }
+    .panel.active { display: block; }
+
+    @keyframes panelIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .card {
+      background: var(--card); backdrop-filter: blur(16px); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px; margin-bottom: 20px;
+      transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
+    }
+    .card:hover { border-color: var(--border-hover); }
+
+    .panel-header { margin-bottom: 22px; }
+    .panel-header h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
+    .panel-header p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+    .btn {
+      background: #ffffff; color: #09090b; border: none; padding: 9px 18px;
+      border-radius: var(--radius); font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); transition: all 0.2s var(--ease);
+    }
+    .btn:hover { background: #e4e4e7; transform: translateY(-1px); }
+    .btn:active { transform: translateY(1px) scale(0.98); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: rgba(24, 24, 27, 0.8); color: var(--text); border: 1px solid var(--border);
+      padding: 7px 14px; border-radius: var(--radius); font-size: 0.8rem; font-weight: 500;
+      cursor: pointer; transition: all 0.2s var(--ease);
+    }
+    .btn-secondary:hover { background: #222227; border-color: var(--border-focus); transform: translateY(-1px); }
+
+    .input-field, .select-field, textarea.input-field {
+      width: 100%; background: rgba(9, 9, 11, 0.85); border: 1px solid var(--border);
+      padding: 9px 13px; border-radius: var(--radius); color: var(--text);
+      font-size: 0.85rem; outline: none; transition: border-color 0.2s ease;
+    }
+    .input-field:focus, .select-field:focus, textarea.input-field:focus { border-color: var(--border-focus); }
+
+    .chip-group { display: flex; gap: 8px; margin-bottom: 16px; }
+    .chip-btn {
+      background: var(--card); border: 1px solid var(--border); color: var(--text-muted);
+      padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s var(--ease);
+    }
+    .chip-btn:hover { color: var(--text); border-color: var(--border-hover); }
+    .chip-btn.active { background: #ffffff; color: #09090b; border-color: #ffffff; }
+
+    .mod-item {
+      display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      margin-bottom: 10px; transition: all 0.25s var(--ease);
+    }
+    .mod-item:hover { transform: translateY(-1px); border-color: var(--border-focus); background: var(--card-hover); }
+
+    .banner {
+      display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
+      border-radius: var(--radius); border: 1px solid var(--border); background: rgba(24, 24, 27, 0.7);
+      margin-bottom: 18px;
+    }
+
+    .drop-zone {
+      border: 1px dashed var(--border-hover); border-radius: var(--radius); padding: 18px;
+      text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+      transition: all 0.2s ease;
+    }
+    .drop-zone.drag-active { border-color: #ffffff; background: rgba(255, 255, 255, 0.04); color: #ffffff; }
+
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; background: #18181b; border: 1px solid var(--border-focus);
+      color: var(--text); padding: 12px 20px; border-radius: var(--radius); font-size: 0.8rem;
+      font-weight: 500; display: none; z-index: 99999; box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+    }
+
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+      display: none; align-items: center; justify-content: center; z-index: 5000;
+    }
+    .modal-box {
+      width: 520px; max-height: 85vh; overflow-y: auto; background: #121215; border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+    }
+
+    .console-box {
+      height: 480px; background: rgba(5, 5, 7, 0.9); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.75rem; color: #e4e4e7; overflow-y: auto; white-space: pre-wrap; line-height: 1.45;
+    }
+    .log-time { color: var(--text-dim); margin-right: 6px; }
+    .log-stderr { color: #f87171; }
+    .log-stdout { color: #e4e4e7; }
+  </style>
+</head>
+<body>
+
+  <canvas id="bg-canvas"></canvas>
+
+  <header class="titlebar">
+    <div class="brand-group">
+      <span class="brand-title">Aetheria</span>
+      <span class="brand-badge">ARM64 NATIVE</span>
+    </div>
+
+    <div class="top-right-group">
+      <div class="nav-wrapper">
+        <button class="nav-trigger" id="dropdown-btn" onclick="toggleNav()">
+          <span id="active-tab-title">Overview</span>
+          <span style="font-size: 0.65rem; color: var(--text-dim);" id="dropdown-arrow">▼</span>
+        </button>
+        <div class="nav-dropdown" id="dropdown-menu">
+          <button class="nav-option active" onclick="switchTab('home', 'Overview')">Overview</button>
+          <button class="nav-option" onclick="switchTab('mods', 'Mod Hub')">Mod Hub</button>
+          <button class="nav-option" onclick="switchTab('manager', 'Content Manager')">Content Manager</button>
+          <button class="nav-option" onclick="switchTab('loaders', 'Loader Engines')">Loader Engines</button>
+          <button class="nav-option" onclick="switchTab('console', 'Live Console')">Live Console</button>
+          <button class="nav-option" onclick="switchTab('skins', 'Skin Studio')">Skin Studio</button>
+          <button class="nav-option" onclick="switchTab('vault', 'Vault')">Vault</button>
+          <button class="nav-option" onclick="switchTab('accounts', 'Accounts')">Accounts</button>
+          <button class="nav-option" onclick="switchTab('settings', 'Settings')">Settings</button>
+        </div>
+      </div>
+
+      <div class="win-controls">
+        <button class="win-btn" onclick="minWin()">&#8211;</button>
+        <button class="win-btn" onclick="maxWin()">&#9633;</button>
+        <button class="win-btn close" onclick="closeWin()">&#10005;</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="viewport">
+
+    <!-- OVERVIEW -->
+    <section id="panel-home" class="panel active">
+      <div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 30px 24px;">
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+            <h1 style="font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em;">Ready to Play</h1>
+            <span class="brand-badge" id="version-badge">SYNCED</span>
+          </div>
+          <p id="hero-status" style="font-size: 0.85rem; color: var(--text-muted);">
+            Native Snapdragon X Oryon Pipeline
+          </p>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label style="font-size: 0.7rem; color: var(--text-dim); font-weight: 600;">INSTANCE</label>
+              <button class="btn-secondary" style="padding: 1px 6px; font-size: 0.65rem;" onclick="openCurrentInstanceSettings()">Edit</button>
+            </div>
+            <select id="instance-selector" class="select-field" style="width: 170px; padding: 7px 10px; cursor: pointer;" onchange="changeInstance(this.value)">
+              <option value="default">Default (.minecraft)</option>
+            </select>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; font-weight: 600;">ACTIVE PROFILE</label>
+            <select id="version-selector" class="select-field" style="width: 200px; padding: 7px 10px; cursor: pointer;" onchange="changeVersion(this.value)">
+              <option value="1.20.4">1.20.4 (Release)</option>
+            </select>
+          </div>
+
+          <button class="btn" style="padding: 13px 32px; font-size: 0.95rem;" id="play-button" onclick="playGame()">
+            Play Minecraft
+          </button>
+        </div>
+      </div>
+
+      <div class="card" id="jdk-card">
+        <div style="display:flex; justify-content: space-between; align-items:center;">
+          <div>
+            <h3 style="font-size: 0.95rem; font-weight: 600;">Snapdragon ARM64 Runtime</h3>
+            <p id="diag-java" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Inspecting system binaries...</p>
+          </div>
+          <button class="btn-secondary" id="btn-install-jdk" style="display:none;" onclick="installArmJdk()">
+            Auto-Install Microsoft OpenJDK 21
+          </button>
+        </div>
+        <div id="jdk-progress-box" style="display:none; margin-top:14px;">
+          <div style="height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;">
+            <div id="jdk-progress-bar" style="height: 100%; width: 0%; background: #fff; transition: width 0.3s var(--ease);"></div>
+          </div>
+          <span id="jdk-progress-text" style="display:block; font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">Preparing setup...</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h3 style="font-size: 0.95rem; font-weight: 600;">Instance Environments</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Isolate setups or import existing instances from Prism Launcher.</p>
+          </div>
+          <button class="btn" onclick="openNewInstanceModal()">+ Add Instance</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE CONSOLE & CRASH ANALYZER -->
+    <section id="panel-console" class="panel">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Live Game Output</h2>
+          <p>Real-time execution log and ARM64 diagnostic analyzer</p>
+        </div>
+        <div style="display:flex; gap: 8px;">
+          <button class="btn-secondary" onclick="clearConsole()">Clear Output</button>
+          <button class="btn-secondary" onclick="copyConsole()">Copy Full Log</button>
+        </div>
+      </div>
+
+      <div class="card" id="crash-diagnostic-box" style="display: none; border-color: #71717a; background: rgba(24, 24, 27, 0.9);">
+        <strong id="crash-title" style="font-size: 0.95rem; color: #fff; display:block; margin-bottom: 4px;">Crash Detected</strong>
+        <p id="crash-rec" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;"></p>
+      </div>
+
+      <div class="console-box" id="console-stream"></div>
+    </section>
+
+    <!-- CONTENT MANAGER (WITH MOD UPDATE CHECKER) -->
+    <section id="panel-manager" class="panel">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Content Manager</h2>
+          <p>Local modifications, updates, and packages</p>
+        </div>
+        <div class="chip-group" style="margin-bottom: 0;">
+          <button class="chip-btn active" id="mgr-chip-mods" onclick="loadManager('mods')">Mods</button>
+          <button class="chip-btn" id="mgr-chip-resourcepacks" onclick="loadManager('resourcepacks')">Resource Packs</button>
+          <button class="chip-btn" id="mgr-chip-shaderpacks" onclick="loadManager('shaderpacks')">Shader Packs</button>
+        </div>
+      </div>
+
+      <div class="card" id="updates-box" style="display:none; margin-bottom: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <h4 style="font-size: 0.9rem; font-weight: 600;">Mod Updates Available</h4>
+            <span id="updates-count-label" style="font-size: 0.75rem; color: var(--text-muted);">0 updates found</span>
+          </div>
+          <button class="btn" style="font-size: 0.75rem; padding: 6px 14px;" onclick="applyAllUpdates()">Update All</button>
+        </div>
+        <div id="updates-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
+        <input type="text" id="mgr-search-input" class="input-field" style="max-width: 320px;" placeholder="Filter local items..." oninput="filterInstalledItems()" />
+        <div style="display:flex; gap: 8px;">
+          <button class="btn-secondary" onclick="checkModUpdates()">Check Updates</button>
+          <button class="btn-secondary" onclick="importContentDialog()">+ Add Files</button>
+          <button class="btn-secondary" onclick="toggleAllItems(true)">Enable All</button>
+          <button class="btn-secondary" onclick="toggleAllItems(false)">Disable All</button>
+          <button class="btn-secondary" onclick="openCurrentDir()">Open Folder</button>
+        </div>
+      </div>
+
+      <div class="drop-zone" id="drop-target">
+        Drag and drop .jar or .zip packages directly here to import into current instance
+      </div>
+
+      <div id="manager-list">
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Scanning installed items...</p>
+      </div>
+    </section>
+
+    <!-- LOADER ENGINES (FABRIC & NEOFORGE) -->
+    <section id="panel-loaders" class="panel">
+      <div class="panel-header">
+        <h2>Loader Engines</h2>
+        <p>Install and switch between Fabric and NeoForge runtime environments</p>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 14px;">Fabric Profile Generator</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px;">
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">GAME RELEASE</label>
+            <input list="mc-version-list" type="text" id="fabric-target-mc" class="input-field" value="1.20.4" oninput="fetchFabricLoaders()" />
+            <datalist id="mc-version-list"></datalist>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">FABRIC BUILD</label>
+            <select id="fabric-loader-select" class="select-field">
+              <option value="">Querying builds...</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn" onclick="installFabric()">Install Fabric</button>
+          <button class="btn-secondary" onclick="installShaderEngine()">1-Click Sodium + Iris Shaders</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 14px;">NeoForge Engine (1.20.4+ / 1.21.x)</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px;">
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">TARGET VERSION</label>
+            <input type="text" id="neoforge-target-mc" class="input-field" value="1.20.4" oninput="fetchNeoForgeVersions()" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">NEOFORGE RELEASE</label>
+            <select id="neoforge-select" class="select-field">
+              <option value="">Querying repository...</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn" onclick="installNeoForge()">Run Silent NeoForge Installer</button>
+      </div>
+    </section>
+
+    <!-- MOD HUB (MODRINH + CURSEFORGE) -->
+    <section id="panel-mods" class="panel">
+      <div class="panel-header" style="display:flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Mod Hub</h2>
+          <p>Online repositories for enhancements and shaders</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="chip-btn active" id="provider-modrinth" onclick="setProvider('modrinth')">Modrinth</button>
+          <button class="chip-btn" id="provider-curseforge" onclick="setProvider('curseforge')">CurseForge</button>
+        </div>
+      </div>
+
+      <div class="chip-group">
+        <button class="chip-btn active" id="chip-mod" onclick="setModType('mod')">Mods</button>
+        <button class="chip-btn" id="chip-resourcepack" onclick="setModType('resourcepack')">Resource Packs</button>
+        <button class="chip-btn" id="chip-shader" onclick="setModType('shader')">Shader Packs</button>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <input type="text" id="mod-query" class="input-field" placeholder="Search mods..." onkeydown="if(event.key==='Enter') executeHubSearch()" />
+        <button class="btn-secondary" onclick="executeHubSearch()">Search</button>
+      </div>
+
+      <div id="mod-list">
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Enter keyword and search.</p>
+      </div>
+    </section>
+
+    <!-- SKIN STUDIO -->
+    <section id="panel-skins" class="panel">
+      <div class="panel-header">
+        <h2>Skin Studio</h2>
+        <p>Multi-tier Mojang avatar and overlay preview</p>
+      </div>
+      <div class="card" style="margin-bottom: 20px;">
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="skin-search-user" class="input-field" placeholder="Enter username..." onkeydown="if(event.key==='Enter') searchPlayerSkin()" />
+          <button class="btn" onclick="searchPlayerSkin()">Fetch Skin</button>
+        </div>
+      </div>
+      <div style="display: flex; gap: 32px; align-items: flex-start;">
+        <div style="width: 140px; height: 260px; background: rgba(9, 9, 11, 0.9); border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; justify-content: center;">
+          <canvas id="skin-canvas" width="128" height="256" style="image-rendering: pixelated; width: 128px; height: 256px;"></canvas>
+        </div>
+        <div class="card" style="flex:1;">
+          <h4 style="font-size: 0.9rem; margin-bottom: 6px;">Skin Profile</h4>
+          <span id="skin-file-name" style="display:block; font-size:0.8rem; color:var(--text-muted);">No skin loaded</span>
+          <span id="skin-model-name" style="display:block; font-size:0.75rem; color:var(--text-dim); margin-top: 4px;">Model: —</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- VAULT -->
+    <section id="panel-vault" class="panel">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Vault</h2>
+          <p>Local worlds, backups, and captures</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-secondary" onclick="openDir('saves')">Saves</button>
+          <button class="btn-secondary" onclick="openDir('screenshots')">Screenshots</button>
+          <button class="btn-secondary" onclick="loadVault()">Refresh</button>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="card">
+          <h3 style="font-size: 0.9rem; margin-bottom: 14px;">Local Worlds</h3>
+          <div id="vault-worlds" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+        <div class="card">
+          <h3 style="font-size: 0.9rem; margin-bottom: 14px;">Screenshots</h3>
+          <div id="vault-screens" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACCOUNTS -->
+    <section id="panel-accounts" class="panel">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Accounts</h2>
+          <p>Microsoft OAuth and offline fallback</p>
+        </div>
+        <button class="btn" onclick="addMicrosoftAccount()">Sign In with Microsoft</button>
+      </div>
+      <div class="card">
+        <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Offline Player Fallback</h3>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="cfg-offline-user" class="input-field" placeholder="Player name (e.g. Steve)" />
+          <button class="btn-secondary" onclick="saveOfflineName()">Save Name</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Connected Profiles</h3>
+        <div id="accounts-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="panel-settings" class="panel">
+      <div class="panel-header">
+        <h2>Global Settings</h2>
+        <p>Default parameters applied across instances</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size: 0.9rem; margin-bottom: 12px;">Background Canvas Engine</h3>
+        <select id="cfg-bg-preset" class="select-field" onchange="setBgPreset(this.value)">
+          <option value="waves">1. Obsidian Waves</option>
+          <option value="starfield">2. Starfield Warp</option>
+          <option value="matrix">3. Digital Rain</option>
+          <option value="plexus">4. Geometric Mesh</option>
+          <option value="pulse">5. Minimal Pulse</option>
+          <option value="mist">6. Monochrome Mist</option>
+          <option value="grid">7. Horizon Grid</option>
+          <option value="voxels">8. Voxel Rain</option>
+          <option value="constellation">9. Constellation</option>
+          <option value="none">10. Pitch Void</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size: 0.9rem; margin-bottom: 14px;">Global Java Runtime & Environment Variables</h3>
+        <div style="margin-bottom: 12px;">
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Default Java Executable</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="cfg-global-java" class="input-field" placeholder="Auto-managed ARM64 JDK" />
+            <button class="btn-secondary" onclick="browseGlobalJava()">Browse...</button>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Min Memory (MB)</label>
+            <input type="number" id="cfg-min-ram" class="input-field" value="2048" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Max Memory (MB)</label>
+            <input type="number" id="cfg-max-ram" class="input-field" value="4096" />
+          </div>
+        </div>
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Default JVM Flags</label>
+          <input type="text" id="cfg-jvm-flags" class="input-field" />
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Global Runtime Environment Variables (KEY=VALUE)</label>
+          <textarea id="cfg-global-env" class="input-field" rows="3" placeholder="MESA_GL_VERSION_OVERRIDE=4.6&#10;JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8"></textarea>
+        </div>
+      </div>
+      <button class="btn" onclick="saveGlobalSettings()">Save Preferences</button>
+    </section>
+
+  </main>
+
+  <!-- INSTANCE SETTINGS MODAL -->
+  <div class="modal-overlay" id="modal-inst-settings">
+    <div class="modal-box">
+      <h3 style="font-size:1.05rem; margin-bottom: 16px;">Instance Configuration</h3>
+      <div style="margin-bottom: 12px;">
+        <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Instance Name</label>
+        <input type="text" id="modal-inst-name" class="input-field" />
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Custom Java Runtime</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="modal-inst-java" class="input-field" placeholder="Leave blank to use global runtime" />
+          <button class="btn-secondary" onclick="browseInstanceJava()">Browse...</button>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div>
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Min RAM (MB)</label>
+          <input type="number" id="modal-inst-min-ram" class="input-field" />
+        </div>
+        <div>
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Max RAM (MB)</label>
+          <input type="number" id="modal-inst-max-ram" class="input-field" />
+        </div>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">Snapdragon Oryon JVM Arguments</label>
+          <button class="btn-secondary" style="padding:1px 6px; font-size:0.65rem;" onclick="resetOryonFlags()">Snapdragon Defaults</button>
+        </div>
+        <input type="text" id="modal-inst-jvm" class="input-field" />
+      </div>
+      <div style="margin-bottom: 18px;">
+        <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Runtime Environment Variables (KEY=VALUE)</label>
+        <textarea id="modal-inst-env" class="input-field" rows="3" placeholder="CUSTOM_ENV_VAR=value&#10;MESA_LOADER_DRIVER_OVERRIDE=zink"></textarea>
+      </div>
+      <div style="display:flex; justify-content: space-between; align-items:center;">
+        <button class="btn-secondary" style="color:var(--danger);" id="modal-btn-del-inst" onclick="deleteActiveInstance()">Delete Instance</button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-secondary" onclick="closeInstanceSettingsModal()">Cancel</button>
+          <button class="btn" onclick="saveInstanceSettingsModal()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPACT NEW INSTANCE & PRISM IMPORT MODAL -->
+  <div class="modal-overlay" id="modal-instance">
+    <div class="modal-box">
+      <div class="chip-group" style="margin-bottom: 16px;">
+        <button class="chip-btn active" id="tab-create-fresh" onclick="switchInstanceModalTab('fresh')">New Instance</button>
+        <button class="chip-btn" id="tab-import-prism" onclick="switchInstanceModalTab('prism')">Import from Prism</button>
+      </div>
+
+      <div id="sub-box-fresh">
+        <div style="margin-bottom: 12px;">
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Instance Name</label>
+          <input type="text" id="inst-name" class="input-field" placeholder="e.g. Snapdragon Shaders" />
+        </div>
+        <div style="margin-bottom: 18px;">
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Game Version</label>
+          <input type="text" id="inst-version" class="input-field" value="1.20.4" />
+        </div>
+        <div style="display:flex; justify-content: flex-end; gap: 8px;">
+          <button class="btn-secondary" onclick="closeNewInstanceModal()">Cancel</button>
+          <button class="btn" onclick="submitNewInstance()">Create</button>
+        </div>
+      </div>
+
+      <div id="sub-box-prism" style="display: none;">
+        <div style="margin-bottom: 12px;">
+          <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Prism Instances Directory</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="prism-path-input" class="input-field" placeholder="Auto-detecting Prism..." />
+            <button class="btn-secondary" onclick="scanPrismInstances(document.getElementById('prism-path-input').value)">Rescan</button>
+          </div>
+        </div>
+        <div id="prism-instance-list" style="max-height: 240px; overflow-y: auto; margin-bottom: 14px; display:flex; flex-direction:column; gap:8px;">
+          <p style="font-size:0.8rem; color:var(--text-muted);">Detecting Prism instances...</p>
+        </div>
+        <div style="display:flex; justify-content: flex-end;">
+          <button class="btn-secondary" onclick="closeNewInstanceModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- MONOCHROME CANVAS PRESETS -->
+  <script>
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    let currentPreset = 'waves';
+    let animId = null;
+    let width = 0, height = 0;
+
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let tick = 0;
+    const stars = Array.from({ length: 110 }, () => ({ x: Math.random() * (width || 800), y: Math.random() * (height || 600), z: Math.random() * 800 }));
+    const matrixChars = '0123456789ABCDEFｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ'.split('');
+    const matrixDrops = [];
+    function initMatrix() {
+      const cols = Math.floor(window.innerWidth / 18) + 1;
+      matrixDrops.length = 0;
+      for (let i = 0; i < cols; i++) matrixDrops[i] = Math.floor(Math.random() * -50);
+    }
+    initMatrix();
+
+    const plexusNodes = Array.from({ length: 48 }, () => ({
+      x: Math.random() * (width || 800),
+      y: Math.random() * (height || 600),
+      vx: (Math.random() - 0.5) * 0.7,
+      vy: (Math.random() - 0.5) * 0.7
+    }));
+
+    function renderAnimation() {
+      tick++;
+      ctx.clearRect(0, 0, width, height);
+
+      if (currentPreset === 'none') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        return;
+      }
+
+      if (currentPreset === 'waves') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        ctx.lineWidth = 1.2;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.04 + i * 0.02})`;
+          for (let x = 0; x <= width; x += 30) {
+            const y = height * 0.5 + Math.sin(x * 0.003 + tick * 0.015 + i) * 60 + Math.cos(x * 0.002 + i) * 30;
+            if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+      } else if (currentPreset === 'starfield') {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        stars.forEach(s => {
+          s.z -= 1.8;
+          if (s.z <= 0) { s.z = width; s.x = Math.random() * width; s.y = Math.random() * height; }
+          const k = 128 / s.z;
+          const px = (s.x - width / 2) * k + width / 2;
+          const py = (s.y - height / 2) * k + height / 2;
+          if (px >= 0 && px <= width && py >= 0 && py <= height) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, 1 - s.z / width)})`;
+            ctx.fillRect(px, py, (1 - s.z / width) * 2.2, (1 - s.z / width) * 2.2);
+          }
+        });
+      } else {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, width, height);
+        for (let i = 0; i < plexusNodes.length; i++) {
+          const p = plexusNodes[i];
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0 || p.x > width) p.vx *= -1;
+          if (p.y < 0 || p.y > height) p.vy *= -1;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.fillRect(p.x, p.y, 2, 2);
+        }
+      }
+
+      animId = requestAnimationFrame(renderAnimation);
+    }
+
+    function setBgPreset(name) {
+      currentPreset = name;
+      currentConfig.bgPreset = name;
+      ipcRenderer.invoke('save-config', currentConfig);
+      if (animId) cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(renderAnimation);
+    }
+  </script>
+
+  <!-- APP CONTROLLER -->
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    let currentConfig = {};
+    let activeModType = 'mod';
+    let activeMgrType = 'mods';
+    let activeProvider = 'modrinth';
+    let localInstalledItems = [];
+    let pendingUpdates = [];
+
+    const DEFAULT_ORYON = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
+
+    function toast(text) {
+      const el = document.getElementById('toast');
+      el.innerText = text;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 3500);
+    }
+
+    function toggleNav() {
+      document.getElementById('dropdown-menu').classList.toggle('open');
+    }
+
+    window.addEventListener('click', (e) => {
+      if (!e.target.closest('.nav-wrapper')) {
+        document.getElementById('dropdown-menu').classList.remove('open');
+      }
+    });
+
+    function switchTab(name, title) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-option').forEach(b => b.classList.remove('active'));
+
+      document.getElementById(`panel-${name}`).classList.add('active');
+      document.getElementById('active-tab-title').innerText = title;
+      document.getElementById('dropdown-menu').classList.remove('open');
+
+      if (name === 'vault') loadVault();
+      if (name === 'manager') loadManager(activeMgrType);
+      if (name === 'loaders') { fetchFabricLoaders(); fetchNeoForgeVersions(); }
+      if (name === 'console') scrollToConsoleBottom();
+    }
+
+    function minWin() { ipcRenderer.send('window-min'); }
+    function maxWin() { ipcRenderer.send('window-max'); }
+    function closeWin() { ipcRenderer.send('window-close'); }
+    function openDir(dir) { ipcRenderer.send('open-path', dir); }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      currentConfig = await ipcRenderer.invoke('get-config');
+
+      document.getElementById('cfg-min-ram').value = currentConfig.minRam || 2048;
+      document.getElementById('cfg-max-ram').value = currentConfig.maxRam || 4096;
+      document.getElementById('cfg-jvm-flags').value = currentConfig.jvmArgs || DEFAULT_ORYON;
+      document.getElementById('cfg-global-java').value = currentConfig.customJavaPath || '';
+      document.getElementById('cfg-global-env').value = currentConfig.envVars || '';
+      document.getElementById('cfg-offline-user').value = currentConfig.offlineUsername || 'Player';
+      document.getElementById('cfg-bg-preset').value = currentConfig.bgPreset || 'waves';
+
+      setBgPreset(currentConfig.bgPreset || 'waves');
+      renderInstances();
+      renderAccounts();
+      checkJdkStatus();
+      await syncVersions();
+      setupDragAndDrop();
+      initConsoleStream();
+
+      if (currentConfig.activeAccount) {
+        loadAccountSkinAuto(currentConfig.activeAccount.name);
+      }
+    });
+
+    // -------------------------------------------------------------
+    // INSTANCE CONTROLS & PER-INSTANCE SETTINGS
+    // -------------------------------------------------------------
+    function renderInstances() {
+      const sel = document.getElementById('instance-selector');
+      sel.innerHTML = '';
+      (currentConfig.instances || []).forEach(inst => {
+        const opt = document.createElement('option');
+        opt.value = inst.id;
+        opt.innerText = inst.name;
+        sel.appendChild(opt);
+      });
+      sel.value = currentConfig.activeInstanceId || 'default';
+    }
+
+    async function changeInstance(id) {
+      currentConfig.activeInstanceId = id;
+      const inst = currentConfig.instances.find(i => i.id === id);
+      if (inst && inst.version) {
+        currentConfig.selectedVersion = inst.version;
+        document.getElementById('version-selector').value = inst.version;
+      }
+      await ipcRenderer.invoke('save-config', currentConfig);
+      toast(`Active instance: ${inst ? inst.name : id}`);
+    }
+
+    function openCurrentInstanceSettings() {
+      const activeId = currentConfig.activeInstanceId || 'default';
+      const inst = (currentConfig.instances || []).find(i => i.id === activeId);
+      if (!inst) return;
+
+      document.getElementById('modal-inst-name').value = inst.name;
+      document.getElementById('modal-inst-min-ram').value = inst.minRam || currentConfig.minRam || 2048;
+      document.getElementById('modal-inst-max-ram').value = inst.maxRam || currentConfig.maxRam || 4096;
+      document.getElementById('modal-inst-java').value = inst.customJavaPath || '';
+      document.getElementById('modal-inst-jvm').value = inst.jvmArgs || DEFAULT_ORYON;
+      document.getElementById('modal-inst-env').value = inst.envVars || '';
+
+      document.getElementById('modal-btn-del-inst').style.display = (activeId === 'default') ? 'none' : 'block';
+      document.getElementById('modal-inst-settings').style.display = 'flex';
+    }
+
+    function closeInstanceSettingsModal() {
+      document.getElementById('modal-inst-settings').style.display = 'none';
+    }
+
+    function resetOryonFlags() {
+      document.getElementById('modal-inst-jvm').value = DEFAULT_ORYON;
+    }
+
+    async function browseInstanceJava() {
+      const selected = await ipcRenderer.invoke('browse-java-path');
+      if (selected) document.getElementById('modal-inst-java').value = selected;
+    }
+
+    async function browseGlobalJava() {
+      const selected = await ipcRenderer.invoke('browse-java-path');
+      if (selected) document.getElementById('cfg-global-java').value = selected;
+    }
+
+    async function saveInstanceSettingsModal() {
+      const activeId = currentConfig.activeInstanceId || 'default';
+      const inst = (currentConfig.instances || []).find(i => i.id === activeId);
+      if (!inst) return;
+
+      inst.name = document.getElementById('modal-inst-name').value.trim() || inst.name;
+      inst.minRam = parseInt(document.getElementById('modal-inst-min-ram').value, 10) || 2048;
+      inst.maxRam = parseInt(document.getElementById('modal-inst-max-ram').value, 10) || 4096;
+      inst.customJavaPath = document.getElementById('modal-inst-java').value.trim();
+      inst.jvmArgs = document.getElementById('modal-inst-jvm').value.trim() || DEFAULT_ORYON;
+      inst.envVars = document.getElementById('modal-inst-env').value.trim();
+
+      await ipcRenderer.invoke('update-instance-settings', inst);
+      currentConfig = await ipcRenderer.invoke('get-config');
+      renderInstances();
+      closeInstanceSettingsModal();
+      toast('Instance parameters saved.');
+    }
+
+    async function deleteActiveInstance() {
+      const activeId = currentConfig.activeInstanceId;
+      if (activeId === 'default') return;
+      if (confirm('Permanently delete this instance and all local files?')) {
+        await ipcRenderer.invoke('delete-instance', activeId);
+        currentConfig = await ipcRenderer.invoke('get-config');
+        renderInstances();
+        closeInstanceSettingsModal();
+        toast('Instance deleted.');
+      }
+    }
+
+    function openNewInstanceModal() {
+      switchInstanceModalTab('fresh');
+      document.getElementById('modal-instance').style.display = 'flex';
+    }
+    function closeNewInstanceModal() {
+      document.getElementById('modal-instance').style.display = 'none';
+    }
+
+    function switchInstanceModalTab(tab) {
+      document.getElementById('tab-create-fresh').classList.toggle('active', tab === 'fresh');
+      document.getElementById('tab-import-prism').classList.toggle('active', tab === 'prism');
+      document.getElementById('sub-box-fresh').style.display = (tab === 'fresh') ? 'block' : 'none';
+      document.getElementById('sub-box-prism').style.display = (tab === 'prism') ? 'block' : 'none';
+      if (tab === 'prism') scanPrismInstances();
+    }
+
+    async function submitNewInstance() {
+      const name = document.getElementById('inst-name').value.trim() || 'New Instance';
+      const version = document.getElementById('inst-version').value.trim() || '1.20.4';
+      await ipcRenderer.invoke('create-instance', { name, version });
+      currentConfig = await ipcRenderer.invoke('get-config');
+      renderInstances();
+      closeNewInstanceModal();
+      toast(`Created instance: ${name}`);
+    }
+
+    // -------------------------------------------------------------
+    // PRISM LAUNCHER COMPACT INTEGRATION
+    // -------------------------------------------------------------
+    async function scanPrismInstances(customPath = null) {
+      const cont = document.getElementById('prism-instance-list');
+      cont.innerHTML = '<p style="font-size: 0.75rem; color: var(--text-muted);">Inspecting directories...</p>';
+
+      const res = await ipcRenderer.invoke('detect-prism-instances', customPath);
+      if (res.root) document.getElementById('prism-path-input').value = res.root;
+
+      if (!res.instances.length) {
+        cont.innerHTML = '<span style="font-size:0.75rem; color:var(--text-muted);">No Prism instances found. Specify custom directory above.</span>';
+        return;
+      }
+
+      cont.innerHTML = '';
+      res.instances.forEach(pi => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.style.padding = '8px 12px';
+        row.style.background = '#18181b';
+        row.style.borderRadius = '6px';
+        row.innerHTML = `
+          <div>
+            <strong style="font-size:0.85rem;">${pi.name}</strong>
+            <span style="font-size:0.7rem; color:var(--text-muted); display:block;">
+              ${pi.loader} &bull; ${pi.mcVersion} &bull; ${pi.maxRam}MB RAM
+            </span>
+          </div>
+          <button class="btn" style="padding:4px 10px; font-size:0.75rem;" onclick="importPrismInstanceAction('${encodeURIComponent(pi.fullPath)}', '${encodeURIComponent(pi.name)}')">
+            Import
+          </button>
+        `;
+        cont.appendChild(row);
+      });
+    }
+
+    async function importPrismInstanceAction(encPath, encName) {
+      const prismInstancePath = decodeURIComponent(encPath);
+      const targetName = decodeURIComponent(encName);
+
+      toast(`Importing ${targetName}...`);
+      try {
+        const inst = await ipcRenderer.invoke('import-prism-instance', { prismInstancePath, targetName });
+        currentConfig = await ipcRenderer.invoke('get-config');
+        renderInstances();
+        closeNewInstanceModal();
+        toast(`Imported: ${inst.name}`);
+      } catch (err) {
+        alert('Prism import failed: ' + err.message);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // LIVE CONSOLE & CRASH DIAGNOSTICS
+    // -------------------------------------------------------------
+    function initConsoleStream() {
+      ipcRenderer.on('game-log-stream', (event, entry) => {
+        appendConsoleLine(entry);
+      });
+
+      ipcRenderer.on('game-crashed', (event, { code, diag }) => {
+        const box = document.getElementById('crash-diagnostic-box');
+        document.getElementById('crash-title').innerText = `Process Terminated (Code ${code}) — ${diag.title}`;
+        document.getElementById('crash-rec').innerText = diag.recommendation;
+        box.style.display = 'block';
+        switchTab('console', 'Live Console');
+      });
+    }
+
+    function appendConsoleLine(entry) {
+      const box = document.getElementById('console-stream');
+      const div = document.createElement('div');
+      div.className = entry.stream === 'stderr' ? 'log-stderr' : 'log-stdout';
+      div.innerHTML = `<span class="log-time">[${entry.time}]</span>${escapeHtml(entry.text)}`;
+      box.appendChild(div);
+      scrollToConsoleBottom();
+    }
+
+    function scrollToConsoleBottom() {
+      const box = document.getElementById('console-stream');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function clearConsole() {
+      await ipcRenderer.invoke('clear-console-logs');
+      document.getElementById('console-stream').innerHTML = '';
+      document.getElementById('crash-diagnostic-box').style.display = 'none';
+    }
+
+    function copyConsole() {
+      const text = document.getElementById('console-stream').innerText;
+      navigator.clipboard.writeText(text);
+      toast('Console output copied.');
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // -------------------------------------------------------------
+    // AUTOMATIC MOD UPDATE CHECKER
+    // -------------------------------------------------------------
+    async function checkModUpdates() {
+      toast('Checking Modrinth for compatible updates...');
+      try {
+        pendingUpdates = await ipcRenderer.invoke('check-mod-updates');
+        renderUpdatesUI();
+      } catch (e) {
+        alert('Update check fault: ' + e.message);
+      }
+    }
+
+    function renderUpdatesUI() {
+      const box = document.getElementById('updates-box');
+      const cont = document.getElementById('updates-container');
+      const lbl = document.getElementById('updates-count-label');
+
+      if (!pendingUpdates.length) {
+        box.style.display = 'none';
+        toast('All installed mods are up to date.');
+        return;
+      }
+
+      lbl.innerText = `${pendingUpdates.length} update(s) available`;
+      cont.innerHTML = '';
+
+      pendingUpdates.forEach((up, idx) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.style.padding = '8px 12px';
+        row.style.background = '#18181b';
+        row.style.borderRadius = '6px';
+        row.innerHTML = `
+          <div>
+            <strong style="font-size:0.85rem;">${up.currentFileName}</strong>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block;">
+              ${up.currentVersionNumber} &rarr; <span style="color:#ffffff;">${up.newVersionNumber}</span>
+            </span>
+          </div>
+          <button class="btn-secondary" onclick="applySingleUpdate(${idx})">Update</button>
+        `;
+        cont.appendChild(row);
+      });
+
+      box.style.display = 'block';
+    }
+
+    async function applySingleUpdate(idx) {
+      const item = pendingUpdates[idx];
+      toast(`Updating ${item.currentFileName}...`);
+      await ipcRenderer.invoke('apply-mod-update', item);
+      pendingUpdates.splice(idx, 1);
+      renderUpdatesUI();
+      loadManager('mods');
+      toast(`Updated to ${item.newFileName}`);
+    }
+
+    async function applyAllUpdates() {
+      for (const item of [...pendingUpdates]) {
+        toast(`Updating ${item.currentFileName}...`);
+        await ipcRenderer.invoke('apply-mod-update', item);
+      }
+      pendingUpdates = [];
+      renderUpdatesUI();
+      loadManager('mods');
+      toast('All mods updated.');
+    }
+
+    // -------------------------------------------------------------
+    // FABRIC & NEOFORGE LOADERS
+    // -------------------------------------------------------------
+    async function fetchFabricLoaders() {
+      const mcVer = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
+      const select = document.getElementById('fabric-loader-select');
+      select.innerHTML = '<option value="">Querying Fabric Meta API...</option>';
+
+      try {
+        const loaders = await ipcRenderer.invoke('get-fabric-loaders', mcVer);
+        select.innerHTML = '';
+        if (!loaders.length) {
+          select.innerHTML = '<option value="">No builds available</option>';
+          return;
+        }
+        loaders.forEach((l, index) => {
+          const opt = document.createElement('option');
+          opt.value = l.version;
+          opt.innerText = `${l.version} ${l.stable ? '(Stable)' : '(Beta)'}${index === 0 ? ' — Latest' : ''}`;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        select.innerHTML = '<option value="">Query failed</option>';
+      }
+    }
+
+    async function installFabric() {
+      const gameVersion = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
+      const loaderVersion = document.getElementById('fabric-loader-select').value;
+      if (!loaderVersion) return alert('Select a valid Fabric build first.');
+
+      toast('Installing Fabric profile...');
+      try {
+        const res = await ipcRenderer.invoke('install-fabric-profile', { gameVersion, loaderVersion });
+        await syncVersions();
+        await changeVersion(res.profileId);
+        document.getElementById('version-selector').value = res.profileId;
+        toast(`Fabric profile installed!`);
+      } catch (e) {
+        alert('Fabric installation failed: ' + e.message);
+      }
+    }
+
+    async function fetchNeoForgeVersions() {
+      const targetMc = document.getElementById('neoforge-target-mc').value.trim() || '1.20.4';
+      const select = document.getElementById('neoforge-select');
+      select.innerHTML = '<option value="">Querying repository...</option>';
+
+      const versions = await ipcRenderer.invoke('get-neoforge-versions', targetMc);
+      select.innerHTML = '';
+      if (!versions.length) {
+        select.innerHTML = '<option value="">No releases found for this version</option>';
+        return;
+      }
+      versions.forEach((v, idx) => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.innerText = `${v}${idx === 0 ? ' — Recommended' : ''}`;
+        select.appendChild(opt);
+      });
+    }
+
+    async function installNeoForge() {
+      const ver = document.getElementById('neoforge-select').value;
+      if (!ver) return alert('Select a valid NeoForge build.');
+      toast('Starting headless NeoForge setup...');
+      switchTab('console', 'Live Console');
+
+      try {
+        await ipcRenderer.invoke('install-neoforge-profile', { neoforgeVersion: ver });
+        await syncVersions();
+        toast('NeoForge installed and ready!');
+      } catch (e) {
+        alert('NeoForge install error: ' + e.message);
+      }
+    }
+
+    async function installShaderEngine() {
+      const ver = currentConfig.selectedVersion || '1.20.4';
+      toast('Installing Sodium + Iris Shaders Engine...');
+      try {
+        const files = await ipcRenderer.invoke('install-shader-engine', ver);
+        toast(`Installed: ${files.join(', ')}`);
+        loadManager('mods');
+      } catch (e) {
+        alert('Shader Engine error: ' + e.message);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // CONTENT MANAGER LOGIC
+    // -------------------------------------------------------------
+    async function loadManager(type = 'mods') {
+      activeMgrType = type;
+      ['mods', 'resourcepacks', 'shaderpacks'].forEach(t => {
+        const el = document.getElementById(`mgr-chip-${t}`);
+        if (el) el.classList.toggle('active', t === type);
+      });
+
+      localInstalledItems = await ipcRenderer.invoke('get-installed-content', type);
+      renderManagerList(localInstalledItems);
+    }
+
+    function renderManagerList(items) {
+      const list = document.getElementById('manager-list');
+      list.innerHTML = '';
+
+      if (!items.length) {
+        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No local ${activeMgrType} found in this instance.</span>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'mod-item';
+        row.innerHTML = `
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <strong style="font-size:0.9rem;">${item.name}</strong>
+              <span class="brand-badge" style="font-size:0.65rem; ${item.isEnabled ? 'background:#ffffff; color:#09090b;' : ''}">
+                ${item.isEnabled ? 'ACTIVE' : 'DISABLED'}
+              </span>
+            </div>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:4px;">
+              ${item.sizeMb} MB &bull; Modified ${item.modified}
+            </span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-secondary" onclick="toggleItem('${item.folder}', '${item.fileName}')">
+              ${item.isEnabled ? 'Disable' : 'Enable'}
+            </button>
+            <button class="btn-secondary" style="color:var(--danger);" onclick="deleteItem('${item.folder}', '${item.fileName}')">
+              Delete
+            </button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    function filterInstalledItems() {
+      const q = document.getElementById('mgr-search-input').value.toLowerCase().trim();
+      const filtered = localInstalledItems.filter(i => i.name.toLowerCase().includes(q));
+      renderManagerList(filtered);
+    }
+
+    async function toggleItem(folder, fileName) {
+      await ipcRenderer.invoke('toggle-content-item', { folder, fileName });
+      loadManager(activeMgrType);
+    }
+
+    async function toggleAllItems(enable) {
+      await ipcRenderer.invoke('toggle-all-content', { folder: activeMgrType, enable });
+      loadManager(activeMgrType);
+      toast(enable ? 'All items enabled.' : 'All items disabled.');
+    }
+
+    async function deleteItem(folder, fileName) {
+      if (confirm(`Remove ${fileName}?`)) {
+        await ipcRenderer.invoke('delete-content-item', { folder, fileName });
+        loadManager(activeMgrType);
+        toast(`Removed ${fileName}`);
+      }
+    }
+
+    async function importContentDialog() {
+      const imported = await ipcRenderer.invoke('import-content-dialog', activeMgrType);
+      if (imported) {
+        toast(`Files imported.`);
+        loadManager(activeMgrType);
+      }
+    }
+
+    function openCurrentDir() { openDir(activeMgrType); }
+
+    function setupDragAndDrop() {
+      const dropZone = document.getElementById('drop-target');
+      ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, (ev) => {
+        ev.preventDefault();
+        dropZone.classList.add('drag-active');
+      }));
+      ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, (ev) => {
+        ev.preventDefault();
+        dropZone.classList.remove('drag-active');
+      }));
+      dropZone.addEventListener('drop', async (e) => {
+        const files = Array.from(e.dataTransfer.files).map(f => f.path);
+        if (files.length) {
+          await ipcRenderer.invoke('import-dropped-files', { folderType: activeMgrType, filePaths: files });
+          toast(`Imported ${files.length} item(s)!`);
+          loadManager(activeMgrType);
+        }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // MOD HUB PROVIDERS
+    // -------------------------------------------------------------
+    function setProvider(p) {
+      activeProvider = p;
+      document.getElementById('provider-modrinth').classList.toggle('active', p === 'modrinth');
+      document.getElementById('provider-curseforge').classList.toggle('active', p === 'curseforge');
+      executeHubSearch();
+    }
+
+    function setModType(type) {
+      activeModType = type;
+      document.querySelectorAll('#panel-mods .chip-btn').forEach(b => {
+        if (b.id.startsWith('chip-')) b.classList.toggle('active', b.id === `chip-${type}`);
+      });
+      executeHubSearch();
+    }
+
+    async function executeHubSearch() {
+      const q = document.getElementById('mod-query').value.trim();
+      const list = document.getElementById('mod-list');
+      const ver = currentConfig.selectedVersion || '1.20.4';
+      list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">Querying ${activeProvider}...</span>`;
+
+      let hits = [];
+      if (activeProvider === 'curseforge') {
+        hits = await ipcRenderer.invoke('search-curseforge', { query: q, type: activeModType, version: ver });
+      } else {
+        hits = await ipcRenderer.invoke('search-modrinth', { query: q, type: activeModType, version: ver });
+      }
+
+      list.innerHTML = '';
+      if (!hits.length) {
+        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No releases found on ${activeProvider}.</span>`;
+        return;
+      }
+
+      hits.forEach(m => {
+        const id = m.id || m.project_id;
+        const item = document.createElement('div');
+        item.className = 'mod-item';
+        item.innerHTML = `
+          <div style="display:flex; align-items:center; gap:14px;">
+            <img style="width:48px; height:48px; border-radius:8px; background:#000; border:1px solid var(--border); object-fit:cover;" src="${m.icon_url || ''}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'48\\' height=\\'48\\'><rect width=\\'48\\' height=\\'48\\' fill=\\'%2318181b\\'/></svg>'" />
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="font-size:0.9rem;">${m.title}</strong>
+                <span style="font-size:0.7rem; color:var(--text-dim); background:#18181b; padding:1px 6px; border-radius:4px; border:1px solid var(--border);">by ${m.author}</span>
+              </div>
+              <p style="font-size:0.75rem; color:var(--text-muted); max-width:540px; margin-top:3px; line-height:1.3;">${m.description}</p>
+            </div>
+          </div>
+          <button class="btn-secondary" onclick="installHubItem('${id}', '${m.title}')">Install</button>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    async function installHubItem(id, name) {
+      toast(`Downloading ${name}...`);
+      try {
+        const ver = currentConfig.selectedVersion || '1.20.4';
+        let file;
+        if (activeProvider === 'curseforge') {
+          file = await ipcRenderer.invoke('install-curseforge-item', { modId: id, type: activeModType, version: ver });
+        } else {
+          file = await ipcRenderer.invoke('install-modrinth-item', { projectId: id, type: activeModType, version: ver });
+        }
+        toast(`Installed: ${file}`);
+      } catch (e) {
+        alert('Download error: ' + e.message);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // RUNTIME & HARDWARE DIAGNOSTICS
+    // -------------------------------------------------------------
+    async function checkJdkStatus() {
+      const diag = document.getElementById('diag-java');
+      const btn = document.getElementById('btn-install-jdk');
+      const res = await ipcRenderer.invoke('detect-arm-java');
+
+      if (res.found) {
+        diag.innerText = `Native Runtime Located: ${res.path} (${res.source})`;
+        diag.style.color = '#ffffff';
+        btn.style.display = 'none';
+      } else {
+        diag.innerText = 'No native ARM64 JDK found. Required for Snapdragon X Oryon performance.';
+        diag.style.color = '#a1a1aa';
+        btn.style.display = 'block';
+      }
+    }
+
+    async function installArmJdk() {
+      const btn = document.getElementById('btn-install-jdk');
+      const box = document.getElementById('jdk-progress-box');
+      const bar = document.getElementById('jdk-progress-bar');
+      const txt = document.getElementById('jdk-progress-text');
+
+      btn.disabled = true;
+      box.style.display = 'block';
+
+      ipcRenderer.on('jdk-install-status', (e, data) => {
+        txt.innerText = data.step;
+        bar.style.width = `${Math.round((data.progress || 0) * 100)}%`;
+      });
+
+      try {
+        await ipcRenderer.invoke('install-arm-jdk');
+        toast('Microsoft OpenJDK 21 installed!');
+        checkJdkStatus();
+      } catch (err) {
+        alert('JDK setup error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        box.style.display = 'none';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 2D SKIN STUDIO
+    // -------------------------------------------------------------
+    function drawSkinToCanvas(imgSrc) {
+      const img = new Image();
+      img.onload = () => {
+        const cvs = document.getElementById('skin-canvas');
+        const c = cvs.getContext('2d');
+        c.imageSmoothingEnabled = false;
+        c.clearRect(0, 0, cvs.width, cvs.height);
+
+        c.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
+        c.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
+
+        c.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
+        c.drawImage(img, 20, 36, 8, 12, 48, 48, 32, 48);
+
+        c.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
+        c.drawImage(img, 44, 36, 4, 12, 32, 48, 16, 48);
+
+        if (img.height >= 64) {
+          c.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
+          c.drawImage(img, 52, 52, 4, 12, 80, 48, 16, 48);
+        } else {
+          c.save();
+          c.translate(96, 48);
+          c.scale(-1, 1);
+          c.drawImage(img, 44, 20, 4, 12, 0, 0, 16, 48);
+          c.restore();
+        }
+
+        c.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
+        c.drawImage(img, 4, 36, 4, 12, 48, 96, 16, 48);
+
+        if (img.height >= 64) {
+          c.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
+          c.drawImage(img, 4, 52, 4, 12, 64, 96, 16, 48);
+        } else {
+          c.save();
+          c.translate(80, 96);
+          c.scale(-1, 1);
+          c.drawImage(img, 4, 20, 4, 12, 0, 0, 16, 48);
+          c.restore();
+        }
+      };
+      img.src = imgSrc;
+    }
+
+    async function loadAccountSkinAuto(username) {
+      try {
+        const res = await ipcRenderer.invoke('fetch-player-skin', username);
+        if (res && res.skinUrl) {
+          drawSkinToCanvas(res.skinUrl);
+          document.getElementById('skin-file-name').innerText = `Active Account: ${res.username}`;
+          document.getElementById('skin-model-name').innerText = `Model: ${res.isSlim ? 'Slim (Alex 3px)' : 'Classic (Steve 4px)'}`;
+        }
+      } catch (e) {}
+    }
+
+    async function searchPlayerSkin() {
+      const u = document.getElementById('skin-search-user').value.trim();
+      if (!u) return alert('Enter a Minecraft username.');
+      toast(`Resolving skin for ${u}...`);
+      try {
+        const res = await ipcRenderer.invoke('fetch-player-skin', u);
+        drawSkinToCanvas(res.skinUrl);
+        document.getElementById('skin-file-name').innerText = `Loaded: ${res.username}`;
+        document.getElementById('skin-model-name').innerText = `Model: ${res.isSlim ? 'Slim (Alex 3px)' : 'Classic (Steve 4px)'}`;
+        toast(`Skin loaded.`);
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // ACCOUNTS
+    // -------------------------------------------------------------
+    function renderAccounts() {
+      const container = document.getElementById('accounts-container');
+      container.innerHTML = '';
+      const accs = currentConfig.accounts || [];
+      if (!accs.length) {
+        container.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No Microsoft profiles connected.</span>';
+        return;
+      }
+      accs.forEach(acc => {
+        const isCurrent = currentConfig.activeAccount && currentConfig.activeAccount.id === acc.id;
+        const row = document.createElement('div');
+        row.className = 'mod-item';
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; gap:12px;">
+            <img style="width:40px; height:40px; border-radius:6px; background:#000; border:1px solid var(--border); image-rendering:pixelated;" src="https://mc-heads.net/avatar/${acc.name}/64" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\'><rect width=\\'40\\' height=\\'40\\' fill=\\'%2318181b\\'/></svg>'" />
+            <div>
+              <strong style="font-size:0.85rem;">${acc.name}</strong>
+              <span style="font-size:0.7rem; color:var(--text-muted); display:block;">UUID: ${acc.id}</span>
+            </div>
+          </div>
+          <button class="btn-secondary" onclick="setActiveAccount('${acc.id}')">
+            ${isCurrent ? 'Active Profile' : 'Select'}
+          </button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function setActiveAccount(id) {
+      currentConfig.activeAccount = currentConfig.accounts.find(a => a.id === id);
+      ipcRenderer.invoke('save-config', currentConfig);
+      renderAccounts();
+      if (currentConfig.activeAccount) loadAccountSkinAuto(currentConfig.activeAccount.name);
+      toast('Profile switched.');
+    }
+
+    async function addMicrosoftAccount() {
+      toast('Opening Microsoft authentication window...');
+      try {
+        const acc = await ipcRenderer.invoke('start-microsoft-login');
+        currentConfig.activeAccount = acc;
+        renderAccounts();
+        loadAccountSkinAuto(acc.name);
+        toast(`Signed in as ${acc.name}!`);
+      } catch (e) { alert(e.message); }
+    }
+
+    async function saveOfflineName() {
+      const name = document.getElementById('cfg-offline-user').value.trim() || 'Player';
+      currentConfig.offlineUsername = name;
+      await ipcRenderer.invoke('save-config', currentConfig);
+      toast(`Offline player set to ${name}`);
+    }
+
+    // -------------------------------------------------------------
+    // LAUNCH PIPELINE
+    // -------------------------------------------------------------
+    async function syncVersions() {
+      const manifest = await ipcRenderer.invoke('get-mc-versions');
+      const selector = document.getElementById('version-selector');
+      const datalist = document.getElementById('mc-version-list');
+      selector.innerHTML = '';
+      datalist.innerHTML = '';
+
+      if (manifest.installed && manifest.installed.length) {
+        const fabGroup = document.createElement('optgroup');
+        fabGroup.label = 'Installed Profiles';
+        manifest.installed.forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v.id;
+          opt.innerText = v.id;
+          fabGroup.appendChild(opt);
+        });
+        selector.appendChild(fabGroup);
+      }
+
+      const vanGroup = document.createElement('optgroup');
+      vanGroup.label = 'Official Releases';
+      manifest.versions.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.id;
+        opt.innerText = v.id === manifest.latest ? `${v.id} (Latest Release)` : v.id;
+        vanGroup.appendChild(opt);
+
+        const dOpt = document.createElement('option');
+        dOpt.value = v.id;
+        datalist.appendChild(dOpt);
+      });
+      selector.appendChild(vanGroup);
+
+      const targetVersion = currentConfig.selectedVersion || manifest.latest;
+      selector.value = targetVersion;
+      document.getElementById('version-badge').innerText = targetVersion.split('-')[0].toUpperCase();
+    }
+
+    async function changeVersion(ver) {
+      currentConfig.selectedVersion = ver;
+      document.getElementById('version-badge').innerText = ver.split('-')[0].toUpperCase();
+      await ipcRenderer.invoke('save-config', currentConfig);
+      toast(`Profile targeted: ${ver}`);
+    }
+
+    function playGame() {
+      toast('Starting native ARM64 launch pipeline...');
+      document.getElementById('play-button').disabled = true;
+
+      ipcRenderer.send('launch-game', {
+        selectedVersion: currentConfig.selectedVersion || '1.20.4'
+      });
+    }
+
+    ipcRenderer.on('launch-status', (event, res) => {
+      document.getElementById('hero-status').innerText = res.message;
+      if (res.isError) {
+        document.getElementById('play-button').disabled = false;
+      }
+      toast(res.message);
+    });
+
+    // -------------------------------------------------------------
+    // VAULT
+    // -------------------------------------------------------------
+    async function loadVault() {
+      const data = await ipcRenderer.invoke('get-vault-data');
+      const wCont = document.getElementById('vault-worlds');
+      const sCont = document.getElementById('vault-screens');
+
+      wCont.innerHTML = '';
+      if (!data.worlds.length) {
+        wCont.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No world saves found in this instance.</span>';
+      }
+      data.worlds.forEach(w => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.innerHTML = `
+          <div>
+            <strong>${w.name}</strong>
+            <span style="font-size:0.75rem; color:var(--text-muted); display:block;">${w.sizeMb} MB</span>
+          </div>
+          <button class="btn-secondary" onclick="backupWorld('${w.folder}')">Backup</button>
+        `;
+        wCont.appendChild(row);
+      });
+
+      sCont.innerHTML = '';
+      if (!data.screenshots.length) {
+        sCont.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No captures found.</span>';
+      }
+      data.screenshots.forEach(s => {
+        const img = document.createElement('img');
+        img.src = s.url;
+        img.style.width = '100%';
+        img.style.height = '64px';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '4px';
+        img.style.border = '1px solid var(--border)';
+        sCont.appendChild(img);
+      });
+    }
+
+    async function backupWorld(folder) {
+      toast(`Compressing world ${folder}...`);
+      try {
+        const dest = await ipcRenderer.invoke('backup-world', folder);
+        toast(`Backup generated: ${dest}`);
+      } catch (e) { alert('Backup error: ' + e.message); }
+    }
+
+    // -------------------------------------------------------------
+    // GLOBAL SETTINGS
+    // -------------------------------------------------------------
+    async function saveGlobalSettings() {
+      currentConfig.minRam = parseInt(document.getElementById('cfg-min-ram').value, 10) || 2048;
+      currentConfig.maxRam = parseInt(document.getElementById('cfg-max-ram').value, 10) || 4096;
+      currentConfig.jvmArgs = document.getElementById('cfg-jvm-flags').value.trim() || DEFAULT_ORYON;
+      currentConfig.customJavaPath = document.getElementById('cfg-global-java').value.trim();
+      currentConfig.envVars = document.getElementById('cfg-global-env').value.trim();
+
+      await ipcRenderer.invoke('save-config', currentConfig);
+      toast('Global preferences saved.');
+    }
+  </script>
+</body>
+</html>
