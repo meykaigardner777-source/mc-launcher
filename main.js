@@ -36,10 +36,145 @@ const PROFILES_DIR = path.join(APP_DIR, 'profiles');
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
 const DEFAULT_ORYON_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
 const DEFAULT_OVERVIEW_WIDGETS = [
-  { id: 'hero', span: 12 },
-  { id: 'profile', span: 7 },
-  { id: 'play', span: 5 }
+  { id: 'hero', col: 3, row: 1, colSpan: 8, rowSpan: 2 },
+  { id: 'profile', col: 3, row: 3, colSpan: 5, rowSpan: 1 },
+  { id: 'play', col: 8, row: 3, colSpan: 3, rowSpan: 1 }
 ];
+
+const WIDGET_BOUNDS = {
+  hero: { defaultColSpan: 8, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4 },
+  profile: { defaultColSpan: 5, defaultRowSpan: 1, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 2 },
+  play: { defaultColSpan: 3, defaultRowSpan: 1, minColSpan: 2, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
+  status: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 4 },
+  account: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
+  ram: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
+  java: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
+  quicklaunch: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 5 },
+  mods: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
+  updates: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
+  worlds: { defaultColSpan: 6, defaultRowSpan: 3, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 6 },
+  screenshots: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 5 },
+  console: { defaultColSpan: 6, defaultRowSpan: 3, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 7 },
+  telemetry: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4 },
+  folders: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4 },
+  loader: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
+  jvm: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 4 },
+  skin: { defaultColSpan: 4, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 8, minRowSpan: 2, maxRowSpan: 4 },
+  session: { defaultColSpan: 4, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
+  clock: { defaultColSpan: 4, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4 }
+};
+
+function clampInt(val, min, max) {
+  return Math.max(min, Math.min(max, Math.round(val)));
+}
+
+function rectsOverlap(a, b) {
+  return (
+    a.col < b.col + b.colSpan &&
+    a.col + a.colSpan > b.col &&
+    a.row < b.row + b.rowSpan &&
+    a.row + a.rowSpan > b.row
+  );
+}
+
+function findFirstAvailableSlot(existingItems, colSpan, rowSpan) {
+  const spanC = clampInt(colSpan, 1, 12);
+  const spanR = Math.max(1, rowSpan);
+  const maxRowScan = Math.max(1, existingItems.reduce((m, w) => Math.max(m, w.row + w.rowSpan), 1)) + 8;
+
+  for (let r = 1; r <= maxRowScan; r++) {
+    for (let c = 1; c <= 12 - spanC + 1; c++) {
+      const cand = { col: c, row: r, colSpan: spanC, rowSpan: spanR };
+      if (!existingItems.some(other => rectsOverlap(cand, other))) {
+        return { col: c, row: r };
+      }
+    }
+  }
+  return { col: 1, row: maxRowScan };
+}
+
+function resolveCollisionsPushDown(items, anchorId) {
+  const clone = items.map(w => ({ ...w }));
+  const queue = [anchorId];
+  const maxIterations = clone.length * clone.length + 32;
+  let iter = 0;
+
+  while (queue.length && iter < maxIterations) {
+    iter++;
+    const moverId = queue.shift();
+    const mover = clone.find(w => w.id === moverId);
+    if (!mover) continue;
+
+    const others = clone
+      .filter(w => w.id !== moverId)
+      .sort((a, b) => a.row - b.row || a.col - b.col);
+
+    for (const other of others) {
+      if (rectsOverlap(mover, other)) {
+        other.row = mover.row + mover.rowSpan;
+        queue.push(other.id);
+      }
+    }
+  }
+  return clone;
+}
+
+function normalizeOverviewWidgets(rawList) {
+  if (!Array.isArray(rawList)) {
+    return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
+  }
+
+  const isLegacyDefault =
+    rawList.length === 3 &&
+    rawList[0]?.id === 'hero' && rawList[0]?.col === undefined &&
+    rawList[1]?.id === 'profile' && rawList[1]?.col === undefined &&
+    rawList[2]?.id === 'play' && rawList[2]?.col === undefined;
+
+  if (isLegacyDefault) {
+    return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
+  }
+
+  const seen = new Set();
+  let placed = [];
+
+  for (const raw of rawList) {
+    if (!raw || !raw.id || seen.has(raw.id)) continue;
+    seen.add(raw.id);
+    const meta = WIDGET_BOUNDS[raw.id] || {
+      defaultColSpan: 6,
+      defaultRowSpan: 2,
+      minColSpan: 3,
+      maxColSpan: 12,
+      minRowSpan: 1,
+      maxRowSpan: 6
+    };
+
+    const hasFullCoords =
+      Number.isFinite(raw.col) &&
+      Number.isFinite(raw.row) &&
+      Number.isFinite(raw.colSpan) &&
+      Number.isFinite(raw.rowSpan);
+
+    if (hasFullCoords) {
+      const colSpan = clampInt(raw.colSpan, meta.minColSpan, meta.maxColSpan);
+      const rowSpan = clampInt(raw.rowSpan, meta.minRowSpan, meta.maxRowSpan);
+      const col = clampInt(raw.col, 1, 12 - colSpan + 1);
+      const row = Math.max(1, Math.round(raw.row));
+      placed.push({ id: raw.id, col, row, colSpan, rowSpan });
+    } else {
+      const legacySpan = Number.isFinite(raw.span) ? raw.span : meta.defaultColSpan;
+      const colSpan = clampInt(legacySpan, meta.minColSpan, meta.maxColSpan);
+      const rowSpan = meta.defaultRowSpan;
+      const spot = findFirstAvailableSlot(placed, colSpan, rowSpan);
+      placed.push({ id: raw.id, col: spot.col, row: spot.row, colSpan, rowSpan });
+    }
+  }
+
+  for (let i = 0; i < placed.length; i++) {
+    placed = resolveCollisionsPushDown(placed, placed[i].id);
+  }
+  return placed;
+}
 
 // CurseForge modLoaderType mappings
 const CF_LOADER_MAP = {
@@ -358,9 +493,7 @@ function normalizeConfig(cfg) {
     cfg.activeProfileId = 'default';
   }
 
-  if (!Array.isArray(cfg.overviewWidgets)) {
-    cfg.overviewWidgets = DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
-  }
+  cfg.overviewWidgets = normalizeOverviewWidgets(cfg.overviewWidgets);
 
   return cfg;
 }
@@ -662,7 +795,6 @@ function checkUrlReachable(url, maxRedirects = 8) {
           return probe(nextUrl, depth + 1);
         }
         if (res.statusCode === 405) {
-          // Some CDNs reject HEAD but support GET
           return resolve(true);
         }
         resolve(res.statusCode >= 200 && res.statusCode < 300);
@@ -679,11 +811,7 @@ async function resolveJdkDownloadCandidates(version) {
   const candidates = [];
   const major = String(version);
 
-  // Java 8 has NO upstream OpenJDK Windows/AArch64 port (JEP 388 arrived in JDK 16).
-  // Try native ARM64 first if any exists, then fall back to official Windows x64 OpenJDK 8
-  // which runs seamlessly via Windows 11 ARM64 built-in Prism x64 emulation.
   if (major === '8') {
-    // 1. Adoptium Temurin 8 Windows x64 API
     try {
       const raw = await httpGetText('https://api.adoptium.net/v3/assets/latest/8/hotspot?architecture=x64&image_type=jdk&os=windows');
       const list = JSON.parse(raw);
@@ -695,7 +823,6 @@ async function resolveJdkDownloadCandidates(version) {
       }
     } catch (e) {}
 
-    // 2. Azul Zulu 8 Windows 64-bit API
     try {
       const raw = await httpGetText('https://api.azul.com/metadata/v1/zulu/packages/?java_version=8&os=windows&arch=x86&hw_bitness=64&archive_type=zip&java_package_type=jdk&javafx_bundled=false&latest=true&release_status=ga');
       const list = JSON.parse(raw);
@@ -706,7 +833,6 @@ async function resolveJdkDownloadCandidates(version) {
       }
     } catch (e) {}
 
-    // 3. BellSoft Liberica 8 Windows x64 API
     try {
       const raw = await httpGetText('https://api.bell-sw.com/v1/liberica/releases?version-feature=8&os=windows&arch=x86&bitness=64&package-type=zip&bundle-type=jdk');
       const list = JSON.parse(raw);
@@ -717,17 +843,14 @@ async function resolveJdkDownloadCandidates(version) {
       }
     } catch (e) {}
 
-    // 4. Adoptium binary redirect endpoint (direct)
     candidates.push('https://api.adoptium.net/v3/binary/latest/8/ga/windows/x64/jdk/hotspot/normal/eclipse');
     return Array.from(new Set(candidates.filter(Boolean)));
   }
 
-  // 1. Microsoft OpenJDK direct links (for 17, 21, 25 ARM64)
   if (['17', '21', '25'].includes(major)) {
     candidates.push(`https://aka.ms/download-jdk/microsoft-jdk-${major}-windows-aarch64.zip`);
   }
 
-  // 2. Azul Zulu Metadata API (win_aarch64)
   try {
     const azulUrl = `https://api.azul.com/metadata/v1/zulu/packages/?java_version=${encodeURIComponent(major)}&os=windows&archive_type=zip&java_package_type=jdk&javafx_bundled=false&latest=true`;
     const raw = await httpGetText(azulUrl);
@@ -743,7 +866,6 @@ async function resolveJdkDownloadCandidates(version) {
     }
   } catch (e) {}
 
-  // 3. BellSoft Liberica API (Windows ARM64)
   try {
     const bellUrl = `https://api.bell-sw.com/v1/liberica/releases?version-feature=${encodeURIComponent(major)}&os=windows&arch=arm&bitness=64&package-type=zip&bundle-type=jdk`;
     const raw = await httpGetText(bellUrl);
@@ -755,7 +877,6 @@ async function resolveJdkDownloadCandidates(version) {
     }
   } catch (e) {}
 
-  // 4. Eclipse Adoptium API v3 (GA & EA for aarch64 windows)
   for (const endpoint of [
     `https://api.adoptium.net/v3/assets/latest/${encodeURIComponent(major)}/hotspot?architecture=aarch64&image_type=jdk&os=windows`,
     `https://api.adoptium.net/v3/assets/feature_releases/${encodeURIComponent(major)}/ea?architecture=aarch64&image_type=jdk&os=windows`
@@ -772,7 +893,6 @@ async function resolveJdkDownloadCandidates(version) {
     } catch (e) {}
   }
 
-  // 5. OpenJDK jdk.java.net scraper for Java 25
   if (major === '25') {
     try {
       const html = await httpGetText('https://jdk.java.net/25/');
@@ -960,7 +1080,6 @@ function getRequiredJavaMajor(targetVersionId, versionDescriptor = null) {
   const minor = vParts[1] || 0;
   const patch = vParts[2] || 0;
 
-  // Modern year-based Mojang versioning (e.g. 26.1, 26.3) uses Java 25+
   if (major >= 25) return '25';
   if (major === 1 && minor < 17) return '8';
   if (major === 1 && (minor < 20 || (minor === 20 && patch <= 4))) return '17';
@@ -995,7 +1114,6 @@ function resolveProfileJava(prof, globalCfg, targetVersionId, versionDescriptor 
   const idealPath = getManagedJavaPathForKey(idealKey);
   if (idealPath) return idealPath;
 
-  // Allow Java 21 to run 1.17-1.20.4 only if 17 isn't installed, NEVER run 25-compiled classes on 17/21
   if (idealKey === '17') {
     const j21Path = getManagedJavaPathForKey('21');
     if (j21Path) return j21Path;
@@ -2055,7 +2173,7 @@ function httpGet(url, token = null) {
       headers
     }, (res) => {
       let b = '';
-      res.on('data', c => b += c);
+      res.on('data', c => c);
       res.on('end', () => {
         try { resolve(JSON.parse(b)); } catch (e) { resolve(b); }
       });
@@ -2115,7 +2233,6 @@ async function exchangeLiveTokenForMcAccount(liveRes) {
 
 async function refreshMicrosoftAccountIfNeeded(account, cfg) {
   if (!account || !account.refreshToken) return account;
-  // Refresh if missing expiresAt or within 5 minutes of expiry
   if (account.expiresAt && Date.now() < (account.expiresAt - 300000)) {
     return account;
   }
@@ -2141,7 +2258,7 @@ ipcMain.handle('refresh-microsoft-account', async (event, accountId) => {
   const cfg = loadConfig();
   const target = (cfg.accounts || []).find(a => a.id === accountId) || cfg.activeAccount;
   if (!target) throw new Error('No account selected.');
-  target.expiresAt = 0; // force refresh
+  target.expiresAt = 0;
   return refreshMicrosoftAccountIfNeeded(target, cfg);
 });
 
@@ -2569,7 +2686,6 @@ async function installCurseforgeWithDeps(modId, type, cleanVer, loader, destDir,
   }
   installedNames.push(file.fileName);
 
-  // CurseForge relationType === 3 means RequiredDependency
   if (type === 'mod' && Array.isArray(file.dependencies)) {
     for (const dep of file.dependencies) {
       if (dep.relationType === 3 && dep.modId && !visited.has(String(dep.modId))) {
@@ -2737,7 +2853,6 @@ function evaluateRules(rules) {
   let allowed = false;
   for (const r of rules) {
     const ruleResult = evaluateRule(r);
-    // Mojang rules: the rule only applies if its condition matches
     let conditionMatches = true;
     if (r.os) {
       if (r.os.name && r.os.name !== 'windows') conditionMatches = false;
@@ -2834,7 +2949,6 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
     let versionId = prof.version || (reqCfg && reqCfg.selectedVersion) || '1.20.4';
     const activeGameDir = getActiveProfileDir(globalCfg);
 
-    // Auto-resolve Fabric/NeoForge profile JSON if profile specifies loader with plain MC version
     const profLoader = String(prof.loader || 'vanilla').toLowerCase();
     if (profLoader === 'fabric' && !versionId.startsWith('fabric-loader-')) {
       const cleanMc = extractMcVersion(versionId);
@@ -2881,7 +2995,6 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       parentData = await resolveVanillaDescriptor(baseGameVersion, sendStatus);
     }
 
-    // Resolve JVM with metadata inspection and automatic managed JDK provisioning when in 'auto' mode
     const requiredMajor = getRequiredJavaMajor(baseGameVersion, parentData || versionData);
     let javaBin = resolveProfileJava(prof, globalCfg, baseGameVersion, parentData || versionData);
 
@@ -2896,7 +3009,6 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       return sendStatus(`Java ${requiredMajor} runtime not found. Please install Java ${requiredMajor} in Settings -> Runtimes.`, true);
     }
 
-    // Silently refresh Microsoft OAuth token if expired
     let account = globalCfg.activeAccount;
     if (account && account.refreshToken) {
       try {
@@ -3069,7 +3181,6 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       ...userJvmFlags
     ];
 
-    // Evaluate loader / modern arguments.jvm (needed for NeoForge / Forge BootstrapLauncher)
     const extraJvmRaw = [];
     if (Array.isArray(parentData?.arguments?.jvm)) extraJvmRaw.push(...parentData.arguments.jvm);
     if (Array.isArray(versionData?.arguments?.jvm)) extraJvmRaw.push(...versionData.arguments.jvm);
@@ -3218,4 +3329,3 @@ app.on('before-quit', () => {
 app.on('window-all-closed', () => {
   forceCleanExit();
 });
-
