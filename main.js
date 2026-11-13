@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
@@ -16,12 +17,13 @@ if (!gotTheLock) {
 }
 
 process.on('uncaughtException', (err) => {
-  if (err && (err.code === 'EEXIST' || err.message.includes('EEXIST'))) return;
+  if (err && (err.code === 'EEXIST' || (err.message && err.message.includes('EEXIST')))) return;
   console.error('[Uncaught Exception]', err);
 });
 
 let mainWindow = null;
 let activeGameProcess = null;
+let isLaunchingGame = false;
 
 // Directory Paths
 const APP_DIR = path.join(app.getPath('appData'), '.aetheria-launcher');
@@ -33,7 +35,11 @@ const PROFILES_DIR = path.join(APP_DIR, 'profiles');
 
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
 const DEFAULT_ORYON_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
-const DEFAULT_ORYON = DEFAULT_ORYON_JVM;
+const DEFAULT_OVERVIEW_WIDGETS = [
+  { id: 'hero', span: 12 },
+  { id: 'profile', span: 7 },
+  { id: 'play', span: 5 }
+];
 
 // CurseForge modLoaderType mappings
 const CF_LOADER_MAP = {
@@ -54,7 +60,7 @@ function appendLog(line, stream = 'stdout') {
   const entry = {
     time: new Date().toLocaleTimeString(),
     stream,
-    text: line.trimEnd()
+    text: String(line).trimEnd()
   };
   gameLogs.push(entry);
   if (gameLogs.length > LOG_BUFFER_MAX) gameLogs.shift();
@@ -66,17 +72,23 @@ function appendLog(line, stream = 'stdout') {
 // -------------------------------------------------------------
 // PROCESS TERMINATION & TASK MANAGER CLEANUP
 // -------------------------------------------------------------
-function forceCleanExit() {
+function killActiveGameProcessSync() {
   if (activeGameProcess && activeGameProcess.pid) {
+    const pid = activeGameProcess.pid;
     try {
       if (process.platform === 'win32') {
-        execSync(`taskkill /pid ${activeGameProcess.pid} /T /F`);
+        execSync(`taskkill /pid ${pid} /T /F`);
       } else {
         activeGameProcess.kill('SIGKILL');
       }
     } catch (e) {}
     activeGameProcess = null;
+    isLaunchingGame = false;
   }
+}
+
+function forceCleanExit() {
+  killActiveGameProcessSync();
   app.exit(0);
 }
 
@@ -85,8 +97,8 @@ function forceCleanExit() {
 // -------------------------------------------------------------
 const MANAGED_JDKS = {
   '8': {
-    name: 'Azul Zulu OpenJDK 8 (ARM64)',
-    url: 'https://cdn.azul.com/zulu/bin/zulu8.80.0.17-ca-jdk8.0.422-win_aarch64.zip',
+    name: 'Zulu / Liberica OpenJDK 8 (ARM64)',
+    url: 'https://cdn.azul.com/zulu/bin/zulu8.82.0.21-ca-jdk8.0.432-win_aarch64.zip',
     dirName: 'java-8-arm64',
     version: '8',
     major: 8,
@@ -109,12 +121,12 @@ const MANAGED_JDKS = {
     desc: 'Current Minecraft (1.20.5+)'
   },
   '25': {
-    name: 'OpenJDK 25 Early Access (ARM64)',
-    url: 'https://download.java.net/java/early_access/jdk25/11/GPL/openjdk-25-ea+11_windows-aarch64_bin.zip',
+    name: 'OpenJDK 25 (ARM64)',
+    url: 'https://aka.ms/download-jdk/microsoft-jdk-25-windows-aarch64.zip',
     dirName: 'java-25-arm64',
     version: '25',
     major: 25,
-    desc: 'Experimental / Next-Gen JVM'
+    desc: 'Next-Gen / Latest JVM'
   }
 };
 
@@ -143,13 +155,21 @@ function safeMkdirSync(targetPath) {
     }
     fs.mkdirSync(targetPath, { recursive: true });
   } catch (err) {
-    if (err.code === 'EEXIST' || err.message.includes('EEXIST')) {
+    if (err.code === 'EEXIST' || (err.message && err.message.includes('EEXIST'))) {
       try { if (fs.existsSync(targetPath)) return; } catch (e) {}
     }
     try {
       fs.mkdirSync(path.resolve(targetPath), { recursive: true });
     } catch (finalErr) {}
   }
+}
+
+function ensureProfileSubdirs(profPath) {
+  if (!profPath) return;
+  safeMkdirSync(profPath);
+  ['mods', 'resourcepacks', 'shaderpacks', 'saves', 'screenshots', 'config'].forEach(sub => {
+    safeMkdirSync(path.join(profPath, sub));
+  });
 }
 
 function copyFolderRecursiveSync(src, dest) {
@@ -280,17 +300,11 @@ function setHighPerformanceGpu(javaPath) {
 }
 
 // -------------------------------------------------------------
-// CONFIGURATION PIPELINE
+// CONFIGURATION PIPELINE (WITH IN-MEMORY CACHE)
 // -------------------------------------------------------------
-function loadConfig() {
-  safeMkdirSync(APP_DIR);
-  let cfg = null;
-  if (fs.existsSync(CONFIG_FILE)) {
-    try {
-      cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-    } catch (e) {}
-  }
+let configCache = null;
 
+function normalizeConfig(cfg) {
   if (!cfg) {
     cfg = {
       accounts: [],
@@ -306,7 +320,8 @@ function loadConfig() {
       closeOnLaunch: false,
       jvmArgs: DEFAULT_ORYON_JVM,
       profiles: [],
-      activeProfileId: 'default'
+      activeProfileId: 'default',
+      overviewWidgets: DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }))
     };
   }
 
@@ -338,20 +353,41 @@ function loadConfig() {
     cfg.activeProfileId = 'default';
   }
 
-  for (const prof of cfg.profiles) {
-    if (prof.path && prof.id !== 'default') {
-      safeMkdirSync(prof.path);
-      ['mods', 'resourcepacks', 'shaderpacks', 'saves', 'config'].forEach(sub => safeMkdirSync(path.join(prof.path, sub)));
-    }
+  if (!Array.isArray(cfg.overviewWidgets)) {
+    cfg.overviewWidgets = DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
   }
 
   return cfg;
 }
 
+function loadConfig() {
+  if (configCache) return configCache;
+
+  safeMkdirSync(APP_DIR);
+  let cfg = null;
+  if (fs.existsSync(CONFIG_FILE)) {
+    try {
+      cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+    } catch (e) {}
+  }
+
+  cfg = normalizeConfig(cfg);
+  for (const prof of cfg.profiles) {
+    if (prof.path && prof.id !== 'default') {
+      ensureProfileSubdirs(prof.path);
+    }
+  }
+
+  configCache = cfg;
+  return cfg;
+}
+
 function saveConfig(cfg) {
   safeMkdirSync(APP_DIR);
+  const normalized = normalizeConfig(cfg);
+  configCache = normalized;
   try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(normalized, null, 2));
   } catch (e) {}
 }
 
@@ -380,7 +416,7 @@ function getActiveProfile(cfg) {
 function getActiveProfileDir(cfg) {
   const prof = getActiveProfile(cfg);
   if (prof.path && prof.id !== 'default') {
-    safeMkdirSync(prof.path);
+    if (!fs.existsSync(prof.path)) ensureProfileSubdirs(prof.path);
     return prof.path;
   }
   return MINECRAFT_DIR;
@@ -434,7 +470,7 @@ ipcMain.on('window-close', () => {
 ipcMain.on('open-path', (e, target) => {
   const cfg = loadConfig();
   const baseDir = getActiveProfileDir(cfg);
-  const p = path.join(baseDir, target);
+  const p = target ? path.join(baseDir, target) : baseDir;
   safeMkdirSync(p);
   shell.openPath(p);
 });
@@ -443,7 +479,38 @@ ipcMain.handle('get-config', () => loadConfig());
 ipcMain.handle('save-config', (e, cfg) => { saveConfig(cfg); return true; });
 
 // -------------------------------------------------------------
-// ARM64 RUNTIME CATALOG & MANAGEMENT
+// SYSTEM TELEMETRY & ACTIVE PROCESS CONTROLS (FOR WIDGETS)
+// -------------------------------------------------------------
+ipcMain.handle('get-system-telemetry', () => {
+  const totalBytes = os.totalmem();
+  const freeBytes = os.freemem();
+  const usedBytes = Math.max(0, totalBytes - freeBytes);
+  const cpus = os.cpus() || [];
+  return {
+    totalMemMb: Math.round(totalBytes / (1024 * 1024)),
+    freeMemMb: Math.round(freeBytes / (1024 * 1024)),
+    usedMemMb: Math.round(usedBytes / (1024 * 1024)),
+    cpuModel: cpus[0] ? cpus[0].model.trim() : 'Qualcomm Snapdragon ARM64',
+    cpuCores: cpus.length || 8,
+    arch: process.arch,
+    platform: process.platform,
+    uptimeSec: Math.round(os.uptime())
+  };
+});
+
+ipcMain.handle('get-active-game-state', () => ({
+  running: !!activeGameProcess,
+  pid: activeGameProcess ? activeGameProcess.pid : null
+}));
+
+ipcMain.handle('kill-active-game', () => {
+  const hadProcess = !!activeGameProcess;
+  killActiveGameProcessSync();
+  return { stopped: hadProcess };
+});
+
+// -------------------------------------------------------------
+// ARM64 RUNTIME CATALOG & RESILIENT MULTI-PROVIDER INSTALLER
 // -------------------------------------------------------------
 function getManagedJdkStatus() {
   return Object.keys(MANAGED_JDKS).map(key => {
@@ -471,7 +538,15 @@ function getManagedJdkStatus() {
   });
 }
 
-function scanSystemJavaRuntimes() {
+function execAsync(cmd, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    exec(cmd, { timeout: timeoutMs }, (err, stdout, stderr) => {
+      resolve((stdout || '') + (stderr || ''));
+    });
+  });
+}
+
+async function scanSystemJavaRuntimesAsync() {
   const results = [];
   const managed = getManagedJdkStatus();
   for (const m of managed) {
@@ -488,28 +563,29 @@ function scanSystemJavaRuntimes() {
     'C:\\Program Files\\Java'
   ];
 
+  const probeTasks = [];
   for (const root of standardDirs) {
     if (!fs.existsSync(root)) continue;
     try {
       for (const entry of fs.readdirSync(root)) {
         const binJava = path.join(root, entry, 'bin', 'java.exe');
         if (fs.existsSync(binJava)) {
-          let arch = 'Unknown';
-          try {
-            const out = execSync(`"${binJava}" -XshowSettings:properties -version 2>&1`, { timeout: 1500 }).toString();
-            arch = out.includes('aarch64') ? 'ARM64' : (out.includes('x86_64') || out.includes('amd64') ? 'x64' : 'x86');
-          } catch (e) {}
-          results.push({ name: `${entry} (${arch})`, path: binJava, arch });
+          probeTasks.push((async () => {
+            const out = await execAsync(`"${binJava}" -XshowSettings:properties -version 2>&1`, 1500);
+            const arch = out.includes('aarch64') ? 'ARM64' : (out.includes('x86_64') || out.includes('amd64') ? 'x64' : 'x86');
+            results.push({ name: `${entry} (${arch})`, path: binJava, arch });
+          })());
         }
       }
     } catch (e) {}
   }
 
+  await Promise.all(probeTasks);
   return results;
 }
 
 ipcMain.handle('get-managed-jdks', () => getManagedJdkStatus());
-ipcMain.handle('get-system-javas', () => scanSystemJavaRuntimes());
+ipcMain.handle('get-system-javas', async () => scanSystemJavaRuntimesAsync());
 
 ipcMain.handle('browse-java-path', async () => {
   const res = await dialog.showOpenDialog(mainWindow, {
@@ -527,6 +603,206 @@ ipcMain.handle('browse-java-path', async () => {
   return chosenPath;
 });
 
+function httpGetText(url, extraHeaders = {}, maxRedirects = 6) {
+  return new Promise((resolve, reject) => {
+    const fetchUrl = (targetUrl, depth) => {
+      if (depth > maxRedirects) return reject(new Error('Too many redirects'));
+      let parsed;
+      try { parsed = new URL(targetUrl); } catch (e) { return reject(e); }
+      const client = parsed.protocol === 'http:' ? http : https;
+      const req = client.get(targetUrl, {
+        headers: {
+          'User-Agent': 'Aetheria-ARM64-Launcher/1.0',
+          'Accept': 'application/json, text/html, */*',
+          ...extraHeaders
+        },
+        timeout: 15000
+      }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume();
+          const nextUrl = new URL(res.headers.location, targetUrl).toString();
+          return fetchUrl(nextUrl, depth + 1);
+        }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          res.resume();
+          return reject(new Error(`HTTP ${res.statusCode}`));
+        }
+        let body = '';
+        res.on('data', chunk => { body += chunk; });
+        res.on('end', () => resolve(body));
+      });
+      req.on('timeout', () => req.destroy(new Error('Request timeout')));
+      req.on('error', reject);
+    };
+    fetchUrl(url, 0);
+  });
+}
+
+function checkUrlReachable(url, maxRedirects = 6) {
+  return new Promise((resolve) => {
+    const probe = (targetUrl, depth) => {
+      if (depth > maxRedirects) return resolve(false);
+      let parsed;
+      try { parsed = new URL(targetUrl); } catch (e) { return resolve(false); }
+      const client = parsed.protocol === 'http:' ? http : https;
+      const req = client.request(targetUrl, {
+        method: 'HEAD',
+        headers: { 'User-Agent': 'Aetheria-ARM64-Launcher/1.0' },
+        timeout: 10000
+      }, (res) => {
+        res.resume();
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          const nextUrl = new URL(res.headers.location, targetUrl).toString();
+          return probe(nextUrl, depth + 1);
+        }
+        resolve(res.statusCode >= 200 && res.statusCode < 300);
+      });
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+      req.on('error', () => resolve(false));
+      req.end();
+    };
+    probe(url, 0);
+  });
+}
+
+async function resolveJdkDownloadCandidates(version) {
+  const candidates = [];
+  const major = String(version);
+
+  // 1. Microsoft OpenJDK direct links (for 17, 21, 25)
+  if (['17', '21', '25'].includes(major)) {
+    candidates.push(`https://aka.ms/download-jdk/microsoft-jdk-${major}-windows-aarch64.zip`);
+  }
+
+  // 2. Azul Zulu Metadata API (supports 8, 17, 21, 25 for win_aarch64)
+  try {
+    const azulUrl = `https://api.azul.com/metadata/v1/zulu/packages/?java_version=${encodeURIComponent(major)}&os=windows&archive_type=zip&java_package_type=jdk&javafx_bundled=false&latest=true`;
+    const raw = await httpGetText(azulUrl);
+    const list = JSON.parse(raw);
+    if (Array.isArray(list)) {
+      const armMatches = list.filter(pkg => {
+        const label = `${pkg.name || ''} ${pkg.download_url || ''}`.toLowerCase();
+        return (label.includes('aarch64') || label.includes('arm64')) && !label.includes('crac');
+      });
+      for (const pkg of armMatches) {
+        if (pkg.download_url) candidates.push(pkg.download_url);
+      }
+    }
+  } catch (e) {}
+
+  // 3. BellSoft Liberica API (supports 8, 17, 21, 25 for Windows ARM64)
+  try {
+    const bellUrl = `https://api.bell-sw.com/v1/liberica/releases?version-feature=${encodeURIComponent(major)}&os=windows&arch=arm&bitness=64&package-type=zip&bundle-type=jdk`;
+    const raw = await httpGetText(bellUrl);
+    const list = JSON.parse(raw);
+    if (Array.isArray(list)) {
+      for (const item of list) {
+        if (item.downloadUrl) candidates.push(item.downloadUrl);
+      }
+    }
+  } catch (e) {}
+
+  // 4. Eclipse Adoptium API v3 (GA & EA for aarch64 windows)
+  for (const endpoint of [
+    `https://api.adoptium.net/v3/assets/latest/${encodeURIComponent(major)}/hotspot?architecture=aarch64&image_type=jdk&os=windows`,
+    `https://api.adoptium.net/v3/assets/feature_releases/${encodeURIComponent(major)}/ea?architecture=aarch64&image_type=jdk&os=windows`
+  ]) {
+    try {
+      const raw = await httpGetText(endpoint);
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          const link = item?.binary?.package?.link || item?.binaries?.[0]?.package?.link;
+          if (link) candidates.push(link);
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 5. OpenJDK jdk.java.net scraper for Java 25
+  if (major === '25') {
+    try {
+      const html = await httpGetText('https://jdk.java.net/25/');
+      const match = html.match(/https:\/\/download\.java\.net\/[^"'\s<>]+windows-aarch64_bin\.zip/i);
+      if (match && match[0]) candidates.push(match[0]);
+    } catch (e) {}
+  }
+
+  // 6. Static fallback from catalog
+  if (MANAGED_JDKS[major] && MANAGED_JDKS[major].url) {
+    candidates.push(MANAGED_JDKS[major].url);
+  }
+
+  return Array.from(new Set(candidates.filter(Boolean)));
+}
+
+function findJavaBinRoot(searchRoot, depth = 0) {
+  if (fs.existsSync(path.join(searchRoot, 'bin', 'java.exe'))) {
+    return searchRoot;
+  }
+  if (depth >= 3) return null;
+  try {
+    for (const entry of fs.readdirSync(searchRoot, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        const hit = findJavaBinRoot(path.join(searchRoot, entry.name), depth + 1);
+        if (hit) return hit;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function extractZipAsync(zipPath, destDir) {
+  return new Promise((resolve, reject) => {
+    const runPowershell = () => {
+      const ps = spawn('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${destDir.replace(/'/g, "''")}' -Force`
+      ], { windowsHide: true });
+      let stderr = '';
+      ps.stderr.on('data', d => { stderr += d.toString(); });
+      ps.on('close', code => {
+        if (code === 0) resolve();
+        else reject(new Error(stderr.trim() || `Expand-Archive exited with code ${code}`));
+      });
+      ps.on('error', reject);
+    };
+
+    if (process.platform === 'win32') {
+      const tar = spawn('tar.exe', ['-xf', zipPath, '-C', destDir], { windowsHide: true });
+      tar.on('close', code => {
+        if (code === 0) resolve();
+        else runPowershell();
+      });
+      tar.on('error', () => runPowershell());
+    } else {
+      runPowershell();
+    }
+  });
+}
+
+async function moveDirSafe(src, dest) {
+  if (fs.existsSync(dest)) {
+    fs.rmSync(dest, { recursive: true, force: true });
+  }
+  safeMkdirSync(path.dirname(dest));
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      fs.renameSync(src, dest);
+      return;
+    } catch (err) {
+      if (attempt < 2) {
+        await new Promise(r => setTimeout(r, 250));
+      } else {
+        copyFolderRecursiveSync(src, dest);
+        try { fs.rmSync(src, { recursive: true, force: true }); } catch (e) {}
+      }
+    }
+  }
+}
+
 ipcMain.handle('install-managed-jdk', async (event, { version }) => {
   const def = MANAGED_JDKS[version];
   if (!def) throw new Error(`Unknown JDK version requested: ${version}`);
@@ -536,36 +812,75 @@ ipcMain.handle('install-managed-jdk', async (event, { version }) => {
   const tempExtract = path.join(RUNTIMES_DIR, `temp-extract-${def.dirName}`);
 
   const report = (step, progress) => {
-    event.sender.send('jdk-install-status', { version, step, progress });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('jdk-install-status', { version, step, progress });
+    }
   };
 
   try {
-    report(`Connecting to ${def.name} distribution CDN...`, 0.05);
-    await downloadFile(def.url, zipPath, (pct) => {
-      report(`Downloading ${def.name} (${Math.round(pct * 100)}%)...`, pct * 0.75);
-    });
+    report(`Resolving ARM64 distribution mirror for Java ${version}...`, 0.04);
+    const urls = await resolveJdkDownloadCandidates(version);
+    if (!urls.length) {
+      throw new Error(`No ARM64 Windows package URL found for Java ${version}.`);
+    }
 
-    report('Extracting runtime binaries...', 0.85);
+    let chosenUrl = null;
+    for (const candidateUrl of urls) {
+      if (await checkUrlReachable(candidateUrl)) {
+        chosenUrl = candidateUrl;
+        break;
+      }
+    }
+    if (!chosenUrl) chosenUrl = urls[0];
+
+    report(`Downloading ${def.name}...`, 0.08);
+    let downloaded = false;
+    let lastErr = null;
+    const tryOrder = [chosenUrl, ...urls.filter(u => u !== chosenUrl)];
+
+    for (const u of tryOrder) {
+      try {
+        await downloadFile(u, zipPath, (pct) => {
+          report(`Downloading Java ${version} ARM64 (${Math.round(pct * 100)}%)...`, 0.08 + pct * 0.70);
+        });
+        if (fs.existsSync(zipPath) && fs.statSync(zipPath).size > 1024 * 1024) {
+          downloaded = true;
+          break;
+        }
+      } catch (e) {
+        lastErr = e;
+        try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (delErr) {}
+      }
+    }
+
+    if (!downloaded) {
+      throw lastErr || new Error(`Failed to download Java ${version} ARM64 from any mirror.`);
+    }
+
+    report('Extracting ARM64 runtime binaries...', 0.84);
     if (fs.existsSync(tempExtract)) fs.rmSync(tempExtract, { recursive: true, force: true });
     safeMkdirSync(tempExtract);
 
-    execSync(`powershell.exe -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tempExtract}' -Force"`);
+    await extractZipAsync(zipPath, tempExtract);
 
-    const entries = fs.readdirSync(tempExtract);
-    const innerDir = entries.find(e => fs.statSync(path.join(tempExtract, e)).isDirectory()) || '';
-    const src = innerDir ? path.join(tempExtract, innerDir) : tempExtract;
+    report('Finalizing Java runtime installation...', 0.94);
+    const jdkRoot = findJavaBinRoot(tempExtract);
+    if (!jdkRoot) {
+      throw new Error(`Extracted Java ${version} archive did not contain bin/java.exe`);
+    }
 
-    if (fs.existsSync(targetDir)) fs.rmSync(targetDir, { recursive: true, force: true });
-    safeMkdirSync(path.dirname(targetDir));
-    fs.renameSync(src, targetDir);
+    await moveDirSafe(jdkRoot, targetDir);
 
     try { fs.rmSync(tempExtract, { recursive: true, force: true }); } catch (e) {}
     try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (e) {}
 
     const javaBin = path.join(targetDir, 'bin', 'java.exe');
+    if (!fs.existsSync(javaBin)) {
+      throw new Error(`Installation completed, but java.exe was not found at ${javaBin}`);
+    }
     setHighPerformanceGpu(javaBin);
 
-    report(`${def.name} ready for Snapdragon X!`, 1.0);
+    report(`Java ${version} ready for Snapdragon X!`, 1.0);
     return { success: true, path: javaBin, version };
   } catch (err) {
     try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (e) {}
@@ -595,7 +910,6 @@ function resolveProfileJava(prof, globalCfg, targetVersionId, versionDescriptor 
     if (globalCfg.customJavaPath && fs.existsSync(globalCfg.customJavaPath)) return globalCfg.customJavaPath;
   }
 
-  // Check version descriptor metadata first (future-proof)
   if (versionDescriptor && versionDescriptor.javaVersion && versionDescriptor.javaVersion.majorVersion) {
     const targetMajor = String(versionDescriptor.javaVersion.majorVersion);
     if (MANAGED_JDKS[targetMajor]) {
@@ -630,7 +944,7 @@ function resolveProfileJava(prof, globalCfg, targetVersionId, versionDescriptor 
     if (fs.existsSync(j21Path)) return j21Path;
   }
 
-  const detected = findSystemArmJava();
+  const detected = findSystemArmJavaFast();
   if (detected.found) return detected.path;
 
   for (const k of ['21', '25', '17', '8']) {
@@ -649,9 +963,7 @@ ipcMain.handle('create-profile', async (e, { name, version, loader = 'vanilla', 
   const id = 'prof-' + Date.now();
   const profPath = path.join(PROFILES_DIR, id);
 
-  ['mods', 'resourcepacks', 'shaderpacks', 'saves', 'screenshots', 'config'].forEach(sub => {
-    safeMkdirSync(path.join(profPath, sub));
-  });
+  ensureProfileSubdirs(profPath);
 
   const newProf = {
     id,
@@ -702,6 +1014,7 @@ ipcMain.handle('duplicate-profile', async (e, profileId) => {
   if (fs.existsSync(srcProf.path)) {
     copyFolderRecursiveSync(srcProf.path, newProfPath);
   }
+  ensureProfileSubdirs(newProfPath);
 
   const clonedProf = {
     ...srcProf,
@@ -786,7 +1099,6 @@ ipcMain.handle('scan-external-clients', async () => {
   const localAppData = process.env.LOCALAPPDATA || '';
   const userProfile = process.env.USERPROFILE || '';
 
-  // 1. Scan Prism Launcher
   const prismDirs = [
     path.join(appData, 'PrismLauncher', 'instances'),
     path.join(localAppData, 'PrismLauncher', 'instances'),
@@ -796,7 +1108,8 @@ ipcMain.handle('scan-external-clients', async () => {
   for (const prismDir of prismDirs) {
     if (!fs.existsSync(prismDir)) continue;
     try {
-      for (const d of fs.readdirSync(prismDir, { withFileTypes: true })) {
+      const entries = await fs.promises.readdir(prismDir, { withFileTypes: true });
+      for (const d of entries) {
         if (!d.isDirectory()) continue;
         const instDir = path.join(prismDir, d.name);
         const cfgFile = path.join(instDir, 'instance.cfg');
@@ -808,15 +1121,17 @@ ipcMain.handle('scan-external-clients', async () => {
         let maxRam = 4096;
 
         if (fs.existsSync(cfgFile)) {
-          const ini = parseIni(fs.readFileSync(cfgFile, 'utf-8'));
-          if (ini.name) name = ini.name;
-          if (ini.MinMemAlloc) minRam = parseInt(ini.MinMemAlloc, 10) || 2048;
-          if (ini.MaxMemAlloc) maxRam = parseInt(ini.MaxMemAlloc, 10) || 4096;
+          try {
+            const ini = parseIni(await fs.promises.readFile(cfgFile, 'utf-8'));
+            if (ini.name) name = ini.name;
+            if (ini.MinMemAlloc) minRam = parseInt(ini.MinMemAlloc, 10) || 2048;
+            if (ini.MaxMemAlloc) maxRam = parseInt(ini.MaxMemAlloc, 10) || 4096;
+          } catch (e) {}
         }
 
         if (fs.existsSync(packFile)) {
           try {
-            const pack = JSON.parse(fs.readFileSync(packFile, 'utf-8'));
+            const pack = JSON.parse(await fs.promises.readFile(packFile, 'utf-8'));
             const mcComp = pack.components && pack.components.find(c => c.uid === 'net.minecraft');
             if (mcComp && mcComp.version) mcVersion = mcComp.version;
             if (pack.components?.some(c => c.uid === 'net.fabricmc.fabric-loader')) loader = 'fabric';
@@ -841,7 +1156,6 @@ ipcMain.handle('scan-external-clients', async () => {
     } catch (e) {}
   }
 
-  // 2. Scan Modrinth App
   const modrinthCandidates = [
     path.join(appData, 'com.modrinth.theseus', 'profiles'),
     path.join(appData, 'ModrinthApp', 'profiles')
@@ -849,7 +1163,8 @@ ipcMain.handle('scan-external-clients', async () => {
   for (const mRoot of modrinthCandidates) {
     if (!fs.existsSync(mRoot)) continue;
     try {
-      for (const d of fs.readdirSync(mRoot, { withFileTypes: true })) {
+      const entries = await fs.promises.readdir(mRoot, { withFileTypes: true });
+      for (const d of entries) {
         if (!d.isDirectory()) continue;
         const profDir = path.join(mRoot, d.name);
         const metaJson = path.join(profDir, 'profile.json');
@@ -859,7 +1174,7 @@ ipcMain.handle('scan-external-clients', async () => {
 
         if (fs.existsSync(metaJson)) {
           try {
-            const meta = JSON.parse(fs.readFileSync(metaJson, 'utf-8'));
+            const meta = JSON.parse(await fs.promises.readFile(metaJson, 'utf-8'));
             if (meta.name) name = meta.name;
             if (meta.game_version) mcVersion = meta.game_version;
             if (meta.loader) loader = meta.loader.toLowerCase();
@@ -879,11 +1194,11 @@ ipcMain.handle('scan-external-clients', async () => {
     } catch (e) {}
   }
 
-  // 3. Scan Lunar Client
   const lunarOffline = path.join(userProfile, '.lunarclient', 'offline', 'multiver');
   if (fs.existsSync(lunarOffline)) {
     try {
-      for (const d of fs.readdirSync(lunarOffline, { withFileTypes: true })) {
+      const entries = await fs.promises.readdir(lunarOffline, { withFileTypes: true });
+      for (const d of entries) {
         if (!d.isDirectory()) continue;
         results.lunar.push({
           id: `ext-lunar-${d.name}`,
@@ -988,17 +1303,29 @@ ipcMain.handle('import-external-profile', async (event, {
 // -------------------------------------------------------------
 // DOWNLOAD PIPELINE
 // -------------------------------------------------------------
-function downloadFile(url, dest, onProgress = null) {
+function downloadFile(url, dest, onProgress = null, maxRedirects = 8) {
   return new Promise((resolve, reject) => {
     safeMkdirSync(path.dirname(dest));
 
-    const get = (targetUrl) => {
-      const client = targetUrl.startsWith('https:') ? https : http;
-      client.get(targetUrl, (res) => {
+    const get = (targetUrl, depth) => {
+      if (depth > maxRedirects) return reject(new Error(`Too many redirects for ${url}`));
+      let parsed;
+      try { parsed = new URL(targetUrl); } catch (e) { return reject(e); }
+
+      const client = parsed.protocol === 'https:' ? https : http;
+      const req = client.get(targetUrl, {
+        headers: {
+          'User-Agent': 'Aetheria-ARM64-Launcher/1.0'
+        },
+        timeout: 30000
+      }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          return get(res.headers.location);
+          res.resume();
+          const nextUrl = new URL(res.headers.location, targetUrl).toString();
+          return get(nextUrl, depth + 1);
         }
         if (res.statusCode !== 200) {
+          res.resume();
           return reject(new Error(`HTTP ${res.statusCode} from ${targetUrl}`));
         }
 
@@ -1013,12 +1340,19 @@ function downloadFile(url, dest, onProgress = null) {
 
         res.pipe(fileStream);
         fileStream.on('finish', () => fileStream.close(() => resolve(dest)));
-      }).on('error', (err) => {
-        if (fs.existsSync(dest)) fs.unlinkSync(dest);
+        fileStream.on('error', (err) => {
+          if (fs.existsSync(dest)) { try { fs.unlinkSync(dest); } catch (e) {} }
+          reject(err);
+        });
+      });
+
+      req.on('timeout', () => req.destroy(new Error(`Download timeout: ${targetUrl}`)));
+      req.on('error', (err) => {
+        if (fs.existsSync(dest)) { try { fs.unlinkSync(dest); } catch (e) {} }
         reject(err);
       });
     };
-    get(url);
+    get(url, 0);
   });
 }
 
@@ -1171,7 +1505,7 @@ ipcMain.handle('get-neoforge-versions', async (event, gameVersion = '1.20.4') =>
 });
 
 ipcMain.handle('install-neoforge-profile', async (event, { neoforgeVersion }) => {
-  const detected = findSystemArmJava();
+  const detected = await findSystemArmJavaAsync();
   const cfg = loadConfig();
   const prof = getActiveProfile(cfg);
   const javaBin = resolveProfileJava(prof, cfg, neoforgeVersion) || detected.path;
@@ -1307,7 +1641,8 @@ ipcMain.handle('check-mod-updates', async () => {
       req.end();
     });
 
-    const activeMcVer = extractMcVersion(cfg.selectedVersion || '1.20.4');
+    const activeProf = getActiveProfile(cfg);
+    const activeMcVer = extractMcVersion(activeProf.version || cfg.selectedVersion || '1.20.4');
 
     for (const [currHash, verInfo] of Object.entries(versionFilesRes)) {
       const projectId = verInfo.project_id;
@@ -1401,9 +1736,9 @@ function diagnoseCrash(fullLogs) {
 }
 
 // -------------------------------------------------------------
-// SYSTEM ARM64 JDK SCANNER
+// SYSTEM ARM64 JDK SCANNER (FAST + NON-BLOCKING ASYNC)
 // -------------------------------------------------------------
-function findSystemArmJava() {
+function findSystemArmJavaFast() {
   for (const k of ['21', '25', '17', '8']) {
     const local = path.join(RUNTIMES_DIR, MANAGED_JDKS[k].dirName, 'bin', 'java.exe');
     if (fs.existsSync(local)) return { found: true, path: local, source: `Managed ${MANAGED_JDKS[k].name}` };
@@ -1424,15 +1759,21 @@ function findSystemArmJava() {
     if (fs.existsSync(c)) return { found: true, path: c, source: 'Installed System ARM64 JDK' };
   }
 
-  try {
-    const out = execSync('java -XshowSettings:properties -version 2>&1', { timeout: 2500 }).toString();
-    if (out.includes('aarch64')) return { found: true, path: 'java', source: 'PATH (ARM64 Native)' };
-  } catch (e) {}
-
   return { found: false, path: null, source: null };
 }
 
-ipcMain.handle('detect-arm-java', async () => findSystemArmJava());
+async function findSystemArmJavaAsync() {
+  const fast = findSystemArmJavaFast();
+  if (fast.found) return fast;
+
+  const out = await execAsync('java -XshowSettings:properties -version 2>&1', 2000);
+  if (out.includes('aarch64')) {
+    return { found: true, path: 'java', source: 'PATH (ARM64 Native)' };
+  }
+  return { found: false, path: null, source: null };
+}
+
+ipcMain.handle('detect-arm-java', async () => findSystemArmJavaAsync());
 
 // -------------------------------------------------------------
 // MICROSOFT OAUTH
@@ -1643,7 +1984,7 @@ ipcMain.handle('fetch-player-skin', async (event, username) => {
 });
 
 // -------------------------------------------------------------
-// LOCAL CONTENT MANAGER
+// LOCAL CONTENT MANAGER (ASYNC IO)
 // -------------------------------------------------------------
 function resolveFolderTarget(type) {
   if (type === 'resourcepacks') return 'resourcepacks';
@@ -1658,10 +1999,17 @@ ipcMain.handle('get-installed-content', async (event, type = 'mods') => {
   const folder = path.join(baseDir, target);
   safeMkdirSync(folder);
 
-  return fs.readdirSync(folder).map(file => {
+  let files = [];
+  try {
+    files = await fs.promises.readdir(folder);
+  } catch (e) {
+    return [];
+  }
+
+  const items = await Promise.all(files.map(async (file) => {
     const full = path.join(folder, file);
     let stat = { size: 0, mtime: new Date(), isDirectory: () => false };
-    try { stat = fs.statSync(full); } catch (e) {}
+    try { stat = await fs.promises.stat(full); } catch (e) {}
 
     return {
       fileName: file,
@@ -1672,7 +2020,9 @@ ipcMain.handle('get-installed-content', async (event, type = 'mods') => {
       isDirectory: stat.isDirectory(),
       folder: target
     };
-  });
+  }));
+
+  return items;
 });
 
 ipcMain.handle('toggle-content-item', async (event, { folder, fileName }) => {
@@ -1682,7 +2032,7 @@ ipcMain.handle('toggle-content-item', async (event, { folder, fileName }) => {
   const dest = fileName.endsWith('.disabled')
     ? path.join(dir, fileName.replace(/\.disabled$/, ''))
     : path.join(dir, `${fileName}.disabled`);
-  if (fs.existsSync(src)) fs.renameSync(src, dest);
+  if (fs.existsSync(src)) await fs.promises.rename(src, dest);
   return true;
 });
 
@@ -1690,12 +2040,13 @@ ipcMain.handle('toggle-all-content', async (event, { folder, enable }) => {
   const cfg = loadConfig();
   const dir = path.join(getActiveProfileDir(cfg), folder);
   safeMkdirSync(dir);
-  for (const f of fs.readdirSync(dir)) {
+  const files = await fs.promises.readdir(dir);
+  for (const f of files) {
     const full = path.join(dir, f);
     if (enable && f.endsWith('.disabled')) {
-      fs.renameSync(full, path.join(dir, f.replace(/\.disabled$/, '')));
+      await fs.promises.rename(full, path.join(dir, f.replace(/\.disabled$/, '')));
     } else if (!enable && !f.endsWith('.disabled')) {
-      fs.renameSync(full, path.join(dir, `${f}.disabled`));
+      await fs.promises.rename(full, path.join(dir, `${f}.disabled`));
     }
   }
   return true;
@@ -1749,7 +2100,7 @@ ipcMain.handle('import-dropped-files', async (event, { folderType, filePaths }) 
 });
 
 // -------------------------------------------------------------
-// DUAL PROVIDER (MODRINH + CURSEFORGE)
+// DUAL PROVIDER (MODRINTH + CURSEFORGE)
 // -------------------------------------------------------------
 ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version = '1.20.4', loader = 'all' }) => {
   const cleanVer = extractMcVersion(version);
@@ -1914,7 +2265,7 @@ ipcMain.handle('install-curseforge-item', async (event, { modId, type, version =
 });
 
 // -------------------------------------------------------------
-// VAULT DATA & BACKUP
+// VAULT DATA & BACKUP (ASYNC IO)
 // -------------------------------------------------------------
 ipcMain.handle('get-vault-data', async () => {
   const cfg = loadConfig();
@@ -1926,26 +2277,35 @@ ipcMain.handle('get-vault-data', async () => {
 
   const worlds = [];
   try {
-    for (const d of fs.readdirSync(savesDir, { withFileTypes: true })) {
+    const saveEntries = await fs.promises.readdir(savesDir, { withFileTypes: true });
+    await Promise.all(saveEntries.map(async (d) => {
       if (d.isDirectory()) {
         const p = path.join(savesDir, d.name);
         let bytes = 0;
-        try { for (const f of fs.readdirSync(p)) bytes += fs.statSync(path.join(p, f)).size; } catch (e) {}
+        try {
+          const files = await fs.promises.readdir(p);
+          const stats = await Promise.all(files.map(f => fs.promises.stat(path.join(p, f)).catch(() => null)));
+          for (const st of stats) {
+            if (st) bytes += st.size;
+          }
+        } catch (e) {}
         worlds.push({ name: d.name, folder: d.name, sizeMb: (bytes / (1024 * 1024)).toFixed(1) });
       }
-    }
+    }));
   } catch (e) {}
 
   const screenshots = [];
   try {
-    for (const f of fs.readdirSync(screenshotsDir)) {
-      if (f.toLowerCase().endsWith('.png')) {
-        try {
-          const b64 = fs.readFileSync(path.join(screenshotsDir, f)).toString('base64');
-          screenshots.push({ fileName: f, url: `data:image/png;base64,${b64}` });
-        } catch (e) {}
-      }
-    }
+    const ssFiles = (await fs.promises.readdir(screenshotsDir))
+      .filter(f => f.toLowerCase().endsWith('.png'))
+      .slice(-24)
+      .reverse();
+    await Promise.all(ssFiles.map(async (f) => {
+      try {
+        const buf = await fs.promises.readFile(path.join(screenshotsDir, f));
+        screenshots.push({ fileName: f, url: `data:image/png;base64,${buf.toString('base64')}` });
+      } catch (e) {}
+    }));
   } catch (e) {}
 
   return { worlds, screenshots };
@@ -1960,7 +2320,7 @@ ipcMain.handle('backup-world', async (event, folderName) => {
 
   const zipTarget = path.join(backupsDir, `${folderName}-backup-${Date.now()}.zip`);
   return new Promise((resolve, reject) => {
-    exec(`powershell.exe -NoProfile -Command "Compress-Archive -Path '${targetDir}' -DestinationPath '${zipTarget}' -Force"`, (err) => {
+    exec(`powershell.exe -NoProfile -Command "Compress-Archive -Path '${targetDir.replace(/'/g, "''")}' -DestinationPath '${zipTarget.replace(/'/g, "''")}' -Force"`, (err) => {
       if (err) reject(err);
       else resolve(zipTarget);
     });
@@ -2037,6 +2397,11 @@ function resolveArgumentToken(arg, context) {
 }
 
 ipcMain.on('launch-game', async (event, reqCfg) => {
+  if (isLaunchingGame || activeGameProcess) {
+    return;
+  }
+  isLaunchingGame = true;
+
   const sendStatus = (message, isError = false) => {
     appendLog(message, isError ? 'stderr' : 'stdout');
     event.reply('launch-status', { message, isError });
@@ -2045,7 +2410,7 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
   try {
     const globalCfg = loadConfig();
     const prof = getActiveProfile(globalCfg);
-    const versionId = prof.version || reqCfg.selectedVersion || '1.20.4';
+    const versionId = prof.version || (reqCfg && reqCfg.selectedVersion) || '1.20.4';
     const activeGameDir = getActiveProfileDir(globalCfg);
 
     const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
@@ -2070,9 +2435,9 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       parentData = await resolveVanillaDescriptor(baseGameVersion, sendStatus);
     }
 
-    // Resolve JVM with metadata inspection
     let javaBin = resolveProfileJava(prof, globalCfg, versionId, parentData || versionData);
     if (!javaBin || !fs.existsSync(javaBin)) {
+      isLaunchingGame = false;
       return sendStatus('Compatible ARM64 Java runtime not found. Please install Java 8, 17, 21, or 25 in Settings.', true);
     }
 
@@ -2176,7 +2541,6 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
     const minRam = prof.minRam || globalCfg.minRam || 2048;
     const maxRam = prof.maxRam || globalCfg.maxRam || 4096;
 
-    // Build argument token replacement map
     const argContext = {
       auth_player_name: account.name,
       version_name: versionId,
@@ -2267,6 +2631,7 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
     });
 
     activeGameProcess.on('spawn', () => {
+      isLaunchingGame = false;
       event.reply('game-started', { pid: activeGameProcess.pid });
       sendStatus(`Minecraft running (PID: ${activeGameProcess.pid})`);
       if (globalCfg.closeOnLaunch) setTimeout(() => mainWindow && mainWindow.hide(), 2500);
@@ -2274,6 +2639,7 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
 
     activeGameProcess.on('close', (code) => {
       activeGameProcess = null;
+      isLaunchingGame = false;
       if (code !== 0 && code !== null) {
         const diag = diagnoseCrash(totalOutput);
         event.reply('game-crashed', { code, diag });
@@ -2286,11 +2652,13 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
 
     activeGameProcess.on('error', (err) => {
       activeGameProcess = null;
+      isLaunchingGame = false;
       event.reply('game-exited', { code: -1 });
       sendStatus(`Execution error: ${err.message}`, true);
     });
   } catch (err) {
     activeGameProcess = null;
+    isLaunchingGame = false;
     event.reply('game-exited', { code: -1 });
     sendStatus(`Launch failed: ${err.message}`, true);
   }
