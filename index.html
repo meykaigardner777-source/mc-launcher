@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -150,7 +151,7 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.4);
     }
 
-    .win-controls { display: flex; gap: 4px; margin-left: 6px; }
+    .win-controls { display: flex; gap: 4px; margin-left: 6px; -webkit-app-region: no-drag; }
     .win-btn {
       width: 28px; height: 28px; background: transparent; border: none; color: var(--text-muted);
       border-radius: 4px; display: flex; align-items: center; justify-content: center;
@@ -167,6 +168,7 @@
       z-index: 1;
       overflow: hidden;
       display: flex;
+      -webkit-app-region: no-drag;
     }
 
     .workspace-stage {
@@ -180,6 +182,7 @@
       padding-right: 14px;
       position: relative;
       z-index: 10;
+      -webkit-app-region: no-drag;
     }
 
     .panel { display: none; }
@@ -266,11 +269,13 @@
       position: fixed; bottom: 32px; right: 32px; background: #18181b; border: 1px solid var(--border-focus);
       color: var(--text); padding: 10px 18px; border-radius: var(--radius); font-size: 0.8rem;
       font-weight: 500; display: none; z-index: 99999; box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+      pointer-events: none;
     }
 
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.85);
       display: none; align-items: center; justify-content: center; z-index: 5000;
+      -webkit-app-region: no-drag;
     }
     .modal-box {
       width: 580px; max-height: 85vh; overflow-y: auto; background: #121215; border: 1px solid var(--border);
@@ -292,7 +297,7 @@
     .log-stdout { color: #e4e4e7; }
 
     /* ----------------------------------------------------------
-       OVERVIEW WIDGET GRID & EDIT MODE
+       OVERVIEW WIDGET GRID & POINTER EDIT MODE
     ---------------------------------------------------------- */
     .overview-stage-wrap {
       display: flex;
@@ -369,7 +374,7 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
-      transition: transform 0.16s var(--ease), border-color 0.16s var(--ease);
+      transition: transform 0.14s var(--ease), border-color 0.14s var(--ease);
     }
     .widget-slot.span-4 { grid-column: span 4; }
     .widget-slot.span-5 { grid-column: span 5; }
@@ -378,23 +383,35 @@
     .widget-slot.span-8 { grid-column: span 8; }
     .widget-slot.span-12 { grid-column: span 12; }
 
+    @media (max-width: 1120px) {
+      .widget-slot.span-4 { grid-column: span 6; }
+    }
+
     .widget-slot.edit-mode {
       border: 1px dashed var(--border-hover);
       border-radius: var(--radius);
       padding: 8px;
       background: rgba(18, 18, 21, 0.55);
       cursor: grab;
+      touch-action: none;
     }
     .widget-slot.edit-mode:hover {
       border-color: #ffffff;
     }
+    /* Prevent inner widget buttons/inputs from swallowing drag pointerdown in Edit Mode */
+    .widget-slot.edit-mode .widget-inner-body {
+      pointer-events: none;
+      opacity: 0.88;
+    }
     .widget-slot.drag-over {
-      border: 1px solid #ffffff !important;
-      background: rgba(255, 255, 255, 0.06) !important;
-      transform: scale(0.99);
+      border: 2px solid #ffffff !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      transform: scale(0.985);
     }
     .widget-slot.dragging {
-      opacity: 0.45;
+      opacity: 0.42;
+      cursor: grabbing;
+      border-color: #ffffff;
     }
 
     .widget-edit-header {
@@ -412,6 +429,8 @@
       display: flex;
       align-items: center;
       gap: 4px;
+      position: relative;
+      z-index: 2;
     }
     .widget-mini-btn {
       background: #18181b;
@@ -605,7 +624,7 @@
             <div>
               <strong style="font-size: 0.86rem; color: #fff;">Overview Widget Editor</strong>
               <span style="display:block; font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
-                Drag widgets to reorder, resize column span, or add/remove from 20 launcher widgets.
+                Drag any widget card onto another to reorder, resize column span, or add/remove from 20 launcher widgets.
               </span>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -629,13 +648,14 @@
 
       <!-- 2. UNIFIED PROFILE & INSTANCE MANAGER -->
       <section id="panel-profiles" class="panel">
-        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <div>
             <h2>Profile &amp; Instance Manager</h2>
-            <p>Unified native environments and external client installations</p>
+            <p>Unified native environments, modpack archives, and external client installations</p>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="btn" onclick="openNewProfileModal()">+ New Profile</button>
+            <button class="btn-secondary" onclick="importModpackFile()">+ Import Modpack (.mrpack / .zip)</button>
             <button class="btn-secondary" onclick="scanExternalInstances()">Rescan Instances</button>
           </div>
         </div>
@@ -772,7 +792,7 @@
         <div class="panel-header" style="display:flex; justify-content: space-between; align-items: center;">
           <div>
             <h2>Mod Hub</h2>
-            <p>Online repositories for mods, resource packs, and shaders</p>
+            <p>Online repositories with automatic required dependency installation</p>
           </div>
           <div style="display: flex; gap: 8px;">
             <button class="chip-btn active" id="provider-modrinth" onclick="setProvider('modrinth')">Modrinth</button>
@@ -862,7 +882,7 @@
         <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             <h2>Accounts</h2>
-            <p>Microsoft OAuth and offline profiles</p>
+            <p>Microsoft OAuth (auto-refresh enabled) and offline profiles</p>
           </div>
           <button class="btn" onclick="addMicrosoftAccount()">Sign In with Microsoft</button>
         </div>
@@ -949,10 +969,14 @@
             <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px;">Oryon JVM Parameters</label>
             <input type="text" id="cfg-jvm-flags" class="input-field" />
           </div>
-          <div>
+          <div style="margin-bottom: 12px;">
             <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px;">Global Environment Variables</label>
             <textarea id="cfg-global-env" class="input-field" rows="2" placeholder="KEY=VALUE"></textarea>
           </div>
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; color:var(--text-muted); cursor:pointer;">
+            <input type="checkbox" id="cfg-close-on-launch" style="width:15px; height:15px; accent-color:#ffffff;" />
+            Hide launcher window while game is running (auto-restores on exit)
+          </label>
         </div>
         <button class="btn" onclick="saveGlobalSettings()">Save Preferences</button>
       </section>
@@ -990,7 +1014,7 @@
         <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Java Runtime</label>
         <select id="modal-prof-runtime" class="select-field" style="margin-bottom: 8px;" onchange="toggleProfCustomJava(this.value)">
           <option value="auto">Auto-Detect for Version</option>
-          <option value="8">Managed Java 8 ARM64</option>
+          <option value="8">Managed Java 8 (Legacy &lt; 1.17)</option>
           <option value="17">Managed Java 17 ARM64</option>
           <option value="21">Managed Java 21 ARM64</option>
           <option value="25">Managed Java 25 ARM64</option>
@@ -1057,7 +1081,7 @@
         <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Java Runtime</label>
         <select id="new-prof-runtime" class="select-field">
           <option value="auto">Auto-Detect for Version</option>
-          <option value="8">Managed Java 8 ARM64</option>
+          <option value="8">Managed Java 8 (Legacy &lt; 1.17)</option>
           <option value="17">Managed Java 17 ARM64</option>
           <option value="21">Managed Java 21 ARM64</option>
           <option value="25">Managed Java 25 ARM64</option>
@@ -1083,6 +1107,7 @@
 
       <input type="hidden" id="trans-source-path" />
       <input type="hidden" id="trans-source-type" />
+      <input type="hidden" id="trans-loader-ver" />
 
       <div style="margin-bottom: 12px;">
         <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Profile Name</label>
@@ -1120,7 +1145,7 @@
         <label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Java Runtime</label>
         <select id="trans-prof-runtime" class="select-field">
           <option value="auto">Auto-Detect for Version</option>
-          <option value="8">Managed Java 8 ARM64</option>
+          <option value="8">Managed Java 8 (Legacy &lt; 1.17)</option>
           <option value="17">Managed Java 17 ARM64</option>
           <option value="21">Managed Java 21 ARM64</option>
           <option value="25">Managed Java 25 ARM64</option>
@@ -1147,6 +1172,18 @@
         <button class="btn-secondary" onclick="document.getElementById('modal-screenshot-preview').style.display='none'">Close</button>
       </div>
       <img id="ss-modal-img" style="width:100%; border-radius:6px; border:1px solid var(--border);" />
+    </div>
+  </div>
+
+  <!-- IN-APP NON-BLOCKING DIALOG MODAL (REPLACES NATIVE ALERT/CONFIRM TO PREVENT INPUT LOCKS) -->
+  <div class="modal-overlay" id="modal-dialog" style="z-index: 9000;">
+    <div class="modal-box" style="width: 440px;">
+      <h3 id="dialog-title" style="font-size: 1rem; margin-bottom: 10px; color: #fff;">Notice</h3>
+      <p id="dialog-message" style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 18px; white-space: pre-wrap;"></p>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn-secondary" id="dialog-cancel-btn">Cancel</button>
+        <button class="btn" id="dialog-ok-btn">OK</button>
+      </div>
     </div>
   </div>
 
@@ -1390,7 +1427,7 @@
     // Overview Widget System State
     let isWidgetEditMode = false;
     let isCatalogDrawerOpen = false;
-    let draggedWidgetIndex = null;
+    let pointerDragState = null;
 
     const DEFAULT_ORYON = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
     const DEFAULT_OVERVIEW_WIDGETS = [
@@ -1423,6 +1460,43 @@
     ];
 
     const VALID_SPANS = [4, 5, 6, 7, 8, 12];
+
+    // -------------------------------------------------------------
+    // NON-BLOCKING IN-APP MODALS (ZERO NATIVE ALERT/CONFIRM FREEZES)
+    // -------------------------------------------------------------
+    function showDialogModal({ title = 'Notice', message = '', showCancel = false, okLabel = 'OK' }) {
+      return new Promise((resolve) => {
+        const overlay = document.getElementById('modal-dialog');
+        const titleEl = document.getElementById('dialog-title');
+        const msgEl = document.getElementById('dialog-message');
+        const cancelBtn = document.getElementById('dialog-cancel-btn');
+        const okBtn = document.getElementById('dialog-ok-btn');
+
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        cancelBtn.style.display = showCancel ? 'inline-block' : 'none';
+        okBtn.innerText = okLabel;
+        overlay.style.display = 'flex';
+
+        const cleanup = (result) => {
+          overlay.style.display = 'none';
+          okBtn.onclick = null;
+          cancelBtn.onclick = null;
+          resolve(result);
+        };
+
+        okBtn.onclick = () => cleanup(true);
+        cancelBtn.onclick = () => cleanup(false);
+      });
+    }
+
+    function showAlertModal(message, title = 'Aetheria') {
+      return showDialogModal({ title, message, showCancel: false, okLabel: 'OK' });
+    }
+
+    function showConfirmModal(message, title = 'Confirm Action') {
+      return showDialogModal({ title, message, showCancel: true, okLabel: 'Confirm' });
+    }
 
     function safeUpper(val, def = 'VANILLA') {
       if (!val) return def;
@@ -1525,10 +1599,27 @@
       document.getElementById('cfg-global-env').value = currentConfig.envVars || '';
       document.getElementById('cfg-offline-user').value = currentConfig.offlineUsername || 'Player';
       document.getElementById('cfg-bg-preset').value = currentConfig.bgPreset || 'waves';
+      document.getElementById('cfg-close-on-launch').checked = !!currentConfig.closeOnLaunch;
 
       applyBgPresetVisual(currentConfig.bgPreset || 'waves');
       initGlobalJdkProgressListener();
       initConsoleStream();
+      initWidgetPointerDrag();
+
+      // Seed existing logs & active game state
+      const [existingLogs, gameState] = await Promise.all([
+        ipcRenderer.invoke('get-console-logs'),
+        ipcRenderer.invoke('get-active-game-state')
+      ]);
+      if (Array.isArray(existingLogs) && existingLogs.length) {
+        existingLogs.forEach(entry => appendConsoleLine(entry));
+      }
+      if (gameState && gameState.running) {
+        activeGamePid = gameState.pid;
+        sessionStartTimestamp = Date.now();
+        setPlayButtonState('busy', 'RUNNING');
+      }
+
       updateSettingsWidgetSummary();
       renderOverviewWidgets();
       refreshWidgetLiveData();
@@ -1547,6 +1638,57 @@
     function getActiveProfile() {
       const id = currentConfig.activeProfileId || 'default';
       return (currentConfig.profiles || []).find(p => p.id === id) || (currentConfig.profiles && currentConfig.profiles[0]);
+    }
+
+    // -------------------------------------------------------------
+    // POINTER-BASED WIDGET DRAG-AND-DROP (100% RELIABLE IN ELECTRON)
+    // -------------------------------------------------------------
+    function initWidgetPointerDrag() {
+      document.addEventListener('pointermove', (ev) => {
+        if (!pointerDragState) return;
+        const dx = Math.abs(ev.clientX - pointerDragState.startX);
+        const dy = Math.abs(ev.clientY - pointerDragState.startY);
+        if (!pointerDragState.active && (dx > 5 || dy > 5)) {
+          pointerDragState.active = true;
+          pointerDragState.sourceSlot.classList.add('dragging');
+        }
+        if (!pointerDragState.active) return;
+
+        document.querySelectorAll('.widget-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
+        const elems = document.elementsFromPoint(ev.clientX, ev.clientY);
+        const targetSlot = elems.find(el => el.classList && el.classList.contains('widget-slot') && el.classList.contains('edit-mode'));
+        if (targetSlot && parseInt(targetSlot.dataset.index, 10) !== pointerDragState.sourceIndex) {
+          targetSlot.classList.add('drag-over');
+          pointerDragState.targetIndex = parseInt(targetSlot.dataset.index, 10);
+        } else {
+          pointerDragState.targetIndex = null;
+        }
+      });
+
+      document.addEventListener('pointerup', async () => {
+        if (!pointerDragState) return;
+        const state = pointerDragState;
+        pointerDragState = null;
+
+        document.querySelectorAll('.widget-slot.dragging').forEach(el => el.classList.remove('dragging'));
+        document.querySelectorAll('.widget-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+        if (state.active && state.targetIndex !== null && state.targetIndex !== state.sourceIndex) {
+          const list = getOverviewWidgets();
+          const [moved] = list.splice(state.sourceIndex, 1);
+          list.splice(state.targetIndex, 0, moved);
+          await persistOverviewWidgets();
+          renderOverviewWidgets();
+          refreshWidgetLiveData();
+        }
+      });
+
+      document.addEventListener('pointercancel', () => {
+        if (!pointerDragState) return;
+        pointerDragState = null;
+        document.querySelectorAll('.widget-slot.dragging').forEach(el => el.classList.remove('dragging'));
+        document.querySelectorAll('.widget-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
+      });
     }
 
     // -------------------------------------------------------------
@@ -1718,38 +1860,18 @@
         slot.dataset.index = String(index);
 
         if (isWidgetEditMode) {
-          slot.draggable = true;
-          slot.addEventListener('dragstart', (ev) => {
-            draggedWidgetIndex = index;
-            slot.classList.add('dragging');
-            ev.dataTransfer.effectAllowed = 'move';
-            ev.dataTransfer.setData('text/plain', String(index));
-          });
-          slot.addEventListener('dragend', () => {
-            draggedWidgetIndex = null;
-            slot.classList.remove('dragging');
-            document.querySelectorAll('.widget-slot').forEach(s => s.classList.remove('drag-over'));
-          });
-          slot.addEventListener('dragover', (ev) => {
+          slot.addEventListener('pointerdown', (ev) => {
+            if (ev.button !== 0) return;
+            if (ev.target.closest('.widget-edit-controls')) return;
             ev.preventDefault();
-            if (draggedWidgetIndex !== null && draggedWidgetIndex !== index) {
-              slot.classList.add('drag-over');
-            }
-          });
-          slot.addEventListener('dragleave', () => {
-            slot.classList.remove('drag-over');
-          });
-          slot.addEventListener('drop', async (ev) => {
-            ev.preventDefault();
-            slot.classList.remove('drag-over');
-            if (draggedWidgetIndex === null || draggedWidgetIndex === index) return;
-            const list = getOverviewWidgets();
-            const [moved] = list.splice(draggedWidgetIndex, 1);
-            list.splice(index, 0, moved);
-            draggedWidgetIndex = null;
-            await persistOverviewWidgets();
-            renderOverviewWidgets();
-            refreshWidgetLiveData();
+            pointerDragState = {
+              sourceIndex: index,
+              sourceSlot: slot,
+              targetIndex: null,
+              startX: ev.clientX,
+              startY: ev.clientY,
+              active: false
+            };
           });
 
           const header = document.createElement('div');
@@ -1757,16 +1879,22 @@
           header.innerHTML = `
             <span style="font-weight:700; color:#fff;">⋮⋮ ${escapeHtml(meta.name)}</span>
             <div class="widget-edit-controls">
-              <button class="widget-mini-btn" title="Move Left" onclick="event.stopPropagation(); moveWidgetStep(${index}, -1)">←</button>
-              <button class="widget-mini-btn" title="Move Right" onclick="event.stopPropagation(); moveWidgetStep(${index}, 1)">→</button>
-              <button class="widget-mini-btn" title="Cycle Grid Width" onclick="event.stopPropagation(); cycleWidgetSpan(${index})">${span}/12</button>
-              <button class="widget-mini-btn danger" title="Remove Widget" onclick="event.stopPropagation(); removeWidgetAt(${index})">✕</button>
+              <button class="widget-mini-btn" title="Move Left">←</button>
+              <button class="widget-mini-btn" title="Move Right">→</button>
+              <button class="widget-mini-btn" title="Cycle Grid Width">${span}/12</button>
+              <button class="widget-mini-btn danger" title="Remove Widget">✕</button>
             </div>
           `;
+          const btns = header.querySelectorAll('button');
+          btns[0].onclick = (e) => { e.stopPropagation(); moveWidgetStep(index, -1); };
+          btns[1].onclick = (e) => { e.stopPropagation(); moveWidgetStep(index, 1); };
+          btns[2].onclick = (e) => { e.stopPropagation(); cycleWidgetSpan(index); };
+          btns[3].onclick = (e) => { e.stopPropagation(); removeWidgetAt(index); };
           slot.appendChild(header);
         }
 
         const body = document.createElement('div');
+        body.className = 'widget-inner-body';
         body.style.height = '100%';
         renderSingleWidgetContent(wConf.id, body);
         slot.appendChild(body);
@@ -1937,7 +2065,7 @@
             <div style="display:flex; gap:8px; align-items:center;">
               <select class="select-field" id="widget-java-select" style="padding:7px 28px 7px 10px; font-size:0.76rem;">
                 <option value="auto">Auto-Detect for Version</option>
-                <option value="8">Managed Java 8 ARM64</option>
+                <option value="8">Managed Java 8 (Legacy &lt; 1.17)</option>
                 <option value="17">Managed Java 17 ARM64</option>
                 <option value="21">Managed Java 21 ARM64</option>
                 <option value="25">Managed Java 25 ARM64</option>
@@ -2373,11 +2501,11 @@
           widgetWorldsCache = data.worlds || [];
           widgetScreensCache = data.screenshots || [];
           if (activeIds.has('worlds')) {
-            const slot = document.querySelector('.widget-slot[data-widget-id="worlds"] > div:last-child');
+            const slot = document.querySelector('.widget-slot[data-widget-id="worlds"] .widget-inner-body');
             if (slot) renderSingleWidgetContent('worlds', slot);
           }
           if (activeIds.has('screenshots')) {
-            const slot = document.querySelector('.widget-slot[data-widget-id="screenshots"] > div:last-child');
+            const slot = document.querySelector('.widget-slot[data-widget-id="screenshots"] .widget-inner-body');
             if (slot) renderSingleWidgetContent('screenshots', slot);
           }
         }).catch(() => {}));
@@ -2387,7 +2515,7 @@
         tasks.push(ipcRenderer.invoke('get-system-telemetry').then(tel => {
           if (seq !== widgetRefreshSeq) return;
           widgetTelemetryCache = tel;
-          const slot = document.querySelector('.widget-slot[data-widget-id="telemetry"] > div:last-child');
+          const slot = document.querySelector('.widget-slot[data-widget-id="telemetry"] .widget-inner-body');
           if (slot) renderSingleWidgetContent('telemetry', slot);
         }).catch(() => {}));
       }
@@ -2449,7 +2577,10 @@
       const lFilter = document.getElementById('hub-loader-filter');
       const vFilter = document.getElementById('hub-version-filter');
 
-      if (vFilter && prof) vFilter.value = prof.version;
+      if (vFilter && prof) {
+        const cleanMc = prof.version.replace(/^(?:fabric-loader-[^-]+-|neoforge-|forge-)/, '');
+        vFilter.value = cleanMc;
+      }
       if (lFilter && prof) {
         const norm = (prof.loader || '').toLowerCase();
         if (['fabric', 'neoforge', 'forge', 'quilt'].includes(norm)) {
@@ -2577,8 +2708,24 @@
       toast('Instance dismissed from view.');
     }
 
+    async function importModpackFile() {
+      toast('Select a .mrpack or CurseForge .zip modpack...');
+      try {
+        const prof = await ipcRenderer.invoke('import-modpack-dialog');
+        if (!prof) return;
+        currentConfig = await ipcRenderer.invoke('get-config');
+        renderOverviewWidgets();
+        refreshWidgetLiveData();
+        renderProfileManagerGrid();
+        toast(`Imported modpack into profile: ${prof.name}`);
+      } catch (e) {
+        await showAlertModal('Modpack import error: ' + e.message, 'Import Failed');
+      }
+    }
+
     async function directDeleteProfile(id) {
-      if (confirm('Permanently delete this profile and all isolated files?')) {
+      const confirmed = await showConfirmModal('Permanently delete this profile and all isolated files?', 'Delete Profile');
+      if (confirmed) {
         await ipcRenderer.invoke('delete-profile', id);
         currentConfig = await ipcRenderer.invoke('get-config');
         renderOverviewWidgets();
@@ -2681,8 +2828,8 @@
     async function deleteTargetProfile() {
       const id = document.getElementById('edit-prof-id').value;
       if (id === 'default') return;
-      await directDeleteProfile(id);
       closeProfileSettingsModal();
+      await directDeleteProfile(id);
     }
 
     function openEditTransformModal(idx) {
@@ -2691,12 +2838,13 @@
 
       document.getElementById('trans-source-path').value = inst.path;
       document.getElementById('trans-source-type').value = inst.source || 'Prism';
+      document.getElementById('trans-loader-ver').value = inst.loaderVersion || '';
       document.getElementById('trans-source-badge').innerText = safeUpper(inst.source, 'PRISM');
       document.getElementById('trans-prof-name').value = inst.name || 'Transformed Profile';
       document.getElementById('trans-prof-version').value = inst.mcVersion || '1.20.4';
 
       const normLoader = (inst.loader || 'vanilla').toLowerCase();
-      document.getElementById('trans-prof-loader').value = normLoader.includes('fabric') ? 'fabric' : (normLoader.includes('neoforge') ? 'neoforge' : 'vanilla');
+      document.getElementById('trans-prof-loader').value = normLoader.includes('fabric') ? 'fabric' : (normLoader.includes('neoforge') ? 'neoforge' : (normLoader.includes('forge') ? 'forge' : 'vanilla'));
 
       document.getElementById('trans-prof-min-ram').value = inst.minRam || 2048;
       document.getElementById('trans-prof-max-ram').value = inst.maxRam || 4096;
@@ -2713,6 +2861,7 @@
     async function submitTransformInstance() {
       const sourcePath = document.getElementById('trans-source-path').value;
       const clientType = document.getElementById('trans-source-type').value;
+      const loaderVersion = document.getElementById('trans-loader-ver').value;
       const targetName = document.getElementById('trans-prof-name').value.trim() || 'Transformed Profile';
       const mcVersion = document.getElementById('trans-prof-version').value.trim() || '1.20.4';
       const loader = document.getElementById('trans-prof-loader').value;
@@ -2729,6 +2878,7 @@
           targetName,
           mcVersion,
           loader,
+          loaderVersion,
           minRam,
           maxRam,
           javaRuntime,
@@ -2742,7 +2892,7 @@
         closeTransformModal();
         toast(`Successfully transformed into profile: ${prof.name}`);
       } catch (err) {
-        alert('Transformation error: ' + err.message);
+        await showAlertModal('Transformation error: ' + err.message, 'Transform Failed');
       }
     }
 
@@ -2756,7 +2906,8 @@
           clientType: inst.source || 'Prism',
           targetName: inst.name,
           mcVersion: inst.mcVersion || '1.20.4',
-          loader: inst.loader || 'vanilla'
+          loader: inst.loader || 'vanilla',
+          loaderVersion: inst.loaderVersion || ''
         });
         currentConfig = await ipcRenderer.invoke('get-config');
         renderOverviewWidgets();
@@ -2765,7 +2916,7 @@
         renderInstancesGrid();
         toast(`Activated profile: ${prof.name}`);
       } catch (err) {
-        alert('Direct transformation error: ' + err.message);
+        await showAlertModal('Direct transformation error: ' + err.message, 'Transform Failed');
       }
     }
 
@@ -2947,10 +3098,10 @@
 
       try {
         await ipcRenderer.invoke('install-managed-jdk', { version });
-        toast(`Java ${version} ARM64 runtime ready!`);
+        toast(`Java ${version} runtime ready!`);
         await checkJdkStatus();
       } catch (err) {
-        alert(`Java ${version} installation error: ` + err.message);
+        await showAlertModal(`Java ${version} installation error: ` + err.message, 'Runtime Error');
       } finally {
         jdkInstallActiveVersion = null;
         box.style.display = 'none';
@@ -2989,7 +3140,7 @@
     async function installFabric() {
       const gameVersion = document.getElementById('fabric-target-mc').value.trim() || '1.20.4';
       const loaderVersion = document.getElementById('fabric-loader-select').value;
-      if (!loaderVersion) return alert('Select a Fabric build first.');
+      if (!loaderVersion) return showAlertModal('Select a Fabric build first.', 'Fabric Setup');
 
       toast('Generating Fabric profile...');
       try {
@@ -2997,12 +3148,13 @@
         const activeProf = getActiveProfile();
         activeProf.version = res.profileId;
         activeProf.loader = 'fabric';
+        activeProf.loaderVersion = loaderVersion;
         await ipcRenderer.invoke('update-profile', activeProf);
         currentConfig = await ipcRenderer.invoke('get-config');
         renderOverviewWidgets();
         toast('Fabric profile installed and activated!');
       } catch (e) {
-        alert('Fabric installation failed: ' + e.message);
+        await showAlertModal('Fabric installation failed: ' + e.message, 'Fabric Error');
       }
     }
 
@@ -3023,15 +3175,23 @@
 
     async function installNeoForge() {
       const ver = document.getElementById('neoforge-select').value;
-      if (!ver) return alert('Select a NeoForge build.');
+      if (!ver) return showAlertModal('Select a NeoForge build.', 'NeoForge Setup');
       toast('Starting NeoForge installer...');
       switchTab('console');
 
       try {
-        await ipcRenderer.invoke('install-neoforge-profile', { neoforgeVersion: ver });
+        const res = await ipcRenderer.invoke('install-neoforge-profile', { neoforgeVersion: ver });
+        const activeProf = getActiveProfile();
+        if (res && res.profileId && activeProf) {
+          activeProf.version = res.profileId;
+          activeProf.loader = 'neoforge';
+          await ipcRenderer.invoke('update-profile', activeProf);
+          currentConfig = await ipcRenderer.invoke('get-config');
+          renderOverviewWidgets();
+        }
         toast('NeoForge ready!');
       } catch (e) {
-        alert('NeoForge install error: ' + e.message);
+        await showAlertModal('NeoForge install error: ' + e.message, 'NeoForge Error');
       }
     }
 
@@ -3044,7 +3204,7 @@
         loadManager('mods');
         refreshWidgetLiveData();
       } catch (e) {
-        alert('Shader Engine error: ' + e.message);
+        await showAlertModal('Shader Engine error: ' + e.message, 'Shader Install Failed');
       }
     }
 
@@ -3117,7 +3277,8 @@
     }
 
     async function deleteItem(folder, fileName) {
-      if (confirm(`Remove ${fileName}?`)) {
+      const ok = await showConfirmModal(`Remove ${fileName}?`, 'Delete Content');
+      if (ok) {
         await ipcRenderer.invoke('delete-content-item', { folder, fileName });
         loadManager(activeMgrType);
         refreshWidgetLiveData();
@@ -3164,7 +3325,7 @@
         widgetUpdatesCache = [...pendingUpdates];
         renderUpdatesUI();
       } catch (e) {
-        alert('Update check error: ' + e.message);
+        await showAlertModal('Update check error: ' + e.message, 'Update Check');
       }
     }
 
@@ -3295,23 +3456,24 @@
     }
 
     async function installHubItem(id, name) {
-      toast(`Downloading ${name}...`);
+      toast(`Downloading ${name} (+ checking required dependencies)...`);
       try {
         const verFilter = document.getElementById('hub-version-filter');
         const loaderFilter = document.getElementById('hub-loader-filter');
         const ver = (verFilter && verFilter.value) ? verFilter.value : (currentConfig.selectedVersion || '1.20.4');
         const loader = (loaderFilter && loaderFilter.value) ? loaderFilter.value : 'all';
 
-        let file;
+        let res;
         if (activeProvider === 'curseforge') {
-          file = await ipcRenderer.invoke('install-curseforge-item', { modId: id, type: activeModType, version: ver, loader });
+          res = await ipcRenderer.invoke('install-curseforge-item', { modId: id, type: activeModType, version: ver, loader });
         } else {
-          file = await ipcRenderer.invoke('install-modrinth-item', { projectId: id, type: activeModType, version: ver, loader });
+          res = await ipcRenderer.invoke('install-modrinth-item', { projectId: id, type: activeModType, version: ver, loader });
         }
-        toast(`Installed: ${file}`);
+        const depMsg = res && res.depsCount ? ` (+${res.depsCount} required dep${res.depsCount > 1 ? 's' : ''})` : '';
+        toast(`Installed: ${res ? res.primary : name}${depMsg}`);
         refreshWidgetLiveData();
       } catch (e) {
-        alert('Download error: ' + e.message);
+        await showAlertModal('Download error: ' + e.message, 'Mod Hub Error');
       }
     }
 
@@ -3386,7 +3548,7 @@
 
     async function searchPlayerSkin() {
       const u = document.getElementById('skin-search-user').value.trim();
-      if (!u) return alert('Enter a Minecraft username.');
+      if (!u) return showAlertModal('Enter a Minecraft username.', 'Skin Studio');
       toast(`Resolving skin for ${u}...`);
       try {
         const res = await ipcRenderer.invoke('fetch-player-skin', u);
@@ -3396,7 +3558,7 @@
         document.getElementById('skin-model-name').innerText = `Model: ${res.isSlim ? 'Slim (Alex 3px)' : 'Classic (Steve 4px)'}`;
         toast(`Skin loaded.`);
       } catch (e) {
-        alert(e.message);
+        await showAlertModal(e.message, 'Skin Fetch Error');
       }
     }
 
@@ -3420,15 +3582,31 @@
             <img style="width:36px; height:36px; border-radius:6px; background:#000; border:1px solid var(--border); image-rendering:pixelated;" src="https://mc-heads.net/avatar/${encodeURIComponent(acc.name)}/64" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'36\\' height=\\'36\\'><rect width=\\'36\\' height=\\'36\\' fill=\\'%2318181b\\'/></svg>'" />
             <div>
               <strong style="font-size:0.84rem;">${escapeHtml(acc.name)}</strong>
-              <span style="font-size:0.68rem; color:var(--text-muted); display:block;">UUID: ${escapeHtml(acc.id)}</span>
+              <span style="font-size:0.68rem; color:var(--text-muted); display:block;">UUID: ${escapeHtml(acc.id)} ${acc.refreshToken ? '• Auto-Refresh' : ''}</span>
             </div>
           </div>
-          <button class="btn-secondary" style="font-size:0.75rem;" onclick="setActiveAccount('${escapeHtml(acc.id)}')">
-            ${isCurrent ? 'Active Profile' : 'Select'}
-          </button>
+          <div style="display:flex; gap:6px;">
+            ${acc.refreshToken ? `<button class="btn-secondary" style="font-size:0.75rem;" data-act="refresh">Refresh</button>` : ''}
+            <button class="btn-secondary" style="font-size:0.75rem;" data-act="select">${isCurrent ? 'Active Profile' : 'Select'}</button>
+          </div>
         `;
+        row.querySelector('[data-act="select"]').onclick = () => setActiveAccount(acc.id);
+        const refBtn = row.querySelector('[data-act="refresh"]');
+        if (refBtn) refBtn.onclick = () => refreshMicrosoftAccountUI(acc.id);
         container.appendChild(row);
       });
+    }
+
+    async function refreshMicrosoftAccountUI(id) {
+      toast('Refreshing Microsoft session...');
+      try {
+        const updated = await ipcRenderer.invoke('refresh-microsoft-account', id);
+        currentConfig = await ipcRenderer.invoke('get-config');
+        renderAccounts();
+        toast(`Session refreshed for ${updated.name}`);
+      } catch (e) {
+        await showAlertModal('Session refresh failed: ' + e.message, 'Auth Error');
+      }
     }
 
     function setActiveAccount(id) {
@@ -3449,7 +3627,9 @@
         loadAccountSkinAuto(acc.name);
         renderOverviewWidgets();
         toast(`Signed in as ${acc.name}!`);
-      } catch (e) { alert(e.message); }
+      } catch (e) {
+        await showAlertModal(e.message, 'Microsoft Sign-In');
+      }
     }
 
     async function saveOfflineName() {
@@ -3481,8 +3661,7 @@
         }
       });
 
-      const activeProf = getActiveProfile();
-      if (hubFilter && activeProf) hubFilter.value = activeProf.version;
+      syncModHubFilters();
     }
 
     async function loadVault() {
@@ -3543,7 +3722,9 @@
       try {
         const dest = await ipcRenderer.invoke('backup-world', folder);
         toast(`Backup ready: ${dest}`);
-      } catch (e) { alert('Backup error: ' + e.message); }
+      } catch (e) {
+        await showAlertModal('Backup error: ' + e.message, 'Backup Failed');
+      }
     }
 
     async function saveGlobalSettings() {
@@ -3551,6 +3732,7 @@
       currentConfig.maxRam = parseInt(document.getElementById('cfg-max-ram').value, 10) || 4096;
       currentConfig.jvmArgs = document.getElementById('cfg-jvm-flags').value.trim() || DEFAULT_ORYON;
       currentConfig.envVars = document.getElementById('cfg-global-env').value.trim();
+      currentConfig.closeOnLaunch = !!document.getElementById('cfg-close-on-launch').checked;
 
       await ipcRenderer.invoke('save-config', currentConfig);
       toast('Global preferences saved.');
@@ -3558,3 +3740,4 @@
   </script>
 </body>
 </html>
+
