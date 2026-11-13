@@ -32,6 +32,8 @@ const RUNTIMES_DIR = path.join(APP_DIR, 'runtimes');
 const JDK_DIR = path.join(RUNTIMES_DIR, 'ms-jdk-21-arm64');
 const MINECRAFT_DIR = path.join(app.getPath('appData'), '.minecraft');
 const PROFILES_DIR = path.join(APP_DIR, 'profiles');
+const EXTENSIONS_USER_DIR = path.join(APP_DIR, 'extensions');
+const EXTENSIONS_BUNDLED_DIR = path.join(__dirname, 'extensions');
 
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
 const DEFAULT_ORYON_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
@@ -39,32 +41,32 @@ const DEFAULT_ORYON_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPau
 // 21x21 Overview Grid Defaults
 const GRID_SIZE = 21;
 const DEFAULT_OVERVIEW_WIDGETS = [
-  { id: 'hero', col: 5, row: 5, colSpan: 13, rowSpan: 5, borderRadius: 12, bgOpacity: 0.25, settings: { showSubtitle: true, showConfigBtn: true } },
-  { id: 'profile', col: 5, row: 11, colSpan: 8, rowSpan: 5, borderRadius: 12, bgOpacity: 0.55, settings: {} },
-  { id: 'play', col: 13, row: 11, colSpan: 5, rowSpan: 5, borderRadius: 12, bgOpacity: 0.92, settings: {} }
+  { id: 'hero', col: 5, row: 5, colSpan: 13, rowSpan: 5, borderRadius: 12, bgOpacity: 0.25, showBorder: true, settings: { showSubtitle: true, showConfigBtn: true } },
+  { id: 'profile', col: 5, row: 11, colSpan: 8, rowSpan: 5, borderRadius: 12, bgOpacity: 0.55, showBorder: true, settings: {} },
+  { id: 'play', col: 13, row: 11, colSpan: 5, rowSpan: 5, borderRadius: 12, bgOpacity: 0.92, showBorder: true, settings: {} }
 ];
 
 const WIDGET_BOUNDS = {
-  hero: { defaultColSpan: 13, defaultRowSpan: 5, minColSpan: 6, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 10 },
-  profile: { defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 },
-  play: { defaultColSpan: 5, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
-  status: { defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
-  account: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 },
-  ram: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
-  java: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 10 },
-  quicklaunch: { defaultColSpan: 10, defaultRowSpan: 4, minColSpan: 6, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 10 },
-  mods: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
-  updates: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
-  worlds: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 },
-  screenshots: { defaultColSpan: 10, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 },
-  console: { defaultColSpan: 11, defaultRowSpan: 6, minColSpan: 6, maxColSpan: 21, minRowSpan: 4, maxRowSpan: 16 },
-  telemetry: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 8 },
-  folders: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 8 },
-  loader: { defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
-  jvm: { defaultColSpan: 10, defaultRowSpan: 3, minColSpan: 6, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
-  skin: { defaultColSpan: 6, defaultRowSpan: 5, minColSpan: 4, maxColSpan: 14, minRowSpan: 4, maxRowSpan: 12 },
-  session: { defaultColSpan: 7, defaultRowSpan: 3, minColSpan: 4, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
-  clock: { defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 }
+  hero: { defaultColSpan: 13, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 12 },
+  profile: { defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 },
+  play: { defaultColSpan: 5, defaultRowSpan: 5, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
+  status: { defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
+  account: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 },
+  ram: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
+  java: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 12 },
+  quicklaunch: { defaultColSpan: 10, defaultRowSpan: 4, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 12 },
+  mods: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
+  updates: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
+  worlds: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 },
+  screenshots: { defaultColSpan: 10, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 },
+  console: { defaultColSpan: 11, defaultRowSpan: 6, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 18 },
+  telemetry: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
+  folders: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
+  loader: { defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
+  jvm: { defaultColSpan: 10, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
+  skin: { defaultColSpan: 6, defaultRowSpan: 5, minColSpan: 2, maxColSpan: 16, minRowSpan: 2, maxRowSpan: 14 },
+  session: { defaultColSpan: 7, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
+  clock: { defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 }
 };
 
 function clampInt(val, min, max) {
@@ -124,7 +126,6 @@ function resolveCollisionsPushDown(items, anchorId) {
           other.row = nextRow;
           queue.push(other.id);
         } else {
-          // Try placing in any free 21x21 slot if pushing down exceeds row 21
           const withoutOther = clone.filter(w => w.id !== other.id);
           const free = findFirstAvailableSlot(withoutOther, other.colSpan, other.rowSpan);
           other.col = free.col;
@@ -159,17 +160,18 @@ function normalizeOverviewWidgets(rawList, gridVersion = 21) {
     if (!raw || !raw.id || seen.has(raw.id)) continue;
     seen.add(raw.id);
     const meta = WIDGET_BOUNDS[raw.id] || {
-      defaultColSpan: 8,
+      defaultColSpan: 6,
       defaultRowSpan: 4,
-      minColSpan: 4,
+      minColSpan: 2,
       maxColSpan: 21,
-      minRowSpan: 2,
-      maxRowSpan: 12
+      minRowSpan: 1,
+      maxRowSpan: 14
     };
 
     const borderRadius = clampInt(Number.isFinite(raw.borderRadius) ? raw.borderRadius : 12, 0, 28);
     const defaultOpacity = raw.id === 'hero' ? 0.25 : (raw.id === 'play' ? 0.92 : 0.55);
     const bgOpacity = clampFloat(Number.isFinite(raw.bgOpacity) ? raw.bgOpacity : defaultOpacity, 0, 1);
+    const showBorder = typeof raw.showBorder === 'boolean' ? raw.showBorder : true;
     const settings = (raw.settings && typeof raw.settings === 'object') ? { ...raw.settings } : {};
 
     const hasFullCoords =
@@ -183,19 +185,18 @@ function normalizeOverviewWidgets(rawList, gridVersion = 21) {
       const rowSpan = clampInt(raw.rowSpan, meta.minRowSpan, meta.maxRowSpan);
       const col = clampInt(raw.col, 1, GRID_SIZE - colSpan + 1);
       const row = clampInt(raw.row, 1, GRID_SIZE - rowSpan + 1);
-      placed.push({ id: raw.id, col, row, colSpan, rowSpan, borderRadius, bgOpacity, settings });
+      placed.push({ id: raw.id, col, row, colSpan, rowSpan, borderRadius, bgOpacity, showBorder, settings });
     } else if (hasFullCoords) {
-      // Scale from 12-column coordinates to 21x21
       const scaledColSpan = clampInt(Math.round((raw.colSpan * GRID_SIZE) / 12), meta.minColSpan, meta.maxColSpan);
       const scaledRowSpan = clampInt(raw.rowSpan * 2, meta.minRowSpan, meta.maxRowSpan);
       const scaledCol = clampInt(Math.round(((raw.col - 1) * GRID_SIZE) / 12) + 1, 1, GRID_SIZE - scaledColSpan + 1);
       const scaledRow = clampInt((raw.row - 1) * 2 + 1, 1, GRID_SIZE - scaledRowSpan + 1);
-      placed.push({ id: raw.id, col: scaledCol, row: scaledRow, colSpan: scaledColSpan, rowSpan: scaledRowSpan, borderRadius, bgOpacity, settings });
+      placed.push({ id: raw.id, col: scaledCol, row: scaledRow, colSpan: scaledColSpan, rowSpan: scaledRowSpan, borderRadius, bgOpacity, showBorder, settings });
     } else {
       const colSpan = meta.defaultColSpan;
       const rowSpan = meta.defaultRowSpan;
       const spot = findFirstAvailableSlot(placed, colSpan, rowSpan);
-      placed.push({ id: raw.id, col: spot.col, row: spot.row, colSpan, rowSpan, borderRadius, bgOpacity, settings });
+      placed.push({ id: raw.id, col: spot.col, row: spot.row, colSpan, rowSpan, borderRadius, bgOpacity, showBorder, settings });
     }
   }
 
@@ -378,6 +379,7 @@ function initDirectories() {
   safeMkdirSync(APP_DIR);
   safeMkdirSync(RUNTIMES_DIR);
   safeMkdirSync(PROFILES_DIR);
+  safeMkdirSync(EXTENSIONS_USER_DIR);
 }
 
 // -------------------------------------------------------------
@@ -494,7 +496,8 @@ function normalizeConfig(cfg) {
       profiles: [],
       activeProfileId: 'default',
       overviewGridVersion: 21,
-      overviewWidgets: DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } }))
+      overviewWidgets: DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } })),
+      extensions: {}
     };
   }
 
@@ -530,6 +533,9 @@ function normalizeConfig(cfg) {
   if (!Number.isFinite(cfg.animSpeed)) cfg.animSpeed = 1;
   if (!cfg.bgScreenshot || typeof cfg.bgScreenshot !== 'object') {
     cfg.bgScreenshot = { path: '', blur: 6, dim: 0.55 };
+  }
+  if (!cfg.extensions || typeof cfg.extensions !== 'object') {
+    cfg.extensions = {};
   }
 
   cfg.overviewWidgets = normalizeOverviewWidgets(cfg.overviewWidgets, cfg.overviewGridVersion);
@@ -599,6 +605,298 @@ function getActiveProfileDir(cfg) {
   }
   return MINECRAFT_DIR;
 }
+
+// -------------------------------------------------------------
+// PHASE B ONE-TIME EXTENSION LOADER HOOK
+// -------------------------------------------------------------
+const extensionRegistry = {
+  loaded: [],
+  tabs: [],
+  widgets: [],
+  beforeLaunchHooks: [],
+  gameExitHooks: [],
+  registeredHandleChannels: new Set(),
+  registeredOnChannels: new Set()
+};
+
+function resolveExtensionSafePath(baseDir, relPath) {
+  if (!relPath || typeof relPath !== 'string') return null;
+  const target = path.resolve(baseDir, relPath);
+  if (!target.startsWith(path.resolve(baseDir))) return null;
+  return target;
+}
+
+function discoverExtensionEntries() {
+  const foundById = new Map();
+  const dirsToScan = [
+    { dir: EXTENSIONS_BUNDLED_DIR, source: 'bundled' },
+    { dir: EXTENSIONS_USER_DIR, source: 'user' }
+  ];
+
+  for (const { dir, source } of dirsToScan) {
+    if (!fs.existsSync(dir)) continue;
+    let items = [];
+    try {
+      items = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (e) { continue; }
+
+    for (const entry of items) {
+      if (entry.name.startsWith('.') || entry.name.startsWith('_')) continue;
+      const fullPath = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        const manifestPath = fs.existsSync(path.join(fullPath, 'extension.json'))
+          ? path.join(fullPath, 'extension.json')
+          : (fs.existsSync(path.join(fullPath, 'manifest.json')) ? path.join(fullPath, 'manifest.json') : null);
+
+        let manifest = { id: entry.name, name: entry.name, version: '1.0.0', main: 'index.js' };
+        if (manifestPath) {
+          try {
+            const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+            manifest = { ...manifest, ...parsed, id: parsed.id || entry.name };
+          } catch (err) {
+            appendLog(`[Extensions] Invalid manifest in ${fullPath}: ${err.message}`, 'stderr');
+            continue;
+          }
+        }
+
+        const mainFile = resolveExtensionSafePath(fullPath, manifest.main || 'index.js');
+        if (mainFile && fs.existsSync(mainFile)) {
+          foundById.set(manifest.id, {
+            ...manifest,
+            dir: fullPath,
+            mainFile,
+            source
+          });
+        }
+      } else if (entry.isFile() && entry.name.endsWith('.js')) {
+        const extId = entry.name.replace(/\.js$/i, '');
+        foundById.set(extId, {
+          id: extId,
+          name: extId,
+          version: '1.0.0',
+          dir,
+          mainFile: fullPath,
+          source
+        });
+      }
+    }
+  }
+
+  return Array.from(foundById.values());
+}
+
+function createExtensionApi(extMeta) {
+  return {
+    extensionId: extMeta.id,
+    extensionDir: extMeta.dir,
+    paths: {
+      appDir: APP_DIR,
+      extensionsUserDir: EXTENSIONS_USER_DIR,
+      extensionsBundledDir: EXTENSIONS_BUNDLED_DIR,
+      minecraftDir: MINECRAFT_DIR,
+      profilesDir: PROFILES_DIR,
+      runtimesDir: RUNTIMES_DIR
+    },
+    getConfig: () => loadConfig(),
+    saveConfig: (cfg) => saveConfig(cfg),
+    getActiveProfile: () => getActiveProfile(loadConfig()),
+    getActiveProfileDir: () => getActiveProfileDir(loadConfig()),
+    getMainWindow: () => mainWindow,
+    sendToRenderer: (channel, payload) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(channel, payload);
+      }
+    },
+    appendLog: (msg, stream = 'stdout') => appendLog(`[Ext:${extMeta.id}] ${msg}`, stream),
+    registerIpc: (channel, handler) => {
+      if (!channel || typeof handler !== 'function') return;
+      if (extensionRegistry.registeredHandleChannels.has(channel)) {
+        try { ipcMain.removeHandler(channel); } catch (e) {}
+      }
+      extensionRegistry.registeredHandleChannels.add(channel);
+      ipcMain.handle(channel, handler);
+    },
+    registerIpcOn: (channel, listener) => {
+      if (!channel || typeof listener !== 'function') return;
+      if (extensionRegistry.registeredOnChannels.has(channel)) {
+        ipcMain.removeAllListeners(channel);
+      }
+      extensionRegistry.registeredOnChannels.add(channel);
+      ipcMain.on(channel, listener);
+    },
+    registerTab: (tabDef) => {
+      if (!tabDef || !tabDef.id) return;
+      let htmlContent = tabDef.html || '';
+      let cssContent = tabDef.css || '';
+      let scriptCode = tabDef.script || '';
+
+      if (!htmlContent && tabDef.htmlFile) {
+        const p = resolveExtensionSafePath(extMeta.dir, tabDef.htmlFile);
+        if (p && fs.existsSync(p)) htmlContent = fs.readFileSync(p, 'utf-8');
+      }
+      if (!cssContent && tabDef.cssFile) {
+        const p = resolveExtensionSafePath(extMeta.dir, tabDef.cssFile);
+        if (p && fs.existsSync(p)) cssContent = fs.readFileSync(p, 'utf-8');
+      }
+      if (!scriptCode && tabDef.rendererFile) {
+        const p = resolveExtensionSafePath(extMeta.dir, tabDef.rendererFile);
+        if (p && fs.existsSync(p)) scriptCode = fs.readFileSync(p, 'utf-8');
+      }
+
+      const existingIdx = extensionRegistry.tabs.findIndex(t => t.id === tabDef.id);
+      const record = {
+        id: String(tabDef.id),
+        extensionId: extMeta.id,
+        label: tabDef.label || tabDef.id,
+        order: Number.isFinite(tabDef.order) ? tabDef.order : 100,
+        html: htmlContent,
+        css: cssContent,
+        script: scriptCode
+      };
+      if (existingIdx !== -1) extensionRegistry.tabs[existingIdx] = record;
+      else extensionRegistry.tabs.push(record);
+    },
+    registerWidget: (widgetDef) => {
+      if (!widgetDef || !widgetDef.id) return;
+      const wId = String(widgetDef.id);
+      const bounds = {
+        defaultColSpan: clampInt(widgetDef.defaultColSpan || 6, 2, GRID_SIZE),
+        defaultRowSpan: clampInt(widgetDef.defaultRowSpan || 4, 1, GRID_SIZE),
+        minColSpan: clampInt(widgetDef.minColSpan || 2, 1, GRID_SIZE),
+        maxColSpan: clampInt(widgetDef.maxColSpan || 21, 1, GRID_SIZE),
+        minRowSpan: clampInt(widgetDef.minRowSpan || 1, 1, GRID_SIZE),
+        maxRowSpan: clampInt(widgetDef.maxRowSpan || 16, 1, GRID_SIZE)
+      };
+      WIDGET_BOUNDS[wId] = bounds;
+
+      let renderCode = widgetDef.renderJs || widgetDef.script || '';
+      if (!renderCode && widgetDef.renderFile) {
+        const p = resolveExtensionSafePath(extMeta.dir, widgetDef.renderFile);
+        if (p && fs.existsSync(p)) renderCode = fs.readFileSync(p, 'utf-8');
+      }
+
+      const record = {
+        id: wId,
+        extensionId: extMeta.id,
+        name: widgetDef.name || wId,
+        desc: widgetDef.desc || 'Extension Widget',
+        ...bounds,
+        renderJs: renderCode
+      };
+      const existingIdx = extensionRegistry.widgets.findIndex(w => w.id === wId);
+      if (existingIdx !== -1) extensionRegistry.widgets[existingIdx] = record;
+      else extensionRegistry.widgets.push(record);
+    },
+    onBeforeLaunch: (fn) => {
+      if (typeof fn === 'function') {
+        extensionRegistry.beforeLaunchHooks.push({ extensionId: extMeta.id, fn });
+      }
+    },
+    onGameExit: (fn) => {
+      if (typeof fn === 'function') {
+        extensionRegistry.gameExitHooks.push({ extensionId: extMeta.id, fn });
+      }
+    },
+    utils: {
+      httpGetText,
+      httpGet,
+      httpPost,
+      downloadFile,
+      readZipEntries,
+      safeMkdirSync,
+      extractMcVersion
+    }
+  };
+}
+
+async function loadExtensions() {
+  extensionRegistry.loaded = [];
+  extensionRegistry.tabs = [];
+  extensionRegistry.widgets = [];
+  extensionRegistry.beforeLaunchHooks = [];
+  extensionRegistry.gameExitHooks = [];
+
+  const entries = discoverExtensionEntries();
+  for (const extMeta of entries) {
+    try {
+      try {
+        delete require.cache[require.resolve(extMeta.mainFile)];
+      } catch (e) {}
+
+      const mod = require(extMeta.mainFile);
+      const api = createExtensionApi(extMeta);
+
+      if (typeof mod === 'function') {
+        await mod(api);
+      } else if (mod && typeof mod.activate === 'function') {
+        await mod.activate(api);
+      } else if (mod && typeof mod.init === 'function') {
+        await mod.init(api);
+      } else if (mod) {
+        if (typeof mod.onBeforeLaunch === 'function') api.onBeforeLaunch(mod.onBeforeLaunch);
+        if (typeof mod.onGameExit === 'function') api.onGameExit(mod.onGameExit);
+      }
+
+      if (extMeta.renderer) {
+        const rendererPath = resolveExtensionSafePath(extMeta.dir, extMeta.renderer);
+        if (rendererPath && fs.existsSync(rendererPath)) {
+          extMeta.rendererScript = fs.readFileSync(rendererPath, 'utf-8');
+        }
+      }
+
+      extensionRegistry.loaded.push({
+        id: extMeta.id,
+        name: extMeta.name || extMeta.id,
+        version: extMeta.version || '1.0.0',
+        description: extMeta.description || '',
+        source: extMeta.source,
+        dir: extMeta.dir,
+        rendererScript: extMeta.rendererScript || '',
+        status: 'active'
+      });
+      appendLog(`[Extensions] Loaded "${extMeta.name || extMeta.id}" v${extMeta.version || '1.0.0'} (${extMeta.source})`);
+    } catch (err) {
+      extensionRegistry.loaded.push({
+        id: extMeta.id,
+        name: extMeta.name || extMeta.id,
+        version: extMeta.version || '1.0.0',
+        source: extMeta.source,
+        dir: extMeta.dir,
+        rendererScript: '',
+        status: 'error',
+        error: err.message
+      });
+      appendLog(`[Extensions] Failed to load "${extMeta.id}": ${err.message}`, 'stderr');
+    }
+  }
+
+  extensionRegistry.tabs.sort((a, b) => a.order - b.order);
+  configCache = null;
+}
+
+ipcMain.handle('get-loaded-extensions', () => ({
+  extensions: extensionRegistry.loaded,
+  tabs: extensionRegistry.tabs,
+  widgets: extensionRegistry.widgets,
+  userExtensionsDir: EXTENSIONS_USER_DIR,
+  bundledExtensionsDir: EXTENSIONS_BUNDLED_DIR
+}));
+
+ipcMain.handle('open-extensions-dir', () => {
+  safeMkdirSync(EXTENSIONS_USER_DIR);
+  shell.openPath(EXTENSIONS_USER_DIR);
+  return EXTENSIONS_USER_DIR;
+});
+
+ipcMain.handle('reload-extensions', async () => {
+  await loadExtensions();
+  return {
+    extensions: extensionRegistry.loaded,
+    tabs: extensionRegistry.tabs,
+    widgets: extensionRegistry.widgets
+  };
+});
 
 // -------------------------------------------------------------
 // WINDOW MANAGEMENT & LIFECYCLE
@@ -2389,7 +2687,7 @@ function httpGet(url, token = null) {
       headers
     }, (res) => {
       let b = '';
-      res.on('data', c => c);
+      res.on('data', c => b += c);
       res.on('end', () => {
         try { resolve(JSON.parse(b)); } catch (e) { resolve(b); }
       });
@@ -3148,6 +3446,16 @@ function getMavenGroupArtifact(coord) {
   return `${parts[0]}:${parts[1]}${classifier}`;
 }
 
+async function runGameExitHooks(payload) {
+  for (const hook of extensionRegistry.gameExitHooks) {
+    try {
+      await hook.fn(payload);
+    } catch (err) {
+      appendLog(`[Ext:${hook.extensionId}] onGameExit error: ${err.message}`, 'stderr');
+    }
+  }
+}
+
 ipcMain.on('launch-game', async (event, reqCfg) => {
   if (isLaunchingGame || activeGameProcess) {
     return;
@@ -3460,8 +3768,6 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       ];
     }
 
-    const fullArgs = [...jvmArgs, mainClass, ...gameArgs];
-
     const customEnv = {
       ...parseEnvString(globalCfg.envVars || ''),
       ...parseEnvString(prof.envVars || '')
@@ -3472,7 +3778,38 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       ...customEnv
     };
 
-    activeGameProcess = spawn(javaBin, fullArgs, { cwd: activeGameDir, env: launchEnv });
+    // Execute Phase B Extension onBeforeLaunch hooks
+    const launchContext = {
+      prof,
+      globalCfg,
+      versionId,
+      baseGameVersion,
+      loader: profLoader,
+      activeGameDir,
+      javaBin,
+      mainClass,
+      jvmArgs,
+      gameArgs,
+      classpath,
+      env: launchEnv,
+      sendStatus,
+      appendLog
+    };
+
+    for (const hook of extensionRegistry.beforeLaunchHooks) {
+      try {
+        await hook.fn(launchContext);
+      } catch (extErr) {
+        appendLog(`[Ext:${hook.extensionId}] onBeforeLaunch warning: ${extErr.message}`, 'stderr');
+      }
+    }
+
+    const finalJavaBin = launchContext.javaBin || javaBin;
+    const finalMainClass = launchContext.mainClass || mainClass;
+    const fullArgs = [...launchContext.jvmArgs, finalMainClass, ...launchContext.gameArgs];
+
+    activeGameProcess = spawn(finalJavaBin, fullArgs, { cwd: activeGameDir, env: launchContext.env });
+    let spawnedPid = null;
     let totalOutput = '';
 
     activeGameProcess.stdout.on('data', (d) => {
@@ -3492,8 +3829,9 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
 
     activeGameProcess.on('spawn', () => {
       isLaunchingGame = false;
-      event.reply('game-started', { pid: activeGameProcess.pid });
-      sendStatus(`Minecraft running (PID: ${activeGameProcess.pid})`);
+      spawnedPid = activeGameProcess ? activeGameProcess.pid : null;
+      event.reply('game-started', { pid: spawnedPid });
+      sendStatus(`Minecraft running (PID: ${spawnedPid})`);
       if (globalCfg.closeOnLaunch) setTimeout(() => mainWindow && mainWindow.hide(), 2500);
     });
 
@@ -3503,7 +3841,9 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
         mainWindow.show();
       }
-      if (code !== 0 && code !== null) {
+      const crashed = code !== 0 && code !== null;
+      runGameExitHooks({ code, crashed, pid: spawnedPid, prof, versionId, baseGameVersion });
+      if (crashed) {
         const diag = diagnoseCrash(totalOutput);
         event.reply('game-crashed', { code, diag });
         sendStatus(`Game crashed (Exit Code ${code}): ${diag.title}`, true);
@@ -3519,6 +3859,7 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
         mainWindow.show();
       }
+      runGameExitHooks({ code: -1, crashed: true, pid: spawnedPid, prof, versionId, baseGameVersion });
       event.reply('game-exited', { code: -1 });
       sendStatus(`Execution error: ${err.message}`, true);
     });
@@ -3533,8 +3874,9 @@ ipcMain.on('launch-game', async (event, reqCfg) => {
 // -------------------------------------------------------------
 // APP LIFECYCLE
 // -------------------------------------------------------------
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initDirectories();
+  await loadExtensions();
   createWindow();
 });
 
@@ -3545,3 +3887,4 @@ app.on('before-quit', () => {
 app.on('window-all-closed', () => {
   forceCleanExit();
 });
+
