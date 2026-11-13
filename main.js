@@ -35,37 +35,46 @@ const PROFILES_DIR = path.join(APP_DIR, 'profiles');
 
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
 const DEFAULT_ORYON_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
+
+// 21x21 Overview Grid Defaults
+const GRID_SIZE = 21;
 const DEFAULT_OVERVIEW_WIDGETS = [
-  { id: 'hero', col: 3, row: 1, colSpan: 8, rowSpan: 2 },
-  { id: 'profile', col: 3, row: 3, colSpan: 5, rowSpan: 1 },
-  { id: 'play', col: 8, row: 3, colSpan: 3, rowSpan: 1 }
+  { id: 'hero', col: 5, row: 5, colSpan: 13, rowSpan: 5, borderRadius: 12, bgOpacity: 0.25, settings: { showSubtitle: true, showConfigBtn: true } },
+  { id: 'profile', col: 5, row: 11, colSpan: 8, rowSpan: 5, borderRadius: 12, bgOpacity: 0.55, settings: {} },
+  { id: 'play', col: 13, row: 11, colSpan: 5, rowSpan: 5, borderRadius: 12, bgOpacity: 0.92, settings: {} }
 ];
 
 const WIDGET_BOUNDS = {
-  hero: { defaultColSpan: 8, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4 },
-  profile: { defaultColSpan: 5, defaultRowSpan: 1, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 2 },
-  play: { defaultColSpan: 3, defaultRowSpan: 1, minColSpan: 2, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
-  status: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 4 },
-  account: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
-  ram: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
-  java: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
-  quicklaunch: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 5 },
-  mods: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
-  updates: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
-  worlds: { defaultColSpan: 6, defaultRowSpan: 3, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 6 },
-  screenshots: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 5 },
-  console: { defaultColSpan: 6, defaultRowSpan: 3, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 7 },
-  telemetry: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4 },
-  folders: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4 },
-  loader: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
-  jvm: { defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 4 },
-  skin: { defaultColSpan: 4, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 8, minRowSpan: 2, maxRowSpan: 4 },
-  session: { defaultColSpan: 4, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3 },
-  clock: { defaultColSpan: 4, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4 }
+  hero: { defaultColSpan: 13, defaultRowSpan: 5, minColSpan: 6, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 10 },
+  profile: { defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 },
+  play: { defaultColSpan: 5, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
+  status: { defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
+  account: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 },
+  ram: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
+  java: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 10 },
+  quicklaunch: { defaultColSpan: 10, defaultRowSpan: 4, minColSpan: 6, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 10 },
+  mods: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
+  updates: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
+  worlds: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 },
+  screenshots: { defaultColSpan: 10, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 },
+  console: { defaultColSpan: 11, defaultRowSpan: 6, minColSpan: 6, maxColSpan: 21, minRowSpan: 4, maxRowSpan: 16 },
+  telemetry: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 8 },
+  folders: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 8 },
+  loader: { defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
+  jvm: { defaultColSpan: 10, defaultRowSpan: 3, minColSpan: 6, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
+  skin: { defaultColSpan: 6, defaultRowSpan: 5, minColSpan: 4, maxColSpan: 14, minRowSpan: 4, maxRowSpan: 12 },
+  session: { defaultColSpan: 7, defaultRowSpan: 3, minColSpan: 4, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8 },
+  clock: { defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12 }
 };
 
 function clampInt(val, min, max) {
   return Math.max(min, Math.min(max, Math.round(val)));
+}
+
+function clampFloat(val, min, max) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
 }
 
 function rectsOverlap(a, b) {
@@ -78,25 +87,24 @@ function rectsOverlap(a, b) {
 }
 
 function findFirstAvailableSlot(existingItems, colSpan, rowSpan) {
-  const spanC = clampInt(colSpan, 1, 12);
-  const spanR = Math.max(1, rowSpan);
-  const maxRowScan = Math.max(1, existingItems.reduce((m, w) => Math.max(m, w.row + w.rowSpan), 1)) + 8;
+  const spanC = clampInt(colSpan, 1, GRID_SIZE);
+  const spanR = clampInt(rowSpan, 1, GRID_SIZE);
 
-  for (let r = 1; r <= maxRowScan; r++) {
-    for (let c = 1; c <= 12 - spanC + 1; c++) {
+  for (let r = 1; r <= GRID_SIZE - spanR + 1; r++) {
+    for (let c = 1; c <= GRID_SIZE - spanC + 1; c++) {
       const cand = { col: c, row: r, colSpan: spanC, rowSpan: spanR };
       if (!existingItems.some(other => rectsOverlap(cand, other))) {
         return { col: c, row: r };
       }
     }
   }
-  return { col: 1, row: maxRowScan };
+  return { col: 1, row: 1 };
 }
 
 function resolveCollisionsPushDown(items, anchorId) {
   const clone = items.map(w => ({ ...w }));
   const queue = [anchorId];
-  const maxIterations = clone.length * clone.length + 32;
+  const maxIterations = clone.length * clone.length + 40;
   let iter = 0;
 
   while (queue.length && iter < maxIterations) {
@@ -111,27 +119,37 @@ function resolveCollisionsPushDown(items, anchorId) {
 
     for (const other of others) {
       if (rectsOverlap(mover, other)) {
-        other.row = mover.row + mover.rowSpan;
-        queue.push(other.id);
+        const nextRow = mover.row + mover.rowSpan;
+        if (nextRow + other.rowSpan - 1 <= GRID_SIZE) {
+          other.row = nextRow;
+          queue.push(other.id);
+        } else {
+          // Try placing in any free 21x21 slot if pushing down exceeds row 21
+          const withoutOther = clone.filter(w => w.id !== other.id);
+          const free = findFirstAvailableSlot(withoutOther, other.colSpan, other.rowSpan);
+          other.col = free.col;
+          other.row = free.row;
+        }
       }
     }
   }
   return clone;
 }
 
-function normalizeOverviewWidgets(rawList) {
+function normalizeOverviewWidgets(rawList, gridVersion = 21) {
   if (!Array.isArray(rawList)) {
-    return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
+    return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } }));
   }
 
   const isLegacyDefault =
     rawList.length === 3 &&
-    rawList[0]?.id === 'hero' && rawList[0]?.col === undefined &&
-    rawList[1]?.id === 'profile' && rawList[1]?.col === undefined &&
-    rawList[2]?.id === 'play' && rawList[2]?.col === undefined;
+    rawList[0]?.id === 'hero' &&
+    rawList[1]?.id === 'profile' &&
+    rawList[2]?.id === 'play' &&
+    gridVersion !== 21;
 
   if (isLegacyDefault) {
-    return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
+    return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } }));
   }
 
   const seen = new Set();
@@ -141,13 +159,18 @@ function normalizeOverviewWidgets(rawList) {
     if (!raw || !raw.id || seen.has(raw.id)) continue;
     seen.add(raw.id);
     const meta = WIDGET_BOUNDS[raw.id] || {
-      defaultColSpan: 6,
-      defaultRowSpan: 2,
-      minColSpan: 3,
-      maxColSpan: 12,
-      minRowSpan: 1,
-      maxRowSpan: 6
+      defaultColSpan: 8,
+      defaultRowSpan: 4,
+      minColSpan: 4,
+      maxColSpan: 21,
+      minRowSpan: 2,
+      maxRowSpan: 12
     };
+
+    const borderRadius = clampInt(Number.isFinite(raw.borderRadius) ? raw.borderRadius : 12, 0, 28);
+    const defaultOpacity = raw.id === 'hero' ? 0.25 : (raw.id === 'play' ? 0.92 : 0.55);
+    const bgOpacity = clampFloat(Number.isFinite(raw.bgOpacity) ? raw.bgOpacity : defaultOpacity, 0, 1);
+    const settings = (raw.settings && typeof raw.settings === 'object') ? { ...raw.settings } : {};
 
     const hasFullCoords =
       Number.isFinite(raw.col) &&
@@ -155,18 +178,24 @@ function normalizeOverviewWidgets(rawList) {
       Number.isFinite(raw.colSpan) &&
       Number.isFinite(raw.rowSpan);
 
-    if (hasFullCoords) {
+    if (hasFullCoords && gridVersion === 21) {
       const colSpan = clampInt(raw.colSpan, meta.minColSpan, meta.maxColSpan);
       const rowSpan = clampInt(raw.rowSpan, meta.minRowSpan, meta.maxRowSpan);
-      const col = clampInt(raw.col, 1, 12 - colSpan + 1);
-      const row = Math.max(1, Math.round(raw.row));
-      placed.push({ id: raw.id, col, row, colSpan, rowSpan });
+      const col = clampInt(raw.col, 1, GRID_SIZE - colSpan + 1);
+      const row = clampInt(raw.row, 1, GRID_SIZE - rowSpan + 1);
+      placed.push({ id: raw.id, col, row, colSpan, rowSpan, borderRadius, bgOpacity, settings });
+    } else if (hasFullCoords) {
+      // Scale from 12-column coordinates to 21x21
+      const scaledColSpan = clampInt(Math.round((raw.colSpan * GRID_SIZE) / 12), meta.minColSpan, meta.maxColSpan);
+      const scaledRowSpan = clampInt(raw.rowSpan * 2, meta.minRowSpan, meta.maxRowSpan);
+      const scaledCol = clampInt(Math.round(((raw.col - 1) * GRID_SIZE) / 12) + 1, 1, GRID_SIZE - scaledColSpan + 1);
+      const scaledRow = clampInt((raw.row - 1) * 2 + 1, 1, GRID_SIZE - scaledRowSpan + 1);
+      placed.push({ id: raw.id, col: scaledCol, row: scaledRow, colSpan: scaledColSpan, rowSpan: scaledRowSpan, borderRadius, bgOpacity, settings });
     } else {
-      const legacySpan = Number.isFinite(raw.span) ? raw.span : meta.defaultColSpan;
-      const colSpan = clampInt(legacySpan, meta.minColSpan, meta.maxColSpan);
+      const colSpan = meta.defaultColSpan;
       const rowSpan = meta.defaultRowSpan;
       const spot = findFirstAvailableSlot(placed, colSpan, rowSpan);
-      placed.push({ id: raw.id, col: spot.col, row: spot.row, colSpan, rowSpan });
+      placed.push({ id: raw.id, col: spot.col, row: spot.row, colSpan, rowSpan, borderRadius, bgOpacity, settings });
     }
   }
 
@@ -452,6 +481,9 @@ function normalizeConfig(cfg) {
       offlineUsername: 'Player',
       selectedVersion: '1.20.4',
       bgPreset: 'waves',
+      bgScreenshot: { path: '', blur: 6, dim: 0.55 },
+      colorPanel: 'standard',
+      animSpeed: 1,
       minRam: 2048,
       maxRam: 4096,
       customJavaPath: '',
@@ -461,7 +493,8 @@ function normalizeConfig(cfg) {
       jvmArgs: DEFAULT_ORYON_JVM,
       profiles: [],
       activeProfileId: 'default',
-      overviewWidgets: DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }))
+      overviewGridVersion: 21,
+      overviewWidgets: DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } }))
     };
   }
 
@@ -493,7 +526,14 @@ function normalizeConfig(cfg) {
     cfg.activeProfileId = 'default';
   }
 
-  cfg.overviewWidgets = normalizeOverviewWidgets(cfg.overviewWidgets);
+  if (!cfg.colorPanel) cfg.colorPanel = 'standard';
+  if (!Number.isFinite(cfg.animSpeed)) cfg.animSpeed = 1;
+  if (!cfg.bgScreenshot || typeof cfg.bgScreenshot !== 'object') {
+    cfg.bgScreenshot = { path: '', blur: 6, dim: 0.55 };
+  }
+
+  cfg.overviewWidgets = normalizeOverviewWidgets(cfg.overviewWidgets, cfg.overviewGridVersion);
+  cfg.overviewGridVersion = 21;
 
   return cfg;
 }
@@ -570,7 +610,7 @@ function createWindow() {
     minWidth: 1040,
     minHeight: 700,
     frame: false,
-    backgroundColor: '#09090b',
+    backgroundColor: '#000000',
     show: false,
     webPreferences: {
       nodeIntegration: true,
@@ -615,6 +655,182 @@ ipcMain.on('open-path', (e, target) => {
 
 ipcMain.handle('get-config', () => loadConfig());
 ipcMain.handle('save-config', (e, cfg) => { saveConfig(cfg); return true; });
+
+// -------------------------------------------------------------
+// BACKGROUND SCREENSHOTS & CUSTOM IMAGE PICKERS
+// -------------------------------------------------------------
+function fileToImageDataUrl(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  const ext = path.extname(filePath).toLowerCase();
+  let mime = 'image/png';
+  if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
+  else if (ext === '.webp') mime = 'image/webp';
+  const buf = fs.readFileSync(filePath);
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
+ipcMain.handle('load-image-data-url', async (event, filePath) => {
+  try {
+    return fileToImageDataUrl(filePath);
+  } catch (e) {
+    return null;
+  }
+});
+
+ipcMain.handle('get-all-screenshots', async () => {
+  const cfg = loadConfig();
+  const seenPaths = new Set();
+  const results = [];
+
+  const profileDirs = [];
+  const activeDir = getActiveProfileDir(cfg);
+  const activeProf = getActiveProfile(cfg);
+  profileDirs.push({ name: activeProf.name || 'Active', dir: activeDir });
+
+  for (const p of cfg.profiles || []) {
+    const pDir = p.path && p.id !== 'default' ? p.path : MINECRAFT_DIR;
+    if (!profileDirs.some(x => x.dir === pDir)) {
+      profileDirs.push({ name: p.name || p.id, dir: pDir });
+    }
+  }
+
+  for (const entry of profileDirs) {
+    const ssDir = path.join(entry.dir, 'screenshots');
+    if (!fs.existsSync(ssDir)) continue;
+    try {
+      const files = (await fs.promises.readdir(ssDir))
+        .filter(f => /\.(png|jpe?g|webp)$/i.test(f))
+        .slice(-24)
+        .reverse();
+
+      for (const f of files) {
+        const full = path.join(ssDir, f);
+        if (seenPaths.has(full)) continue;
+        seenPaths.add(full);
+        try {
+          const url = fileToImageDataUrl(full);
+          if (url) {
+            results.push({ fileName: f, profileName: entry.name, path: full, url });
+          }
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
+  return results;
+});
+
+ipcMain.handle('pick-background-image', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select Background Image or Screenshot',
+    filters: [
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  if (res.canceled || !res.filePaths.length) return null;
+
+  const filePath = res.filePaths[0];
+  const url = fileToImageDataUrl(filePath);
+  return { path: filePath, fileName: path.basename(filePath), url };
+});
+
+// -------------------------------------------------------------
+// SKIN IMPORT, EXPORT & MOJANG API UPLOAD
+// -------------------------------------------------------------
+ipcMain.handle('import-skin-dialog', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open Minecraft Skin PNG (64x64 or 64x32)',
+    filters: [
+      { name: 'PNG Skin Texture', extensions: ['png'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  if (res.canceled || !res.filePaths.length) return null;
+
+  const filePath = res.filePaths[0];
+  const url = fileToImageDataUrl(filePath);
+  return { fileName: path.basename(filePath), url };
+});
+
+ipcMain.handle('save-skin-dialog', async (event, { base64Png, defaultName = 'aetheria-skin.png' }) => {
+  const res = await dialog.showSaveDialog(mainWindow, {
+    title: 'Save Edited Skin PNG',
+    defaultPath: defaultName,
+    filters: [{ name: 'PNG Image', extensions: ['png'] }]
+  });
+
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  if (res.canceled || !res.filePath) return null;
+
+  const clean = String(base64Png || '').replace(/^data:image\/png;base64,/, '');
+  fs.writeFileSync(res.filePath, Buffer.from(clean, 'base64'));
+  return res.filePath;
+});
+
+ipcMain.handle('upload-mojang-skin', async (event, { base64Png, variant = 'classic' }) => {
+  const cfg = loadConfig();
+  let account = cfg.activeAccount;
+  if (!account || !account.token || account.token === 'null') {
+    throw new Error('Sign in with a Microsoft account in Accounts to apply skins directly to your Minecraft profile.');
+  }
+
+  if (account.refreshToken) {
+    account = await refreshMicrosoftAccountIfNeeded(account, cfg);
+  }
+
+  const cleanBase64 = String(base64Png || '').replace(/^data:image\/png;base64,/, '');
+  const pngBuffer = Buffer.from(cleanBase64, 'base64');
+  const skinVariant = variant === 'slim' ? 'slim' : 'classic';
+  const boundary = '----AetheriaSkinBoundary' + crypto.randomBytes(8).toString('hex');
+
+  const part1 = Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="variant"\r\n\r\n${skinVariant}\r\n` +
+    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="skin.png"\r\nContent-Type: image/png\r\n\r\n`
+  );
+  const part3 = Buffer.from(`\r\n--${boundary}--\r\n`);
+  const bodyBuf = Buffer.concat([part1, pngBuffer, part3]);
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.minecraftservices.com',
+      port: 443,
+      path: '/minecraft/profile/skins',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${account.token}`,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': bodyBuf.length,
+        'User-Agent': 'Aetheria-ARM64-Launcher/1.0'
+      }
+    }, (res) => {
+      let body = '';
+      res.on('data', c => { body += c; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ success: true, profileName: account.name });
+        } else {
+          let errMsg = `Mojang Skin API HTTP ${res.statusCode}`;
+          try {
+            const parsed = JSON.parse(body);
+            if (parsed.errorMessage || parsed.error) errMsg = parsed.errorMessage || parsed.error;
+          } catch (e) {}
+          reject(new Error(errMsg));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(bodyBuf);
+    req.end();
+  });
+});
 
 // -------------------------------------------------------------
 // SYSTEM TELEMETRY & ACTIVE PROCESS CONTROLS (FOR WIDGETS)
