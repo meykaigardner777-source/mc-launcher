@@ -8,7 +8,7 @@
     :root {
       color-scheme: dark;
       --bg: #09090b;
-      --card: rgba(18, 18, 21, 0.88);
+      --card: rgba(18, 18, 21, 0.90);
       --card-hover: rgba(26, 26, 30, 0.96);
       --border: #27272a;
       --border-hover: #3f3f46;
@@ -76,11 +76,9 @@
       justify-content: space-between;
       padding: 0 16px;
       border-bottom: 1px solid var(--border);
-      background: rgba(9, 9, 11, 0.92);
-      backdrop-filter: blur(20px);
+      background: rgba(9, 9, 11, 0.94);
       -webkit-app-region: drag;
       z-index: 1000;
-      animation: fadeIn 0.4s var(--ease);
     }
 
     .brand-group {
@@ -105,7 +103,7 @@
       border-radius: 4px;
       font-size: 0.65rem;
       font-weight: 700;
-      transition: all 0.2s var(--ease);
+      transition: all 0.18s var(--ease);
     }
 
     .top-right-group {
@@ -136,14 +134,13 @@
       font-size: 0.78rem;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s var(--ease);
+      transition: background 0.15s var(--ease), color 0.15s var(--ease), border-color 0.15s var(--ease);
       white-space: nowrap;
     }
     .top-nav-btn:hover {
       background: rgba(255, 255, 255, 0.05);
       color: var(--text);
       border-color: var(--border);
-      transform: translateY(-1px);
     }
     .top-nav-btn.active {
       background: #18181b;
@@ -185,23 +182,18 @@
       z-index: 10;
     }
 
-    .panel { display: none; animation: panelIn 0.32s var(--ease) forwards; }
-    .panel.active { display: block; }
+    .panel { display: none; }
+    .panel.active { display: block; animation: panelIn 0.22s var(--ease) forwards; }
 
     @keyframes panelIn {
-      from { opacity: 0; transform: translateY(8px); }
+      from { opacity: 0; transform: translateY(6px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
     .card {
-      background: var(--card); backdrop-filter: blur(16px); border: 1px solid var(--border);
+      background: var(--card); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
-      transition: border-color 0.25s var(--ease), background 0.25s var(--ease), transform 0.25s var(--ease);
+      transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
     }
     .card:hover { border-color: var(--border-hover); }
 
@@ -212,16 +204,16 @@
     .btn {
       background: #ffffff; color: #09090b; border: none; padding: 8px 16px;
       border-radius: var(--radius); font-size: 0.82rem; font-weight: 600;
-      cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); transition: all 0.2s var(--ease);
+      cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); transition: all 0.16s var(--ease);
     }
     .btn:hover { background: #e4e4e7; transform: translateY(-1px); }
     .btn:active { transform: translateY(1px) scale(0.98); }
     .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
     .btn-secondary {
-      background: rgba(24, 24, 27, 0.85); color: var(--text); border: 1px solid var(--border);
+      background: rgba(24, 24, 27, 0.92); color: var(--text); border: 1px solid var(--border);
       padding: 7px 13px; border-radius: var(--radius); font-size: 0.78rem; font-weight: 500;
-      cursor: pointer; transition: all 0.2s var(--ease);
+      cursor: pointer; transition: all 0.16s var(--ease);
     }
     .btn-secondary:hover { background: #222227; border-color: var(--border-focus); transform: translateY(-1px); }
     .btn-secondary:active { transform: translateY(1px); }
@@ -251,17 +243,17 @@
     .chip-btn {
       background: var(--card); border: 1px solid var(--border); color: var(--text-muted);
       padding: 6px 14px; border-radius: var(--radius); font-size: 0.76rem; font-weight: 600;
-      cursor: pointer; transition: all 0.2s var(--ease);
+      cursor: pointer; transition: all 0.16s var(--ease);
     }
-    .chip-btn:hover { color: var(--text); border-color: var(--border-hover); transform: translateY(-1px); }
+    .chip-btn:hover { color: var(--text); border-color: var(--border-hover); }
     .chip-btn.active { background: #ffffff; color: #09090b; border-color: #ffffff; }
 
     .mod-item {
       display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
       background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-      margin-bottom: 8px; transition: all 0.25s var(--ease);
+      margin-bottom: 8px; transition: border-color 0.16s var(--ease), background 0.16s var(--ease);
     }
-    .mod-item:hover { transform: translateY(-1px); border-color: var(--border-focus); background: var(--card-hover); }
+    .mod-item:hover { border-color: var(--border-focus); background: var(--card-hover); }
 
     .drop-zone {
       border: 1px dashed var(--border-hover); border-radius: var(--radius); padding: 18px;
@@ -274,25 +266,19 @@
       position: fixed; bottom: 32px; right: 32px; background: #18181b; border: 1px solid var(--border-focus);
       color: var(--text); padding: 10px 18px; border-radius: var(--radius); font-size: 0.8rem;
       font-weight: 500; display: none; z-index: 99999; box-shadow: 0 8px 24px rgba(0,0,0,0.7);
-      animation: toastIn 0.22s var(--ease);
-    }
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
     }
 
     .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
       display: none; align-items: center; justify-content: center; z-index: 5000;
-      animation: fadeIn 0.2s var(--ease);
     }
     .modal-box {
       width: 580px; max-height: 85vh; overflow-y: auto; background: #121215; border: 1px solid var(--border);
       border-radius: var(--radius); padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.9);
-      animation: modalIn 0.24s var(--ease);
+      animation: modalIn 0.18s var(--ease);
     }
     @keyframes modalIn {
-      from { opacity: 0; transform: scale(0.97) translateY(8px); }
+      from { opacity: 0; transform: scale(0.98) translateY(6px); }
       to { opacity: 1; transform: scale(1) translateY(0); }
     }
 
@@ -305,46 +291,195 @@
     .log-stderr { color: #f87171; }
     .log-stdout { color: #e4e4e7; }
 
-    /* OVERVIEW CONTROLS */
-    .overview-container {
+    /* ----------------------------------------------------------
+       OVERVIEW WIDGET GRID & EDIT MODE
+    ---------------------------------------------------------- */
+    .overview-stage-wrap {
       display: flex;
       flex-direction: column;
+      min-height: 100%;
+    }
+    .overview-stage-wrap.centered-default {
       justify-content: center;
-      align-items: center;
       min-height: 520px;
-      text-align: center;
-      animation: fadeIn 0.35s var(--ease);
     }
 
-    .overview-hero {
-      margin-bottom: 34px;
+    .overview-edit-bar {
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      background: rgba(18, 18, 21, 0.96);
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius);
+      flex-wrap: wrap;
     }
-    .overview-hero h1 {
-      font-size: 3.4rem;
+    .overview-edit-bar.active { display: flex; }
+
+    .overview-catalog-drawer {
+      display: none;
+      margin-bottom: 16px;
+      padding: 16px;
+      background: rgba(14, 14, 17, 0.96);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .overview-catalog-drawer.open { display: block; }
+
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+      max-height: 290px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .catalog-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 11px;
+      background: #121215;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.15s var(--ease);
+      text-align: left;
+    }
+    .catalog-item:hover { border-color: var(--border-hover); background: #18181b; }
+    .catalog-item.enabled { border-color: #ffffff; background: #1c1c21; }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 14px;
+      width: 100%;
+      align-items: stretch;
+    }
+    .overview-grid.compact-default {
+      max-width: 620px;
+      margin: 0 auto;
+    }
+
+    .widget-slot {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      transition: transform 0.16s var(--ease), border-color 0.16s var(--ease);
+    }
+    .widget-slot.span-4 { grid-column: span 4; }
+    .widget-slot.span-5 { grid-column: span 5; }
+    .widget-slot.span-6 { grid-column: span 6; }
+    .widget-slot.span-7 { grid-column: span 7; }
+    .widget-slot.span-8 { grid-column: span 8; }
+    .widget-slot.span-12 { grid-column: span 12; }
+
+    .widget-slot.edit-mode {
+      border: 1px dashed var(--border-hover);
+      border-radius: var(--radius);
+      padding: 8px;
+      background: rgba(18, 18, 21, 0.55);
+      cursor: grab;
+    }
+    .widget-slot.edit-mode:hover {
+      border-color: #ffffff;
+    }
+    .widget-slot.drag-over {
+      border: 1px solid #ffffff !important;
+      background: rgba(255, 255, 255, 0.06) !important;
+      transform: scale(0.99);
+    }
+    .widget-slot.dragging {
+      opacity: 0.45;
+    }
+
+    .widget-edit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 6px 8px 6px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+    .widget-edit-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .widget-mini-btn {
+      background: #18181b;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.66rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .widget-mini-btn:hover { border-color: #ffffff; }
+    .widget-mini-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+    .widget-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      transition: border-color 0.16s var(--ease);
+    }
+    .widget-card:hover { border-color: var(--border-hover); }
+
+    .widget-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .widget-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    /* HERO WIDGET */
+    .hero-widget-inner {
+      text-align: center;
+      padding: 10px 6px 14px 6px;
+    }
+    .hero-widget-inner h1 {
+      font-size: 3.1rem;
       font-weight: 800;
       letter-spacing: -0.04em;
-      line-height: 1.05;
+      line-height: 1.06;
       color: #ffffff;
     }
-    .overview-hero p {
-      font-size: 0.9rem;
+    .hero-widget-inner p {
+      font-size: 0.88rem;
       color: var(--text-muted);
-      margin-top: 10px;
+      margin-top: 8px;
       letter-spacing: 0.02em;
     }
 
-    .overview-action-deck {
+    /* PROFILE WIDGET */
+    .overview-profile-selector {
+      width: 100%;
+      position: relative;
+      height: 100%;
       display: flex;
       align-items: stretch;
-      gap: 12px;
-      width: 100%;
-      max-width: 580px;
-      margin-bottom: 24px;
-    }
-
-    .overview-profile-selector {
-      flex: 1;
-      position: relative;
     }
 
     .deck-profile-btn {
@@ -353,39 +488,35 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      background: rgba(18, 18, 21, 0.92);
-      backdrop-filter: blur(20px);
+      background: rgba(18, 18, 21, 0.94);
       border: 1px solid #3f3f46;
       padding: 10px 16px;
       border-radius: var(--radius);
       cursor: pointer;
-      height: 54px;
+      min-height: 54px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      transition: all 0.22s var(--ease);
+      transition: border-color 0.16s var(--ease), background 0.16s var(--ease);
     }
     .deck-profile-btn:hover {
       border-color: #71717a;
       background: rgba(26, 26, 30, 0.98);
-      transform: translateY(-1px);
-      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7);
     }
 
-    .deck-profile-info { display: flex; flex-direction: column; text-align: left; }
+    .deck-profile-info { display: flex; flex-direction: column; text-align: left; min-width: 0; }
     .deck-profile-name {
       font-size: 0.88rem; font-weight: 700; color: var(--text);
-      max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .deck-profile-meta { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
 
     .deck-profile-menu {
-      position: absolute; bottom: calc(100% + 8px); left: 0; width: 100%;
-      background: rgba(18, 18, 21, 0.98); backdrop-filter: blur(24px);
+      position: absolute; top: calc(100% + 8px); left: 0; width: 100%;
+      background: rgba(18, 18, 21, 0.98);
       border: 1px solid var(--border-hover); border-radius: var(--radius); padding: 8px;
-      display: flex; flex-direction: column; gap: 4px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
-      opacity: 0; transform: translateY(8px) scale(0.98); pointer-events: none;
-      transition: all 0.22s var(--ease); max-height: 280px; overflow-y: auto; z-index: 2000;
+      display: none; flex-direction: column; gap: 4px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
+      max-height: 280px; overflow-y: auto; z-index: 2000;
     }
-    .deck-profile-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+    .deck-profile-menu.open { display: flex; }
 
     .profile-item-btn {
       display: flex; align-items: center; justify-content: space-between; background: transparent;
@@ -395,16 +526,17 @@
     .profile-item-btn:hover { background: #202025; color: var(--text); }
     .profile-item-btn.active { background: var(--accent-bg); color: #fff; font-weight: 600; }
 
-    /* PLAY BUTTON (MATCHING RADIUS) */
+    /* PLAY BUTTON WIDGET */
     .play-btn {
+      width: 100%;
       display: flex; align-items: center; justify-content: center; gap: 10px;
-      padding: 0 32px; border-radius: var(--radius); font-size: 0.92rem; font-weight: 700;
-      letter-spacing: 0.06em; cursor: pointer; height: 54px; min-width: 170px;
+      padding: 0 24px; border-radius: var(--radius); font-size: 0.92rem; font-weight: 700;
+      letter-spacing: 0.06em; cursor: pointer; min-height: 54px; height: 100%;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-      transition: all 0.22s var(--ease); border: none;
+      transition: filter 0.16s var(--ease), transform 0.12s var(--ease); border: none;
     }
-    .play-btn:hover { transform: translateY(-1px); filter: brightness(1.1); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7); }
-    .play-btn:active { transform: translateY(1px) scale(0.99); }
+    .play-btn:hover { filter: brightness(1.08); }
+    .play-btn:active { transform: scale(0.99); }
 
     .play-btn.state-ready { background: #10b981; color: #042f2e; border: 1px solid #34d399; }
     .play-btn.state-ready .status-indicator { background: #042f2e; }
@@ -416,7 +548,19 @@
     .play-btn.state-error .status-indicator { background: #450a0a; }
 
     .status-indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-    .home-status-toast { font-size: 0.76rem; color: var(--text-dim); font-family: ui-monospace, monospace; margin-top: 8px; }
+
+    .widget-mini-console {
+      background: rgba(5, 5, 7, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      line-height: 1.4;
+      height: 118px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -454,39 +598,32 @@
   <main class="viewport">
     <div class="workspace-stage">
 
-      <!-- 1. OVERVIEW DASHBOARD -->
+      <!-- 1. OVERVIEW DASHBOARD (100% SNAP-TO-GRID WIDGET STAGE) -->
       <section id="panel-home" class="panel active">
-        <div class="overview-container">
-          <div class="overview-hero">
-            <h1 id="hero-title">Ready.</h1>
-            <p id="hero-sub">Snapdragon X Oryon ARM64 Execution Pipeline</p>
-          </div>
-
-          <div class="overview-action-deck">
-            <div class="overview-profile-selector">
-              <button class="deck-profile-btn" onclick="toggleProfileMenu()">
-                <div class="deck-profile-info">
-                  <span class="deck-profile-name" id="deck-prof-name">Default Profile</span>
-                  <span class="deck-profile-meta" id="deck-prof-meta">1.20.4 • VANILLA</span>
-                </div>
-                <span style="font-size: 0.65rem; color: var(--text-dim);">▲</span>
-              </button>
-
-              <div class="deck-profile-menu" id="deck-profile-dropdown">
-                <div id="deck-profile-items" style="display:flex; flex-direction:column; gap:2px;"></div>
-                <hr style="border:none; border-top: 1px solid var(--border); margin: 6px 0;" />
-                <button class="profile-item-btn" onclick="openNewProfileModal()">+ Create Profile</button>
-                <button class="profile-item-btn" onclick="switchTab('profiles')">Manage All Environments...</button>
-              </div>
+        <div class="overview-stage-wrap centered-default" id="overview-stage-wrap">
+          <div class="overview-edit-bar" id="overview-edit-bar">
+            <div>
+              <strong style="font-size: 0.86rem; color: #fff;">Overview Widget Editor</strong>
+              <span style="display:block; font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+                Drag widgets to reorder, resize column span, or add/remove from 20 launcher widgets.
+              </span>
             </div>
-
-            <button class="play-btn state-ready" id="main-play-btn" onclick="playGame()">
-              <span class="status-indicator" id="play-status-dot"></span>
-              <span id="play-btn-text">PLAY</span>
-            </button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn-secondary" onclick="toggleWidgetCatalogDrawer()">+ Widget Catalog (<span id="catalog-active-count">3</span>/20)</button>
+              <button class="btn-secondary" onclick="resetOverviewWidgets()">Reset Default</button>
+              <button class="btn" onclick="exitWidgetEditMode()">Done</button>
+            </div>
           </div>
 
-          <div class="home-status-toast" id="home-status-line">Pipeline standing by</div>
+          <div class="overview-catalog-drawer" id="overview-catalog-drawer">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <span style="font-size:0.78rem; font-weight:700; color:#fff;">All 20 Launcher Widgets</span>
+              <span style="font-size:0.7rem; color:var(--text-muted);">Click to toggle on Overview</span>
+            </div>
+            <div class="catalog-grid" id="overview-catalog-grid"></div>
+          </div>
+
+          <div class="overview-grid compact-default" id="overview-grid"></div>
         </div>
       </section>
 
@@ -596,7 +733,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
             <div>
               <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 600;">GAME RELEASE</label>
-              <input list="mc-version-list" type="text" id="fabric-target-mc" class="input-field" value="1.20.4" oninput="fetchFabricLoaders()" />
+              <input list="mc-version-list" type="text" id="fabric-target-mc" class="input-field" value="1.20.4" oninput="debouncedFetchFabric()" />
               <datalist id="mc-version-list"></datalist>
             </div>
             <div>
@@ -617,7 +754,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
             <div>
               <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 600;">TARGET VERSION</label>
-              <input type="text" id="neoforge-target-mc" class="input-field" value="1.20.4" oninput="fetchNeoForgeVersions()" />
+              <input type="text" id="neoforge-target-mc" class="input-field" value="1.20.4" oninput="debouncedFetchNeoForge()" />
             </div>
             <div>
               <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 600;">NEOFORGE RELEASE</label>
@@ -746,7 +883,19 @@
       <section id="panel-settings" class="panel">
         <div class="panel-header">
           <h2>Global Settings</h2>
-          <p>Managed ARM64 runtimes and canvas engine</p>
+          <p>Overview widgets, managed ARM64 runtimes, and canvas engine</p>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div>
+              <h3 style="font-size: 0.92rem; font-weight: 600;">Overview Page Widgets</h3>
+              <p id="settings-widget-summary" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+                3 of 20 widgets active on Overview
+              </p>
+            </div>
+            <button class="btn" onclick="enterWidgetEditMode()">Adjust Overview Widgets</button>
+          </div>
         </div>
 
         <div class="card">
@@ -778,7 +927,7 @@
 
           <div id="jdk-progress-box" style="display:none; margin-top:14px;">
             <div style="height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;">
-              <div id="jdk-progress-bar" style="height: 100%; width: 0%; background: #fff; transition: width 0.3s var(--ease);"></div>
+              <div id="jdk-progress-bar" style="height: 100%; width: 0%; background: #fff; transition: width 0.25s var(--ease);"></div>
             </div>
             <span id="jdk-progress-text" style="display:block; font-size: 0.72rem; color: var(--text-muted); margin-top: 6px;">Preparing setup...</span>
           </div>
@@ -990,6 +1139,17 @@
     </div>
   </div>
 
+  <!-- SCREENSHOT PREVIEW MODAL -->
+  <div class="modal-overlay" id="modal-screenshot-preview" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-box" style="width: 760px; max-width: 92vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <strong id="ss-modal-title" style="font-size:0.9rem;">Screenshot</strong>
+        <button class="btn-secondary" onclick="document.getElementById('modal-screenshot-preview').style.display='none'">Close</button>
+      </div>
+      <img id="ss-modal-img" style="width:100%; border-radius:6px; border:1px solid var(--border);" />
+    </div>
+  </div>
+
   <div id="toast"></div>
 
   <!-- 10 MONOCHROME CANVAS PRESETS -->
@@ -1030,6 +1190,7 @@
       if (currentPreset === 'none') {
         ctx.fillStyle = '#09090b';
         ctx.fillRect(0, 0, width, height);
+        animId = null;
         return;
       }
 
@@ -1167,12 +1328,25 @@
       animId = requestAnimationFrame(renderAnimation);
     }
 
-    function setBgPreset(name) {
+    function applyBgPresetVisual(name) {
       currentPreset = name;
-      currentConfig.bgPreset = name;
-      ipcRenderer.invoke('save-config', currentConfig);
-      if (animId) cancelAnimationFrame(animId);
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       animId = requestAnimationFrame(renderAnimation);
+    }
+
+    function setBgPreset(name) {
+      applyBgPresetVisual(name);
+      if (typeof currentConfig === 'object' && currentConfig) {
+        currentConfig.bgPreset = name;
+        ipcRenderer.invoke('save-config', currentConfig);
+      }
+      const settingsSelect = document.getElementById('cfg-bg-preset');
+      if (settingsSelect) settingsSelect.value = name;
+      const widgetSelect = document.getElementById('widget-bg-preset');
+      if (widgetSelect) widgetSelect.value = name;
     }
   </script>
 
@@ -1188,7 +1362,67 @@
     let pendingUpdates = [];
     let cachedScannedInstances = [];
 
+    // Async race-condition & lag guards
+    let toastTimer = null;
+    let hubSearchSeq = 0;
+    let mgrLoadSeq = 0;
+    let vaultLoadSeq = 0;
+    let externalScanSeq = 0;
+    let widgetRefreshSeq = 0;
+    let fabricDebounce = null;
+    let neoforgeDebounce = null;
+    let jdkInstallActiveVersion = null;
+
+    // Canonical launcher state for widgets
+    let launcherPlayState = 'ready';
+    let launcherPlayText = 'PLAY';
+    let lastPipelineStatus = 'Pipeline standing by';
+    let activeGamePid = null;
+    let sessionStartTimestamp = null;
+    let activeSkinCache = { username: '', skinUrl: '', isSlim: false };
+    let widgetModCounts = { active: 0, disabled: 0 };
+    let widgetUpdatesCache = [];
+    let widgetWorldsCache = [];
+    let widgetScreensCache = [];
+    let widgetTelemetryCache = null;
+    let widgetConsoleLines = [];
+
+    // Overview Widget System State
+    let isWidgetEditMode = false;
+    let isCatalogDrawerOpen = false;
+    let draggedWidgetIndex = null;
+
     const DEFAULT_ORYON = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
+    const DEFAULT_OVERVIEW_WIDGETS = [
+      { id: 'hero', span: 12 },
+      { id: 'profile', span: 7 },
+      { id: 'play', span: 5 }
+    ];
+
+    const WIDGET_CATALOG = [
+      { id: 'hero', name: 'Hero Banner', defaultSpan: 12, desc: 'Active profile title, MC target & quick configure' },
+      { id: 'profile', name: 'Profile Selector', defaultSpan: 7, desc: 'Switch active profile or create new environment' },
+      { id: 'play', name: 'Play Button', defaultSpan: 5, desc: 'Emerald/Amber/Crimson launch control' },
+      { id: 'status', name: 'Pipeline Status', defaultSpan: 6, desc: 'Live boot status & console quick jump' },
+      { id: 'account', name: 'Active Account', defaultSpan: 6, desc: 'Player avatar & instant account switcher' },
+      { id: 'ram', name: 'Memory Allocation', defaultSpan: 6, desc: 'Interactive Min/Max RAM adjustment & presets' },
+      { id: 'java', name: 'Java Runtime', defaultSpan: 6, desc: 'Inline ARM64 JDK selector for active profile' },
+      { id: 'quicklaunch', name: 'Quick Profiles', defaultSpan: 6, desc: '1-click profile buttons with direct launch' },
+      { id: 'mods', name: 'Mod Summary', defaultSpan: 6, desc: 'Active/disabled mods count & quick toggle all' },
+      { id: 'updates', name: 'Mod Updates', defaultSpan: 6, desc: '1-click Modrinth update check & update all' },
+      { id: 'worlds', name: 'Recent Worlds', defaultSpan: 6, desc: 'Saves list with 1-click world backup' },
+      { id: 'screenshots', name: 'Screenshot Strip', defaultSpan: 6, desc: 'Latest captures with click-to-preview' },
+      { id: 'console', name: 'Live Console Feed', defaultSpan: 6, desc: 'Real-time log tail & quick clear' },
+      { id: 'telemetry', name: 'ARM64 Telemetry', defaultSpan: 6, desc: 'Host memory usage, CPU cores & arch readout' },
+      { id: 'folders', name: 'Quick Folders', defaultSpan: 6, desc: '1-click shortcuts to profile subfolders' },
+      { id: 'loader', name: 'Loader & Engine', defaultSpan: 6, desc: 'Active loader & 1-click Sodium+Iris installer' },
+      { id: 'jvm', name: 'Oryon JVM Flags', defaultSpan: 6, desc: 'Active JVM flags with Copy & Reset Oryon' },
+      { id: 'skin', name: 'Skin Preview', defaultSpan: 4, desc: 'Interactive 2D composite skin renderer' },
+      { id: 'session', name: 'Session Monitor', defaultSpan: 4, desc: 'Live runtime clock, PID & Stop Game button' },
+      { id: 'clock', name: 'Clock & Canvas', defaultSpan: 4, desc: 'Live clock & monochrome background switcher' }
+    ];
+
+    const VALID_SPANS = [4, 5, 6, 7, 8, 12];
 
     function safeUpper(val, def = 'VANILLA') {
       if (!val) return def;
@@ -1204,11 +1438,13 @@
       const el = document.getElementById('toast');
       el.innerText = text;
       el.style.display = 'block';
-      setTimeout(() => el.style.display = 'none', 3500);
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
     }
 
     function toggleProfileMenu() {
-      document.getElementById('deck-profile-dropdown').classList.toggle('open');
+      const drop = document.getElementById('deck-profile-dropdown');
+      if (drop) drop.classList.toggle('open');
     }
 
     window.addEventListener('click', (e) => {
@@ -1235,6 +1471,10 @@
         if (found) found.classList.add('active');
       }
 
+      if (name === 'home') {
+        renderOverviewWidgets();
+        refreshWidgetLiveData();
+      }
       if (name === 'profiles') {
         renderProfileManagerGrid();
         scanExternalInstances();
@@ -1244,6 +1484,7 @@
       if (name === 'loaders') { fetchFabricLoaders(); fetchNeoForgeVersions(); }
       if (name === 'console') scrollToConsoleBottom();
       if (name === 'mods') syncModHubFilters();
+      if (name === 'settings') updateSettingsWidgetSummary();
     }
 
     function minWin() { ipcRenderer.send('window-min'); }
@@ -1252,15 +1493,31 @@
     function openDir(dir) { ipcRenderer.send('open-path', dir); }
 
     function setPlayButtonState(state, text = 'PLAY') {
+      launcherPlayState = state;
+      launcherPlayText = text;
       const btn = document.getElementById('main-play-btn');
       const txt = document.getElementById('play-btn-text');
-      btn.className = `play-btn state-${state}`;
-      txt.innerText = text;
-      btn.disabled = (state === 'busy');
+      if (btn) {
+        btn.className = `play-btn state-${state}`;
+        btn.disabled = (state === 'busy');
+      }
+      if (txt) txt.innerText = text;
+    }
+
+    function updatePipelineStatusText(message, isError = false) {
+      lastPipelineStatus = message;
+      const statusEl = document.getElementById('home-status-line');
+      if (statusEl) {
+        statusEl.innerText = message;
+        statusEl.style.color = isError ? '#f87171' : 'var(--text-dim)';
+      }
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
       currentConfig = await ipcRenderer.invoke('get-config');
+      if (!Array.isArray(currentConfig.overviewWidgets)) {
+        currentConfig.overviewWidgets = DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
+      }
 
       document.getElementById('cfg-min-ram').value = currentConfig.minRam || 2048;
       document.getElementById('cfg-max-ram').value = currentConfig.maxRam || 4096;
@@ -1269,33 +1526,901 @@
       document.getElementById('cfg-offline-user').value = currentConfig.offlineUsername || 'Player';
       document.getElementById('cfg-bg-preset').value = currentConfig.bgPreset || 'waves';
 
-      setBgPreset(currentConfig.bgPreset || 'waves');
-      refreshActiveProfileDeck();
+      applyBgPresetVisual(currentConfig.bgPreset || 'waves');
+      initGlobalJdkProgressListener();
+      initConsoleStream();
+      updateSettingsWidgetSummary();
+      renderOverviewWidgets();
+      refreshWidgetLiveData();
       renderAccounts();
       checkJdkStatus();
-      await syncVersions();
       setupDragAndDrop();
-      initConsoleStream();
 
-      if (currentConfig.activeAccount) {
-        loadAccountSkinAuto(currentConfig.activeAccount.name);
-      }
+      syncVersions();
+
+      const activeUser = currentConfig.activeAccount ? currentConfig.activeAccount.name : (currentConfig.offlineUsername || 'Player');
+      loadAccountSkinAuto(activeUser);
+
+      setInterval(tickOverviewTimers, 1000);
     });
 
     function getActiveProfile() {
       const id = currentConfig.activeProfileId || 'default';
-      return (currentConfig.profiles || []).find(p => p.id === id) || currentConfig.profiles[0];
+      return (currentConfig.profiles || []).find(p => p.id === id) || (currentConfig.profiles && currentConfig.profiles[0]);
+    }
+
+    // -------------------------------------------------------------
+    // OVERVIEW SNAP-TO-GRID WIDGET ENGINE (20 INTERACTIVE WIDGETS)
+    // -------------------------------------------------------------
+    function getOverviewWidgets() {
+      if (!Array.isArray(currentConfig.overviewWidgets)) {
+        currentConfig.overviewWidgets = DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
+      }
+      return currentConfig.overviewWidgets;
+    }
+
+    function updateSettingsWidgetSummary() {
+      const activeCount = getOverviewWidgets().length;
+      const summary = document.getElementById('settings-widget-summary');
+      if (summary) summary.innerText = `${activeCount} of ${WIDGET_CATALOG.length} widgets active on Overview`;
+      const catCount = document.getElementById('catalog-active-count');
+      if (catCount) catCount.innerText = String(activeCount);
+    }
+
+    async function persistOverviewWidgets() {
+      updateSettingsWidgetSummary();
+      await ipcRenderer.invoke('save-config', currentConfig);
+    }
+
+    function enterWidgetEditMode() {
+      isWidgetEditMode = true;
+      isCatalogDrawerOpen = false;
+      switchTab('home');
+    }
+
+    function exitWidgetEditMode() {
+      isWidgetEditMode = false;
+      isCatalogDrawerOpen = false;
+      renderOverviewWidgets();
+      refreshWidgetLiveData();
+      toast('Overview widget layout saved.');
+    }
+
+    function toggleWidgetCatalogDrawer() {
+      isCatalogDrawerOpen = !isCatalogDrawerOpen;
+      const drawer = document.getElementById('overview-catalog-drawer');
+      if (drawer) drawer.classList.toggle('open', isCatalogDrawerOpen);
+      if (isCatalogDrawerOpen) renderWidgetCatalog();
+    }
+
+    async function resetOverviewWidgets() {
+      currentConfig.overviewWidgets = DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
+      await persistOverviewWidgets();
+      renderOverviewWidgets();
+      renderWidgetCatalog();
+      refreshWidgetLiveData();
+      toast('Overview reset to default widgets.');
+    }
+
+    async function toggleWidgetEnabled(widgetId) {
+      const list = getOverviewWidgets();
+      const idx = list.findIndex(w => w.id === widgetId);
+      if (idx !== -1) {
+        list.splice(idx, 1);
+      } else {
+        const meta = WIDGET_CATALOG.find(m => m.id === widgetId);
+        list.push({ id: widgetId, span: meta ? meta.defaultSpan : 6 });
+      }
+      await persistOverviewWidgets();
+      renderOverviewWidgets();
+      renderWidgetCatalog();
+      refreshWidgetLiveData();
+    }
+
+    async function cycleWidgetSpan(index) {
+      const list = getOverviewWidgets();
+      const item = list[index];
+      if (!item) return;
+      const curPos = VALID_SPANS.indexOf(item.span);
+      item.span = VALID_SPANS[(curPos + 1) % VALID_SPANS.length];
+      await persistOverviewWidgets();
+      renderOverviewWidgets();
+      refreshWidgetLiveData();
+    }
+
+    async function moveWidgetStep(index, delta) {
+      const list = getOverviewWidgets();
+      const targetIdx = index + delta;
+      if (targetIdx < 0 || targetIdx >= list.length) return;
+      const [moved] = list.splice(index, 1);
+      list.splice(targetIdx, 0, moved);
+      await persistOverviewWidgets();
+      renderOverviewWidgets();
+      refreshWidgetLiveData();
+    }
+
+    async function removeWidgetAt(index) {
+      const list = getOverviewWidgets();
+      list.splice(index, 1);
+      await persistOverviewWidgets();
+      renderOverviewWidgets();
+      renderWidgetCatalog();
+      refreshWidgetLiveData();
+    }
+
+    function renderWidgetCatalog() {
+      const grid = document.getElementById('overview-catalog-grid');
+      if (!grid) return;
+      const activeIds = new Set(getOverviewWidgets().map(w => w.id));
+      grid.innerHTML = '';
+
+      WIDGET_CATALOG.forEach(meta => {
+        const enabled = activeIds.has(meta.id);
+        const btn = document.createElement('button');
+        btn.className = `catalog-item ${enabled ? 'enabled' : ''}`;
+        btn.innerHTML = `
+          <div style="min-width:0;">
+            <strong style="font-size:0.78rem; color:#fff; display:block;">${escapeHtml(meta.name)}</strong>
+            <span style="font-size:0.68rem; color:var(--text-muted); display:block; margin-top:2px;">${escapeHtml(meta.desc)}</span>
+          </div>
+          <span class="brand-badge" style="${enabled ? 'background:#fff; color:#09090b;' : ''}">
+            ${enabled ? 'ON' : 'OFF'}
+          </span>
+        `;
+        btn.onclick = () => toggleWidgetEnabled(meta.id);
+        grid.appendChild(btn);
+      });
+    }
+
+    function renderOverviewWidgets() {
+      const wrap = document.getElementById('overview-stage-wrap');
+      const editBar = document.getElementById('overview-edit-bar');
+      const drawer = document.getElementById('overview-catalog-drawer');
+      const grid = document.getElementById('overview-grid');
+      if (!grid) return;
+
+      const widgets = getOverviewWidgets();
+      const isCompactDefault = !isWidgetEditMode &&
+        widgets.length === 3 &&
+        widgets[0].id === 'hero' &&
+        widgets[1].id === 'profile' &&
+        widgets[2].id === 'play';
+
+      wrap.classList.toggle('centered-default', isCompactDefault || widgets.length === 0);
+      grid.classList.toggle('compact-default', isCompactDefault);
+      editBar.classList.toggle('active', isWidgetEditMode);
+      drawer.classList.toggle('open', isWidgetEditMode && isCatalogDrawerOpen);
+      updateSettingsWidgetSummary();
+      if (isWidgetEditMode && isCatalogDrawerOpen) renderWidgetCatalog();
+
+      grid.innerHTML = '';
+
+      if (!widgets.length) {
+        const empty = document.createElement('div');
+        empty.className = 'card';
+        empty.style.gridColumn = 'span 12';
+        empty.style.textAlign = 'center';
+        empty.innerHTML = `
+          <p style="font-size:0.86rem; color:var(--text-muted); margin-bottom:12px;">No widgets active on Overview.</p>
+          <button class="btn" onclick="resetOverviewWidgets()">Restore Default Widgets</button>
+        `;
+        grid.appendChild(empty);
+        return;
+      }
+
+      widgets.forEach((wConf, index) => {
+        const meta = WIDGET_CATALOG.find(m => m.id === wConf.id) || { id: wConf.id, name: wConf.id };
+        const span = VALID_SPANS.includes(wConf.span) ? wConf.span : 6;
+
+        const slot = document.createElement('div');
+        slot.className = `widget-slot span-${span}${isWidgetEditMode ? ' edit-mode' : ''}`;
+        slot.dataset.widgetId = wConf.id;
+        slot.dataset.index = String(index);
+
+        if (isWidgetEditMode) {
+          slot.draggable = true;
+          slot.addEventListener('dragstart', (ev) => {
+            draggedWidgetIndex = index;
+            slot.classList.add('dragging');
+            ev.dataTransfer.effectAllowed = 'move';
+            ev.dataTransfer.setData('text/plain', String(index));
+          });
+          slot.addEventListener('dragend', () => {
+            draggedWidgetIndex = null;
+            slot.classList.remove('dragging');
+            document.querySelectorAll('.widget-slot').forEach(s => s.classList.remove('drag-over'));
+          });
+          slot.addEventListener('dragover', (ev) => {
+            ev.preventDefault();
+            if (draggedWidgetIndex !== null && draggedWidgetIndex !== index) {
+              slot.classList.add('drag-over');
+            }
+          });
+          slot.addEventListener('dragleave', () => {
+            slot.classList.remove('drag-over');
+          });
+          slot.addEventListener('drop', async (ev) => {
+            ev.preventDefault();
+            slot.classList.remove('drag-over');
+            if (draggedWidgetIndex === null || draggedWidgetIndex === index) return;
+            const list = getOverviewWidgets();
+            const [moved] = list.splice(draggedWidgetIndex, 1);
+            list.splice(index, 0, moved);
+            draggedWidgetIndex = null;
+            await persistOverviewWidgets();
+            renderOverviewWidgets();
+            refreshWidgetLiveData();
+          });
+
+          const header = document.createElement('div');
+          header.className = 'widget-edit-header';
+          header.innerHTML = `
+            <span style="font-weight:700; color:#fff;">⋮⋮ ${escapeHtml(meta.name)}</span>
+            <div class="widget-edit-controls">
+              <button class="widget-mini-btn" title="Move Left" onclick="event.stopPropagation(); moveWidgetStep(${index}, -1)">←</button>
+              <button class="widget-mini-btn" title="Move Right" onclick="event.stopPropagation(); moveWidgetStep(${index}, 1)">→</button>
+              <button class="widget-mini-btn" title="Cycle Grid Width" onclick="event.stopPropagation(); cycleWidgetSpan(${index})">${span}/12</button>
+              <button class="widget-mini-btn danger" title="Remove Widget" onclick="event.stopPropagation(); removeWidgetAt(${index})">✕</button>
+            </div>
+          `;
+          slot.appendChild(header);
+        }
+
+        const body = document.createElement('div');
+        body.style.height = '100%';
+        renderSingleWidgetContent(wConf.id, body);
+        slot.appendChild(body);
+        grid.appendChild(slot);
+      });
+
+      refreshActiveProfileDeck();
+      setPlayButtonState(launcherPlayState, launcherPlayText);
+      updatePipelineStatusText(lastPipelineStatus, launcherPlayState === 'error');
+      tickOverviewTimers();
+    }
+
+    function renderSingleWidgetContent(id, container) {
+      const prof = getActiveProfile() || { id: 'default', name: 'Default Profile', version: '1.20.4', loader: 'vanilla', minRam: 2048, maxRam: 4096, javaRuntime: 'auto', jvmArgs: DEFAULT_ORYON };
+      const acc = currentConfig.activeAccount;
+      const playerName = acc ? acc.name : (currentConfig.offlineUsername || 'Player');
+
+      if (id === 'hero') {
+        container.innerHTML = `
+          <div class="hero-widget-inner">
+            <h1 id="hero-title">${escapeHtml(prof.name || 'Ready.')}</h1>
+            <p id="hero-sub">Target: Minecraft ${escapeHtml(prof.version || '1.20.4')} (${safeUpper(prof.loader)}) • Snapdragon ARM64</p>
+            <div style="margin-top:10px;">
+              <button class="btn-secondary" style="font-size:0.7rem; padding:4px 10px;" id="hero-config-btn">Configure Environment</button>
+            </div>
+          </div>
+        `;
+        container.querySelector('#hero-config-btn').onclick = () => openProfileSettingsModal(prof.id);
+        return;
+      }
+
+      if (id === 'profile') {
+        container.innerHTML = `
+          <div class="overview-profile-selector">
+            <button class="deck-profile-btn" onclick="toggleProfileMenu()">
+              <div class="deck-profile-info">
+                <span class="deck-profile-name" id="deck-prof-name">${escapeHtml(prof.name || 'Default Profile')}</span>
+                <span class="deck-profile-meta" id="deck-prof-meta">${escapeHtml(prof.version || '1.20.4')} • ${safeUpper(prof.loader)}</span>
+              </div>
+              <span style="font-size: 0.65rem; color: var(--text-dim);">▲</span>
+            </button>
+            <div class="deck-profile-menu" id="deck-profile-dropdown">
+              <div id="deck-profile-items" style="display:flex; flex-direction:column; gap:2px;"></div>
+              <hr style="border:none; border-top: 1px solid var(--border); margin: 6px 0;" />
+              <button class="profile-item-btn" onclick="openNewProfileModal()">+ Create Profile</button>
+              <button class="profile-item-btn" onclick="switchTab('profiles')">Manage All Environments...</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (id === 'play') {
+        container.innerHTML = `
+          <button class="play-btn state-${launcherPlayState}" id="main-play-btn" onclick="playGame()">
+            <span class="status-indicator" id="play-status-dot"></span>
+            <span id="play-btn-text">${escapeHtml(launcherPlayText)}</span>
+          </button>
+        `;
+        return;
+      }
+
+      if (id === 'status') {
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Pipeline Status</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="switchTab('console')">Open Console</button>
+            </div>
+            <div id="home-status-line" style="font-size:0.78rem; color:var(--text-dim); font-family:ui-monospace, monospace; line-height:1.4;">${escapeHtml(lastPipelineStatus)}</div>
+          </div>
+        `;
+        return;
+      }
+
+      if (id === 'account') {
+        const accounts = currentConfig.accounts || [];
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Active Account</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="switchTab('accounts')">Manage</button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                <img style="width:34px; height:34px; border-radius:6px; border:1px solid var(--border); image-rendering:pixelated; background:#000;" src="https://mc-heads.net/avatar/${encodeURIComponent(playerName)}/64" onerror="this.style.display='none'" />
+                <div style="min-width:0;">
+                  <strong style="font-size:0.84rem; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(playerName)}</strong>
+                  <span style="font-size:0.7rem; color:var(--text-muted);">${acc ? 'Microsoft OAuth' : 'Offline Mode'}</span>
+                </div>
+              </div>
+              <select class="select-field" style="max-width:150px; padding:6px 26px 6px 10px; font-size:0.74rem;" id="widget-account-select"></select>
+            </div>
+          </div>
+        `;
+        const sel = container.querySelector('#widget-account-select');
+        const offOpt = document.createElement('option');
+        offOpt.value = '__offline__';
+        offOpt.innerText = `Offline (${currentConfig.offlineUsername || 'Player'})`;
+        if (!acc) offOpt.selected = true;
+        sel.appendChild(offOpt);
+        accounts.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.id;
+          opt.innerText = a.name;
+          if (acc && acc.id === a.id) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        sel.onchange = async () => {
+          if (sel.value === '__offline__') {
+            currentConfig.activeAccount = null;
+          } else {
+            currentConfig.activeAccount = (currentConfig.accounts || []).find(a => a.id === sel.value) || null;
+          }
+          await ipcRenderer.invoke('save-config', currentConfig);
+          renderAccounts();
+          const newUser = currentConfig.activeAccount ? currentConfig.activeAccount.name : (currentConfig.offlineUsername || 'Player');
+          loadAccountSkinAuto(newUser);
+          renderOverviewWidgets();
+          toast(`Account switched to ${newUser}`);
+        };
+        return;
+      }
+
+      if (id === 'ram') {
+        const minRam = prof.minRam || 2048;
+        const maxRam = prof.maxRam || 4096;
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Memory Allocation</span>
+              <span class="brand-badge" id="widget-ram-badge">${minRam} / ${maxRam} MB</span>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn-secondary" style="padding:5px 9px; font-size:0.72rem;" id="w-ram-dec">-512 MB</button>
+              <button class="btn-secondary" style="padding:5px 9px; font-size:0.72rem;" id="w-ram-inc">+512 MB</button>
+              <button class="btn-secondary" style="padding:5px 9px; font-size:0.72rem;" data-ram="2048">2G</button>
+              <button class="btn-secondary" style="padding:5px 9px; font-size:0.72rem;" data-ram="4096">4G</button>
+              <button class="btn-secondary" style="padding:5px 9px; font-size:0.72rem;" data-ram="6144">6G</button>
+              <button class="btn-secondary" style="padding:5px 9px; font-size:0.72rem;" data-ram="8192">8G</button>
+            </div>
+          </div>
+        `;
+        const applyRam = async (newMax) => {
+          prof.maxRam = Math.max(1024, Math.min(32768, newMax));
+          prof.minRam = Math.min(prof.minRam || 2048, prof.maxRam);
+          await ipcRenderer.invoke('update-profile', prof);
+          currentConfig = await ipcRenderer.invoke('get-config');
+          renderOverviewWidgets();
+          toast(`Profile Max RAM set to ${prof.maxRam} MB`);
+        };
+        container.querySelector('#w-ram-dec').onclick = () => applyRam((prof.maxRam || 4096) - 512);
+        container.querySelector('#w-ram-inc').onclick = () => applyRam((prof.maxRam || 4096) + 512);
+        container.querySelectorAll('[data-ram]').forEach(btn => {
+          btn.onclick = () => applyRam(parseInt(btn.dataset.ram, 10));
+        });
+        return;
+      }
+
+      if (id === 'java') {
+        const curRuntime = prof.javaRuntime || 'auto';
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Java Runtime</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="switchTab('settings')">Runtimes</button>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select class="select-field" id="widget-java-select" style="padding:7px 28px 7px 10px; font-size:0.76rem;">
+                <option value="auto">Auto-Detect for Version</option>
+                <option value="8">Managed Java 8 ARM64</option>
+                <option value="17">Managed Java 17 ARM64</option>
+                <option value="21">Managed Java 21 ARM64</option>
+                <option value="25">Managed Java 25 ARM64</option>
+                <option value="custom">Custom Binary Path</option>
+              </select>
+            </div>
+          </div>
+        `;
+        const sel = container.querySelector('#widget-java-select');
+        sel.value = curRuntime;
+        sel.onchange = async () => {
+          prof.javaRuntime = sel.value;
+          await ipcRenderer.invoke('update-profile', prof);
+          currentConfig = await ipcRenderer.invoke('get-config');
+          toast(`Profile Java runtime set to ${sel.value}`);
+        };
+        return;
+      }
+
+      if (id === 'quicklaunch') {
+        const profiles = (currentConfig.profiles || []).slice(0, 6);
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Quick Profiles</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="switchTab('profiles')">All</button>
+            </div>
+            <div id="w-quicklaunch-list" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+          </div>
+        `;
+        const list = container.querySelector('#w-quicklaunch-list');
+        profiles.forEach(p => {
+          const isAct = p.id === prof.id;
+          const pill = document.createElement('div');
+          pill.style.cssText = 'display:flex; align-items:center; gap:4px; background:#18181b; border:1px solid ' + (isAct ? '#fff' : 'var(--border)') + '; border-radius:6px; padding:4px 8px;';
+          const selBtn = document.createElement('button');
+          selBtn.style.cssText = 'background:transparent; border:none; color:#fff; font-size:0.72rem; cursor:pointer; font-weight:' + (isAct ? '700' : '500') + ';';
+          selBtn.innerText = p.name;
+          selBtn.onclick = () => selectProfile(p.id);
+          const goBtn = document.createElement('button');
+          goBtn.className = 'widget-mini-btn';
+          goBtn.innerText = '▶';
+          goBtn.title = 'Activate & Play';
+          goBtn.onclick = async () => {
+            await selectProfile(p.id);
+            playGame();
+          };
+          pill.appendChild(selBtn);
+          pill.appendChild(goBtn);
+          list.appendChild(pill);
+        });
+        return;
+      }
+
+      if (id === 'mods') {
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Mod Summary</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="switchTab('manager')">Content</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span id="w-mods-summary" style="font-size:0.8rem; color:var(--text);">
+                <strong>${widgetModCounts.active}</strong> active • <span style="color:var(--text-muted);">${widgetModCounts.disabled} disabled</span>
+              </span>
+              <div style="display:flex; gap:6px;">
+                <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" id="w-mods-on">Enable All</button>
+                <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" id="w-mods-off">Disable All</button>
+              </div>
+            </div>
+          </div>
+        `;
+        container.querySelector('#w-mods-on').onclick = async () => {
+          await toggleAllItems(true);
+          refreshWidgetLiveData();
+        };
+        container.querySelector('#w-mods-off').onclick = async () => {
+          await toggleAllItems(false);
+          refreshWidgetLiveData();
+        };
+        return;
+      }
+
+      if (id === 'updates') {
+        const upCount = widgetUpdatesCache.length;
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Mod Updates</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" id="w-check-upd-btn">Check Updates</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <span id="w-upd-status" style="font-size:0.78rem; color:var(--text-muted);">
+                ${upCount ? `${upCount} Modrinth update(s) ready` : 'Click Check Updates to scan mods'}
+              </span>
+              ${upCount ? '<button class="btn" style="padding:4px 10px; font-size:0.72rem;" id="w-apply-upd-btn">Update All</button>' : ''}
+            </div>
+          </div>
+        `;
+        container.querySelector('#w-check-upd-btn').onclick = async () => {
+          const st = container.querySelector('#w-upd-status');
+          if (st) st.innerText = 'Scanning Modrinth hashes...';
+          widgetUpdatesCache = await ipcRenderer.invoke('check-mod-updates');
+          pendingUpdates = [...widgetUpdatesCache];
+          renderOverviewWidgets();
+          toast(widgetUpdatesCache.length ? `${widgetUpdatesCache.length} update(s) found.` : 'All mods are up to date.');
+        };
+        const applyBtn = container.querySelector('#w-apply-upd-btn');
+        if (applyBtn) {
+          applyBtn.onclick = async () => {
+            for (const item of [...widgetUpdatesCache]) {
+              await ipcRenderer.invoke('apply-mod-update', item);
+            }
+            widgetUpdatesCache = [];
+            pendingUpdates = [];
+            renderOverviewWidgets();
+            refreshWidgetLiveData();
+            toast('All mod updates applied.');
+          };
+        }
+        return;
+      }
+
+      if (id === 'worlds') {
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Recent Worlds</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="switchTab('vault')">Vault</button>
+            </div>
+            <div id="w-worlds-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+          </div>
+        `;
+        const wList = container.querySelector('#w-worlds-list');
+        if (!widgetWorldsCache.length) {
+          wList.innerHTML = '<span style="font-size:0.74rem; color:var(--text-muted);">No local worlds in active profile.</span>';
+        } else {
+          widgetWorldsCache.slice(0, 3).forEach(w => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:0.76rem;';
+            const nameSpan = document.createElement('span');
+            nameSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+            nameSpan.innerHTML = `<strong>${escapeHtml(w.name)}</strong> <span style="color:var(--text-dim);">(${escapeHtml(w.sizeMb)} MB)</span>`;
+            const bkBtn = document.createElement('button');
+            bkBtn.className = 'btn-secondary';
+            bkBtn.style.cssText = 'padding:3px 8px; font-size:0.68rem;';
+            bkBtn.innerText = 'Backup';
+            bkBtn.onclick = () => backupWorld(w.folder);
+            row.appendChild(nameSpan);
+            row.appendChild(bkBtn);
+            wList.appendChild(row);
+          });
+        }
+        return;
+      }
+
+      if (id === 'screenshots') {
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Screenshot Strip</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="openDir('screenshots')">Folder</button>
+            </div>
+            <div id="w-ss-grid" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;"></div>
+          </div>
+        `;
+        const ssGrid = container.querySelector('#w-ss-grid');
+        if (!widgetScreensCache.length) {
+          ssGrid.innerHTML = '<span style="grid-column:span 4; font-size:0.74rem; color:var(--text-muted);">No screenshots captured yet.</span>';
+        } else {
+          widgetScreensCache.slice(0, 4).forEach(s => {
+            const img = document.createElement('img');
+            img.src = s.url;
+            img.title = s.fileName;
+            img.style.cssText = 'width:100%; height:48px; object-fit:cover; border-radius:4px; border:1px solid var(--border); cursor:pointer;';
+            img.onclick = () => {
+              document.getElementById('ss-modal-title').innerText = s.fileName;
+              document.getElementById('ss-modal-img').src = s.url;
+              document.getElementById('modal-screenshot-preview').style.display = 'flex';
+            };
+            ssGrid.appendChild(img);
+          });
+        }
+        return;
+      }
+
+      if (id === 'console') {
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Live Console Feed</span>
+              <div style="display:flex; gap:4px;">
+                <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="clearConsole()">Clear</button>
+                <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="switchTab('console')">Expand</button>
+              </div>
+            </div>
+            <div class="widget-mini-console" id="w-mini-console-box"></div>
+          </div>
+        `;
+        renderMiniConsoleBox();
+        return;
+      }
+
+      if (id === 'telemetry') {
+        const tel = widgetTelemetryCache;
+        const pct = tel && tel.totalMemMb ? Math.round((tel.usedMemMb / tel.totalMemMb) * 100) : 0;
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">ARM64 Telemetry</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" id="w-tel-refresh">Refresh</button>
+            </div>
+            <div id="w-tel-body" style="font-size:0.75rem; color:var(--text-muted);">
+              ${tel ? `
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                  <span>RAM: <strong style="color:#fff;">${(tel.usedMemMb / 1024).toFixed(1)} / ${(tel.totalMemMb / 1024).toFixed(1)} GB</strong> (${pct}%)</span>
+                  <span class="brand-badge">${escapeHtml(tel.arch.toUpperCase())} • ${tel.cpuCores} CORES</span>
+                </div>
+                <div style="height:4px; background:var(--border); border-radius:2px; overflow:hidden; margin-bottom:6px;">
+                  <div style="height:100%; width:${pct}%; background:#fff;"></div>
+                </div>
+                <span style="font-size:0.7rem; color:var(--text-dim); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(tel.cpuModel)}</span>
+              ` : 'Reading system telemetry...'}
+            </div>
+          </div>
+        `;
+        container.querySelector('#w-tel-refresh').onclick = async () => {
+          widgetTelemetryCache = await ipcRenderer.invoke('get-system-telemetry');
+          renderOverviewWidgets();
+        };
+        return;
+      }
+
+      if (id === 'folders') {
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Quick Folders</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="openDir('')">Profile Root</button>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="openDir('mods')">Mods</button>
+              <button class="btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="openDir('resourcepacks')">Resource Packs</button>
+              <button class="btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="openDir('shaderpacks')">Shaders</button>
+              <button class="btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="openDir('saves')">Saves</button>
+              <button class="btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="openDir('screenshots')">Screenshots</button>
+              <button class="btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="openDir('config')">Config</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (id === 'loader') {
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Loader &amp; Engine</span>
+              <span class="brand-badge">${safeUpper(prof.loader)}</span>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <button class="btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="installShaderEngine()">1-Click Sodium + Iris</button>
+              <button class="btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="switchTab('loaders')">Open Engines</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (id === 'jvm') {
+        const flags = prof.jvmArgs || DEFAULT_ORYON;
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Oryon JVM Flags</span>
+              <div style="display:flex; gap:4px;">
+                <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" id="w-jvm-copy">Copy</button>
+                <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" id="w-jvm-reset">Reset</button>
+              </div>
+            </div>
+            <div style="font-family:ui-monospace, monospace; font-size:0.68rem; color:var(--text-muted); background:#09090b; border:1px solid var(--border); border-radius:6px; padding:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(flags)}</div>
+          </div>
+        `;
+        container.querySelector('#w-jvm-copy').onclick = () => {
+          navigator.clipboard.writeText(flags);
+          toast('Oryon JVM flags copied.');
+        };
+        container.querySelector('#w-jvm-reset').onclick = async () => {
+          prof.jvmArgs = DEFAULT_ORYON;
+          await ipcRenderer.invoke('update-profile', prof);
+          currentConfig = await ipcRenderer.invoke('get-config');
+          renderOverviewWidgets();
+          toast('Reset profile JVM flags to Oryon default.');
+        };
+        return;
+      }
+
+      if (id === 'skin') {
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Skin Preview</span>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="switchTab('skins')">Studio</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <canvas id="widget-skin-canvas" width="64" height="128" style="width:48px; height:96px; image-rendering:pixelated; background:#09090b; border:1px solid var(--border); border-radius:6px;"></canvas>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px;">
+                <span style="font-size:0.74rem; color:#fff; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(activeSkinCache.username || playerName)}</span>
+                <div style="display:flex; gap:4px;">
+                  <input type="text" id="w-skin-input" class="input-field" style="padding:5px 8px; font-size:0.72rem;" placeholder="Lookup user..." />
+                  <button class="btn-secondary" style="padding:5px 8px; font-size:0.72rem;" id="w-skin-go">Go</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        const cvs = container.querySelector('#widget-skin-canvas');
+        if (activeSkinCache.skinUrl) drawSkinToCanvasEl(activeSkinCache.skinUrl, cvs);
+        const doLookup = async () => {
+          const inp = container.querySelector('#w-skin-input');
+          const u = inp.value.trim();
+          if (!u) return;
+          toast(`Fetching skin for ${u}...`);
+          try {
+            const res = await ipcRenderer.invoke('fetch-player-skin', u);
+            activeSkinCache = res;
+            drawSkinToCanvasEl(res.skinUrl, document.getElementById('skin-canvas'));
+            renderOverviewWidgets();
+          } catch (e) { toast(e.message); }
+        };
+        container.querySelector('#w-skin-go').onclick = doLookup;
+        container.querySelector('#w-skin-input').addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') doLookup();
+        });
+        return;
+      }
+
+      if (id === 'session') {
+        const running = !!activeGamePid;
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Session Monitor</span>
+              <span class="brand-badge" id="w-session-pid">${running ? `PID ${activeGamePid}` : 'IDLE'}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <strong id="widget-session-timer" style="font-size:1.15rem; font-family:ui-monospace, monospace; color:#fff;">00:00:00</strong>
+              <button class="btn-secondary" style="padding:5px 10px; font-size:0.72rem; ${running ? 'color:var(--danger);' : 'opacity:0.45;'}" id="w-stop-game-btn" ${running ? '' : 'disabled'}>Stop Game</button>
+            </div>
+          </div>
+        `;
+        container.querySelector('#w-stop-game-btn').onclick = async () => {
+          if (!activeGamePid) return;
+          await ipcRenderer.invoke('kill-active-game');
+          activeGamePid = null;
+          sessionStartTimestamp = null;
+          setPlayButtonState('ready', 'PLAY');
+          updatePipelineStatusText('Minecraft process terminated by user.');
+          renderOverviewWidgets();
+          toast('Minecraft process stopped.');
+        };
+        return;
+      }
+
+      if (id === 'clock') {
+        container.innerHTML = `
+          <div class="widget-card">
+            <div class="widget-head">
+              <span class="widget-title">Clock &amp; Canvas</span>
+              <span id="widget-clock-date" style="font-size:0.7rem; color:var(--text-dim);">—</span>
+            </div>
+            <strong id="widget-clock-time" style="font-size:1.3rem; font-family:ui-monospace, monospace; letter-spacing:0.04em; color:#fff;">00:00:00</strong>
+            <select id="widget-bg-preset" class="select-field" style="padding:6px 28px 6px 10px; font-size:0.74rem;" onchange="setBgPreset(this.value)">
+              <option value="waves">1. Obsidian Waves</option>
+              <option value="starfield">2. Starfield Warp</option>
+              <option value="matrix">3. Digital Rain</option>
+              <option value="plexus">4. Geometric Plexus</option>
+              <option value="pulse">5. Concentric Pulse</option>
+              <option value="mist">6. Monochrome Mist</option>
+              <option value="grid">7. Horizon Grid</option>
+              <option value="voxels">8. Voxel Block Fall</option>
+              <option value="constellation">9. Constellations</option>
+              <option value="none">10. Deep Void</option>
+            </select>
+          </div>
+        `;
+        container.querySelector('#widget-bg-preset').value = currentConfig.bgPreset || 'waves';
+        return;
+      }
+    }
+
+    function tickOverviewTimers() {
+      const now = new Date();
+      const clockTimeEl = document.getElementById('widget-clock-time');
+      if (clockTimeEl) clockTimeEl.innerText = now.toLocaleTimeString([], { hour12: false });
+      const clockDateEl = document.getElementById('widget-clock-date');
+      if (clockDateEl) clockDateEl.innerText = now.toLocaleDateString();
+
+      const sessTimerEl = document.getElementById('widget-session-timer');
+      if (sessTimerEl) {
+        if (sessionStartTimestamp && activeGamePid) {
+          const sec = Math.max(0, Math.floor((Date.now() - sessionStartTimestamp) / 1000));
+          const hh = String(Math.floor(sec / 3600)).padStart(2, '0');
+          const mm = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+          const ss = String(sec % 60).padStart(2, '0');
+          sessTimerEl.innerText = `${hh}:${mm}:${ss}`;
+        } else {
+          sessTimerEl.innerText = '00:00:00';
+        }
+      }
+    }
+
+    async function refreshWidgetLiveData() {
+      const seq = ++widgetRefreshSeq;
+      const activeIds = new Set(getOverviewWidgets().map(w => w.id));
+
+      const tasks = [];
+      if (activeIds.has('mods')) {
+        tasks.push(ipcRenderer.invoke('get-installed-content', 'mods').then(items => {
+          if (seq !== widgetRefreshSeq) return;
+          widgetModCounts = {
+            active: items.filter(i => i.isEnabled).length,
+            disabled: items.filter(i => !i.isEnabled).length
+          };
+          const el = document.getElementById('w-mods-summary');
+          if (el) el.innerHTML = `<strong>${widgetModCounts.active}</strong> active • <span style="color:var(--text-muted);">${widgetModCounts.disabled} disabled</span>`;
+        }).catch(() => {}));
+      }
+
+      if (activeIds.has('worlds') || activeIds.has('screenshots')) {
+        tasks.push(ipcRenderer.invoke('get-vault-data').then(data => {
+          if (seq !== widgetRefreshSeq) return;
+          widgetWorldsCache = data.worlds || [];
+          widgetScreensCache = data.screenshots || [];
+          if (activeIds.has('worlds')) {
+            const slot = document.querySelector('.widget-slot[data-widget-id="worlds"] > div:last-child');
+            if (slot) renderSingleWidgetContent('worlds', slot);
+          }
+          if (activeIds.has('screenshots')) {
+            const slot = document.querySelector('.widget-slot[data-widget-id="screenshots"] > div:last-child');
+            if (slot) renderSingleWidgetContent('screenshots', slot);
+          }
+        }).catch(() => {}));
+      }
+
+      if (activeIds.has('telemetry')) {
+        tasks.push(ipcRenderer.invoke('get-system-telemetry').then(tel => {
+          if (seq !== widgetRefreshSeq) return;
+          widgetTelemetryCache = tel;
+          const slot = document.querySelector('.widget-slot[data-widget-id="telemetry"] > div:last-child');
+          if (slot) renderSingleWidgetContent('telemetry', slot);
+        }).catch(() => {}));
+      }
+
+      await Promise.all(tasks);
+    }
+
+    function renderMiniConsoleBox() {
+      const box = document.getElementById('w-mini-console-box');
+      if (!box) return;
+      box.innerHTML = '';
+      widgetConsoleLines.slice(-14).forEach(entry => {
+        const div = document.createElement('div');
+        div.className = entry.stream === 'stderr' ? 'log-stderr' : 'log-stdout';
+        div.innerHTML = `<span class="log-time">[${entry.time}]</span>${escapeHtml(entry.text)}`;
+        box.appendChild(div);
+      });
+      box.scrollTop = box.scrollHeight;
     }
 
     function refreshActiveProfileDeck() {
       const activeProf = getActiveProfile();
       if (!activeProf) return;
 
-      document.getElementById('deck-prof-name').innerText = activeProf.name || 'Default Profile';
-      document.getElementById('deck-prof-meta').innerText = `${activeProf.version || '1.20.4'} • ${safeUpper(activeProf.loader)}`;
+      const deckName = document.getElementById('deck-prof-name');
+      if (deckName) deckName.innerText = activeProf.name || 'Default Profile';
+      const deckMeta = document.getElementById('deck-prof-meta');
+      if (deckMeta) deckMeta.innerText = `${activeProf.version || '1.20.4'} • ${safeUpper(activeProf.loader)}`;
 
-      document.getElementById('hero-title').innerText = activeProf.name || 'Ready.';
-      document.getElementById('hero-sub').innerText = `Target: Minecraft ${activeProf.version || '1.20.4'} (${safeUpper(activeProf.loader)}) • Snapdragon ARM64`;
+      const heroTitle = document.getElementById('hero-title');
+      if (heroTitle) heroTitle.innerText = activeProf.name || 'Ready.';
+      const heroSub = document.getElementById('hero-sub');
+      if (heroSub) heroSub.innerText = `Target: Minecraft ${activeProf.version || '1.20.4'} (${safeUpper(activeProf.loader)}) • Snapdragon ARM64`;
 
       const lbl = document.getElementById('mgr-active-prof-label');
       if (lbl) lbl.innerText = activeProf.name;
@@ -1303,18 +2428,20 @@
       syncModHubFilters();
 
       const itemsBox = document.getElementById('deck-profile-items');
-      itemsBox.innerHTML = '';
-      (currentConfig.profiles || []).forEach(prof => {
-        const btn = document.createElement('button');
-        const isActive = prof.id === activeProf.id;
-        btn.className = `profile-item-btn ${isActive ? 'active' : ''}`;
-        btn.innerHTML = `
-          <span>${escapeHtml(prof.name)}</span>
-          <span style="font-size:0.65rem; color:var(--text-dim);">${escapeHtml(prof.version)}</span>
-        `;
-        btn.onclick = () => selectProfile(prof.id);
-        itemsBox.appendChild(btn);
-      });
+      if (itemsBox) {
+        itemsBox.innerHTML = '';
+        (currentConfig.profiles || []).forEach(prof => {
+          const btn = document.createElement('button');
+          const isActive = prof.id === activeProf.id;
+          btn.className = `profile-item-btn ${isActive ? 'active' : ''}`;
+          btn.innerHTML = `
+            <span>${escapeHtml(prof.name)}</span>
+            <span style="font-size:0.65rem; color:var(--text-dim);">${escapeHtml(prof.version)}</span>
+          `;
+          btn.onclick = () => selectProfile(prof.id);
+          itemsBox.appendChild(btn);
+        });
+      }
     }
 
     function syncModHubFilters() {
@@ -1336,17 +2463,19 @@
       const prof = (currentConfig.profiles || []).find(p => p.id === id);
       if (prof) currentConfig.selectedVersion = prof.version;
       await ipcRenderer.invoke('save-config', currentConfig);
-      refreshActiveProfileDeck();
+      renderOverviewWidgets();
+      refreshWidgetLiveData();
       renderProfileManagerGrid();
       renderInstancesGrid();
       const drop = document.getElementById('deck-profile-dropdown');
       if (drop) drop.classList.remove('open');
-      setPlayButtonState('ready', 'PLAY');
+      if (!activeGamePid) setPlayButtonState('ready', 'PLAY');
       toast(`Active Environment: ${prof ? prof.name : id}`);
     }
 
     function renderProfileManagerGrid() {
       const grid = document.getElementById('profiles-grid');
+      if (!grid) return;
       grid.innerHTML = '';
 
       (currentConfig.profiles || []).forEach(prof => {
@@ -1372,14 +2501,17 @@
           </div>
 
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button class="btn" style="flex:1; padding:7px 10px; font-size:0.75rem;" onclick="selectProfile('${prof.id}')">
-              ${isActive ? 'Selected' : 'Activate'}
-            </button>
-            <button class="btn-secondary" style="padding:7px 10px; font-size:0.75rem;" onclick="openProfileSettingsModal('${prof.id}')">Configure</button>
-            <button class="btn-secondary" style="padding:7px 10px; font-size:0.75rem;" onclick="duplicateProfile('${prof.id}')">Duplicate</button>
-            ${prof.id !== 'default' ? `<button class="btn-secondary" style="color:var(--danger); padding:7px 10px; font-size:0.75rem;" onclick="directDeleteProfile('${prof.id}')">Delete</button>` : ''}
+            <button class="btn" style="flex:1; padding:7px 10px; font-size:0.75rem;" data-act="select">${isActive ? 'Selected' : 'Activate'}</button>
+            <button class="btn-secondary" style="padding:7px 10px; font-size:0.75rem;" data-act="config">Configure</button>
+            <button class="btn-secondary" style="padding:7px 10px; font-size:0.75rem;" data-act="dup">Duplicate</button>
+            ${prof.id !== 'default' ? `<button class="btn-secondary" style="color:var(--danger); padding:7px 10px; font-size:0.75rem;" data-act="del">Delete</button>` : ''}
           </div>
         `;
+        card.querySelector('[data-act="select"]').onclick = () => selectProfile(prof.id);
+        card.querySelector('[data-act="config"]').onclick = () => openProfileSettingsModal(prof.id);
+        card.querySelector('[data-act="dup"]').onclick = () => duplicateProfile(prof.id);
+        const delBtn = card.querySelector('[data-act="del"]');
+        if (delBtn) delBtn.onclick = () => directDeleteProfile(prof.id);
         grid.appendChild(card);
       });
     }
@@ -1429,10 +2561,12 @@
     }
 
     async function scanExternalInstances() {
+      const seq = ++externalScanSeq;
       const grid = document.getElementById('instances-grid');
       if (grid) grid.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted);">Inspecting system for Prism, Modrinth, and Lunar setups...</p>';
 
       const found = await ipcRenderer.invoke('scan-external-clients');
+      if (seq !== externalScanSeq) return;
       cachedScannedInstances = [...found.prism, ...found.modrinth, ...found.lunar];
       renderInstancesGrid();
     }
@@ -1447,7 +2581,8 @@
       if (confirm('Permanently delete this profile and all isolated files?')) {
         await ipcRenderer.invoke('delete-profile', id);
         currentConfig = await ipcRenderer.invoke('get-config');
-        refreshActiveProfileDeck();
+        renderOverviewWidgets();
+        refreshWidgetLiveData();
         renderProfileManagerGrid();
         toast('Profile deleted.');
       }
@@ -1471,7 +2606,8 @@
 
       await ipcRenderer.invoke('create-profile', { name, version, loader, javaRuntime });
       currentConfig = await ipcRenderer.invoke('get-config');
-      refreshActiveProfileDeck();
+      renderOverviewWidgets();
+      refreshWidgetLiveData();
       renderProfileManagerGrid();
       closeNewProfileModal();
       toast(`Created profile: ${name}`);
@@ -1481,7 +2617,7 @@
       toast('Duplicating profile environment...');
       const cloned = await ipcRenderer.invoke('duplicate-profile', id);
       currentConfig = await ipcRenderer.invoke('get-config');
-      refreshActiveProfileDeck();
+      renderOverviewWidgets();
       renderProfileManagerGrid();
       toast(`Duplicated: ${cloned.name}`);
     }
@@ -1536,7 +2672,7 @@
 
       await ipcRenderer.invoke('update-profile', prof);
       currentConfig = await ipcRenderer.invoke('get-config');
-      refreshActiveProfileDeck();
+      renderOverviewWidgets();
       renderProfileManagerGrid();
       closeProfileSettingsModal();
       toast('Profile parameters saved.');
@@ -1599,7 +2735,8 @@
           jvmArgs
         });
         currentConfig = await ipcRenderer.invoke('get-config');
-        refreshActiveProfileDeck();
+        renderOverviewWidgets();
+        refreshWidgetLiveData();
         renderProfileManagerGrid();
         renderInstancesGrid();
         closeTransformModal();
@@ -1622,7 +2759,8 @@
           loader: inst.loader || 'vanilla'
         });
         currentConfig = await ipcRenderer.invoke('get-config');
-        refreshActiveProfileDeck();
+        renderOverviewWidgets();
+        refreshWidgetLiveData();
         renderProfileManagerGrid();
         renderInstancesGrid();
         toast(`Activated profile: ${prof.name}`);
@@ -1635,8 +2773,9 @@
     // GAME LAUNCH ORCHESTRATION
     // -------------------------------------------------------------
     function playGame() {
+      if (launcherPlayState === 'busy' || activeGamePid) return;
       setPlayButtonState('busy', 'LAUNCHING');
-      document.getElementById('home-status-line').innerText = 'Initializing Snapdragon ARM64 launch pipeline...';
+      updatePipelineStatusText('Initializing Snapdragon ARM64 launch pipeline...');
 
       ipcRenderer.send('launch-game', {
         selectedVersion: currentConfig.selectedVersion || '1.20.4'
@@ -1644,19 +2783,40 @@
     }
 
     ipcRenderer.on('game-started', (event, { pid }) => {
+      activeGamePid = pid;
+      sessionStartTimestamp = Date.now();
       setPlayButtonState('busy', 'RUNNING');
-      document.getElementById('home-status-line').innerText = `Minecraft running on Oryon cores (PID: ${pid})`;
+      updatePipelineStatusText(`Minecraft running on Oryon cores (PID: ${pid})`);
+      const pidBadge = document.getElementById('w-session-pid');
+      if (pidBadge) pidBadge.innerText = `PID ${pid}`;
+      const stopBtn = document.getElementById('w-stop-game-btn');
+      if (stopBtn) {
+        stopBtn.disabled = false;
+        stopBtn.style.opacity = '1';
+        stopBtn.style.color = 'var(--danger)';
+      }
     });
 
-    ipcRenderer.on('game-exited', (event, { code }) => {
+    ipcRenderer.on('game-exited', () => {
+      activeGamePid = null;
+      sessionStartTimestamp = null;
       setPlayButtonState('ready', 'PLAY');
-      document.getElementById('home-status-line').innerText = 'Minecraft closed normally. Ready.';
+      updatePipelineStatusText('Minecraft closed normally. Ready.');
+      const pidBadge = document.getElementById('w-session-pid');
+      if (pidBadge) pidBadge.innerText = 'IDLE';
+      const stopBtn = document.getElementById('w-stop-game-btn');
+      if (stopBtn) {
+        stopBtn.disabled = true;
+        stopBtn.style.opacity = '0.45';
+      }
       toast('Minecraft process exited.');
     });
 
     ipcRenderer.on('game-crashed', (event, { code, diag }) => {
+      activeGamePid = null;
+      sessionStartTimestamp = null;
       setPlayButtonState('error', 'CRASHED');
-      document.getElementById('home-status-line').innerText = `Process error (${code}): ${diag.title}`;
+      updatePipelineStatusText(`Process error (${code}): ${diag.title}`, true);
 
       const box = document.getElementById('crash-diagnostic-box');
       document.getElementById('crash-title').innerText = `Process Terminated (Code ${code}) — ${diag.title}`;
@@ -1667,7 +2827,7 @@
     });
 
     ipcRenderer.on('launch-status', (event, res) => {
-      document.getElementById('home-status-line').innerText = res.message;
+      updatePipelineStatusText(res.message, !!res.isError);
       if (res.isError) {
         setPlayButtonState('error', 'ERROR');
         toast(res.message);
@@ -1684,23 +2844,32 @@
     }
 
     function appendConsoleLine(entry) {
+      widgetConsoleLines.push(entry);
+      if (widgetConsoleLines.length > 50) widgetConsoleLines.shift();
+
       const box = document.getElementById('console-stream');
-      const div = document.createElement('div');
-      div.className = entry.stream === 'stderr' ? 'log-stderr' : 'log-stdout';
-      div.innerHTML = `<span class="log-time">[${entry.time}]</span>${escapeHtml(entry.text)}`;
-      box.appendChild(div);
-      scrollToConsoleBottom();
+      if (box) {
+        const div = document.createElement('div');
+        div.className = entry.stream === 'stderr' ? 'log-stderr' : 'log-stdout';
+        div.innerHTML = `<span class="log-time">[${entry.time}]</span>${escapeHtml(entry.text)}`;
+        box.appendChild(div);
+        if (box.childElementCount > 1500) box.removeChild(box.firstChild);
+        scrollToConsoleBottom();
+      }
+      renderMiniConsoleBox();
     }
 
     function scrollToConsoleBottom() {
       const box = document.getElementById('console-stream');
-      box.scrollTop = box.scrollHeight;
+      if (box) box.scrollTop = box.scrollHeight;
     }
 
     async function clearConsole() {
       await ipcRenderer.invoke('clear-console-logs');
+      widgetConsoleLines = [];
       document.getElementById('console-stream').innerHTML = '';
       document.getElementById('crash-diagnostic-box').style.display = 'none';
+      renderMiniConsoleBox();
     }
 
     function copyConsole() {
@@ -1711,11 +2880,24 @@
     // -------------------------------------------------------------
     // RUNTIMES & CONTENT MANAGEMENT
     // -------------------------------------------------------------
+    function initGlobalJdkProgressListener() {
+      ipcRenderer.on('jdk-install-status', (e, data) => {
+        if (jdkInstallActiveVersion && data.version === jdkInstallActiveVersion) {
+          const txt = document.getElementById('jdk-progress-text');
+          const bar = document.getElementById('jdk-progress-bar');
+          if (txt) txt.innerText = data.step;
+          if (bar) bar.style.width = `${Math.round((data.progress || 0) * 100)}%`;
+        }
+      });
+    }
+
     async function checkJdkStatus() {
       const diag = document.getElementById('diag-java');
       const matrix = document.getElementById('jdk-matrix');
-      const managed = await ipcRenderer.invoke('get-managed-jdks');
-      const sys = await ipcRenderer.invoke('detect-arm-java');
+      const [managed, sys] = await Promise.all([
+        ipcRenderer.invoke('get-managed-jdks'),
+        ipcRenderer.invoke('detect-arm-java')
+      ]);
 
       diag.innerText = sys.found ? `System Default: ${sys.source}` : 'No native ARM64 JDK found in PATH.';
       matrix.innerHTML = '';
@@ -1741,29 +2923,27 @@
             </div>
             <span style="font-size:0.72rem; color:var(--text-muted); display:block; margin-top:2px;">${jdk.desc}</span>
           </div>
-          <button class="btn-secondary" style="font-size:0.72rem; padding:4px 8px; width:100%;" onclick="installJdkVersion('${jdk.version}')">
+          <button class="btn-secondary" style="font-size:0.72rem; padding:4px 8px; width:100%;" data-ver="${jdk.version}">
             ${jdk.installed ? 'Reinstall' : 'Install Runtime'}
           </button>
         `;
+        item.querySelector('button').onclick = () => installJdkVersion(jdk.version);
         matrix.appendChild(item);
       });
     }
 
     async function installJdkVersion(version) {
+      if (jdkInstallActiveVersion) {
+        return toast(`Java ${jdkInstallActiveVersion} installation already in progress.`);
+      }
       const box = document.getElementById('jdk-progress-box');
       const bar = document.getElementById('jdk-progress-bar');
       const txt = document.getElementById('jdk-progress-text');
 
+      jdkInstallActiveVersion = version;
       box.style.display = 'block';
-      bar.style.width = '0%';
-      txt.innerText = `Connecting to Java ${version} distribution CDN...`;
-
-      ipcRenderer.on('jdk-install-status', (e, data) => {
-        if (data.version === version) {
-          txt.innerText = data.step;
-          bar.style.width = `${Math.round((data.progress || 0) * 100)}%`;
-        }
-      });
+      bar.style.width = '2%';
+      txt.innerText = `Connecting to Java ${version} distribution mirror...`;
 
       try {
         await ipcRenderer.invoke('install-managed-jdk', { version });
@@ -1772,8 +2952,19 @@
       } catch (err) {
         alert(`Java ${version} installation error: ` + err.message);
       } finally {
+        jdkInstallActiveVersion = null;
         box.style.display = 'none';
       }
+    }
+
+    function debouncedFetchFabric() {
+      clearTimeout(fabricDebounce);
+      fabricDebounce = setTimeout(fetchFabricLoaders, 240);
+    }
+
+    function debouncedFetchNeoForge() {
+      clearTimeout(neoforgeDebounce);
+      neoforgeDebounce = setTimeout(fetchNeoForgeVersions, 240);
     }
 
     async function fetchFabricLoaders() {
@@ -1807,7 +2998,8 @@
         activeProf.version = res.profileId;
         activeProf.loader = 'fabric';
         await ipcRenderer.invoke('update-profile', activeProf);
-        refreshActiveProfileDeck();
+        currentConfig = await ipcRenderer.invoke('get-config');
+        renderOverviewWidgets();
         toast('Fabric profile installed and activated!');
       } catch (e) {
         alert('Fabric installation failed: ' + e.message);
@@ -1850,19 +3042,23 @@
         const files = await ipcRenderer.invoke('install-shader-engine', prof.version);
         toast(`Installed: ${files.join(', ')}`);
         loadManager('mods');
+        refreshWidgetLiveData();
       } catch (e) {
         alert('Shader Engine error: ' + e.message);
       }
     }
 
     async function loadManager(type = 'mods') {
+      const seq = ++mgrLoadSeq;
       activeMgrType = type;
       ['mods', 'resourcepacks', 'shaderpacks'].forEach(t => {
         const el = document.getElementById(`mgr-chip-${t}`);
         if (el) el.classList.toggle('active', t === type);
       });
 
-      localInstalledItems = await ipcRenderer.invoke('get-installed-content', type);
+      const items = await ipcRenderer.invoke('get-installed-content', type);
+      if (seq !== mgrLoadSeq) return;
+      localInstalledItems = items;
       renderManagerList(localInstalledItems);
     }
 
@@ -1891,14 +3087,12 @@
             </span>
           </div>
           <div style="display:flex; gap:6px;">
-            <button class="btn-secondary" style="font-size:0.74rem;" onclick="toggleItem('${item.folder}', '${escapeHtml(item.fileName)}')">
-              ${item.isEnabled ? 'Disable' : 'Enable'}
-            </button>
-            <button class="btn-secondary" style="color:var(--danger); font-size:0.74rem;" onclick="deleteItem('${item.folder}', '${escapeHtml(item.fileName)}')">
-              Delete
-            </button>
+            <button class="btn-secondary" style="font-size:0.74rem;" data-act="toggle">${item.isEnabled ? 'Disable' : 'Enable'}</button>
+            <button class="btn-secondary" style="color:var(--danger); font-size:0.74rem;" data-act="del">Delete</button>
           </div>
         `;
+        row.querySelector('[data-act="toggle"]').onclick = () => toggleItem(item.folder, item.fileName);
+        row.querySelector('[data-act="del"]').onclick = () => deleteItem(item.folder, item.fileName);
         list.appendChild(row);
       });
     }
@@ -1912,11 +3106,13 @@
     async function toggleItem(folder, fileName) {
       await ipcRenderer.invoke('toggle-content-item', { folder, fileName });
       loadManager(activeMgrType);
+      refreshWidgetLiveData();
     }
 
     async function toggleAllItems(enable) {
       await ipcRenderer.invoke('toggle-all-content', { folder: activeMgrType, enable });
       loadManager(activeMgrType);
+      refreshWidgetLiveData();
       toast(enable ? 'All items enabled.' : 'All items disabled.');
     }
 
@@ -1924,6 +3120,7 @@
       if (confirm(`Remove ${fileName}?`)) {
         await ipcRenderer.invoke('delete-content-item', { folder, fileName });
         loadManager(activeMgrType);
+        refreshWidgetLiveData();
         toast(`Removed ${fileName}`);
       }
     }
@@ -1933,6 +3130,7 @@
       if (imported) {
         toast(`Files imported.`);
         loadManager(activeMgrType);
+        refreshWidgetLiveData();
       }
     }
 
@@ -1954,6 +3152,7 @@
           await ipcRenderer.invoke('import-dropped-files', { folderType: activeMgrType, filePaths: files });
           toast(`Imported ${files.length} item(s)!`);
           loadManager(activeMgrType);
+          refreshWidgetLiveData();
         }
       });
     }
@@ -1962,6 +3161,7 @@
       toast('Querying Modrinth for mod updates...');
       try {
         pendingUpdates = await ipcRenderer.invoke('check-mod-updates');
+        widgetUpdatesCache = [...pendingUpdates];
         renderUpdatesUI();
       } catch (e) {
         alert('Update check error: ' + e.message);
@@ -2010,6 +3210,7 @@
       toast(`Updating ${item.currentFileName}...`);
       await ipcRenderer.invoke('apply-mod-update', item);
       pendingUpdates.splice(idx, 1);
+      widgetUpdatesCache = [...pendingUpdates];
       renderUpdatesUI();
       loadManager('mods');
       toast(`Updated: ${item.newFileName}`);
@@ -2021,6 +3222,7 @@
         await ipcRenderer.invoke('apply-mod-update', item);
       }
       pendingUpdates = [];
+      widgetUpdatesCache = [];
       renderUpdatesUI();
       loadManager('mods');
       toast('All mods updated.');
@@ -2044,6 +3246,7 @@
     }
 
     async function executeHubSearch() {
+      const seq = ++hubSearchSeq;
       const q = document.getElementById('mod-query').value.trim();
       const list = document.getElementById('mod-list');
       const verFilter = document.getElementById('hub-version-filter');
@@ -2052,7 +3255,7 @@
       const ver = (verFilter && verFilter.value) ? verFilter.value : (currentConfig.selectedVersion || '1.20.4');
       const loader = (loaderFilter && loaderFilter.value) ? loaderFilter.value : 'all';
 
-      list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">Querying ${activeProvider} for MC ${ver} (${loader.toUpperCase()})...</span>`;
+      list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">Querying ${activeProvider} for MC ${escapeHtml(ver)} (${escapeHtml(loader.toUpperCase())})...</span>`;
 
       let hits = [];
       if (activeProvider === 'curseforge') {
@@ -2061,9 +3264,11 @@
         hits = await ipcRenderer.invoke('search-modrinth', { query: q, type: activeModType, version: ver, loader });
       }
 
+      if (seq !== hubSearchSeq) return;
+
       list.innerHTML = '';
       if (!hits.length) {
-        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No releases found on ${activeProvider} for MC ${ver} (${loader.toUpperCase()}).</span>`;
+        list.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">No releases found on ${activeProvider} for MC ${escapeHtml(ver)} (${escapeHtml(loader.toUpperCase())}).</span>`;
         return;
       }
 
@@ -2082,8 +3287,9 @@
               <p style="font-size:0.73rem; color:var(--text-muted); max-width:480px; margin-top:3px; line-height:1.3;">${escapeHtml(m.description)}</p>
             </div>
           </div>
-          <button class="btn-secondary" style="font-size:0.75rem;" onclick="installHubItem('${id}', '${escapeHtml(m.title)}')">Install</button>
+          <button class="btn-secondary" style="font-size:0.75rem;" data-act="install">Install</button>
         `;
+        item.querySelector('[data-act="install"]').onclick = () => installHubItem(id, m.title);
         list.appendChild(item);
       });
     }
@@ -2103,6 +3309,7 @@
           file = await ipcRenderer.invoke('install-modrinth-item', { projectId: id, type: activeModType, version: ver, loader });
         }
         toast(`Installed: ${file}`);
+        refreshWidgetLiveData();
       } catch (e) {
         alert('Download error: ' + e.message);
       }
@@ -2111,27 +3318,26 @@
     // -------------------------------------------------------------
     // SKIN STUDIO & MOJANG COMPOSITE PREVIEW
     // -------------------------------------------------------------
-    function drawSkinToCanvas(imgSrc) {
+    function drawSkinToCanvasEl(imgSrc, cvs) {
+      if (!cvs || !imgSrc) return;
       const img = new Image();
       img.onload = () => {
-        const cvs = document.getElementById('skin-canvas');
         const c = cvs.getContext('2d');
         c.imageSmoothingEnabled = false;
+        const scale = cvs.width / 128;
+        c.save();
         c.clearRect(0, 0, cvs.width, cvs.height);
+        c.scale(scale, scale);
 
-        // Head
         c.drawImage(img, 8, 8, 8, 8, 48, 16, 32, 32);
         c.drawImage(img, 40, 8, 8, 8, 48, 16, 32, 32);
 
-        // Torso
         c.drawImage(img, 20, 20, 8, 12, 48, 48, 32, 48);
         c.drawImage(img, 20, 36, 8, 12, 48, 48, 32, 48);
 
-        // Right Arm
         c.drawImage(img, 44, 20, 4, 12, 32, 48, 16, 48);
         c.drawImage(img, 44, 36, 4, 12, 32, 48, 16, 48);
 
-        // Left Arm
         if (img.height >= 64) {
           c.drawImage(img, 36, 52, 4, 12, 80, 48, 16, 48);
           c.drawImage(img, 52, 52, 4, 12, 80, 48, 16, 48);
@@ -2143,11 +3349,9 @@
           c.restore();
         }
 
-        // Right Leg
         c.drawImage(img, 4, 20, 4, 12, 48, 96, 16, 48);
         c.drawImage(img, 4, 36, 4, 12, 48, 96, 16, 48);
 
-        // Left Leg
         if (img.height >= 64) {
           c.drawImage(img, 20, 52, 4, 12, 64, 96, 16, 48);
           c.drawImage(img, 4, 52, 4, 12, 64, 96, 16, 48);
@@ -2158,14 +3362,21 @@
           c.drawImage(img, 4, 20, 4, 12, 0, 0, 16, 48);
           c.restore();
         }
+        c.restore();
       };
       img.src = imgSrc;
+    }
+
+    function drawSkinToCanvas(imgSrc) {
+      drawSkinToCanvasEl(imgSrc, document.getElementById('skin-canvas'));
+      drawSkinToCanvasEl(imgSrc, document.getElementById('widget-skin-canvas'));
     }
 
     async function loadAccountSkinAuto(username) {
       try {
         const res = await ipcRenderer.invoke('fetch-player-skin', username);
         if (res && res.skinUrl) {
+          activeSkinCache = res;
           drawSkinToCanvas(res.skinUrl);
           document.getElementById('skin-file-name').innerText = `Active Account: ${res.username}`;
           document.getElementById('skin-model-name').innerText = `Model: ${res.isSlim ? 'Slim (Alex 3px)' : 'Classic (Steve 4px)'}`;
@@ -2179,6 +3390,7 @@
       toast(`Resolving skin for ${u}...`);
       try {
         const res = await ipcRenderer.invoke('fetch-player-skin', u);
+        activeSkinCache = res;
         drawSkinToCanvas(res.skinUrl);
         document.getElementById('skin-file-name').innerText = `Loaded: ${res.username}`;
         document.getElementById('skin-model-name').innerText = `Model: ${res.isSlim ? 'Slim (Alex 3px)' : 'Classic (Steve 4px)'}`;
@@ -2205,13 +3417,13 @@
         row.className = 'mod-item';
         row.innerHTML = `
           <div style="display:flex; align-items:center; gap:12px;">
-            <img style="width:36px; height:36px; border-radius:6px; background:#000; border:1px solid var(--border); image-rendering:pixelated;" src="https://mc-heads.net/avatar/${acc.name}/64" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'36\\' height=\\'36\\'><rect width=\\'36\\' height=\\'36\\' fill=\\'%2318181b\\'/></svg>'" />
+            <img style="width:36px; height:36px; border-radius:6px; background:#000; border:1px solid var(--border); image-rendering:pixelated;" src="https://mc-heads.net/avatar/${encodeURIComponent(acc.name)}/64" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'36\\' height=\\'36\\'><rect width=\\'36\\' height=\\'36\\' fill=\\'%2318181b\\'/></svg>'" />
             <div>
               <strong style="font-size:0.84rem;">${escapeHtml(acc.name)}</strong>
-              <span style="font-size:0.68rem; color:var(--text-muted); display:block;">UUID: ${acc.id}</span>
+              <span style="font-size:0.68rem; color:var(--text-muted); display:block;">UUID: ${escapeHtml(acc.id)}</span>
             </div>
           </div>
-          <button class="btn-secondary" style="font-size:0.75rem;" onclick="setActiveAccount('${acc.id}')">
+          <button class="btn-secondary" style="font-size:0.75rem;" onclick="setActiveAccount('${escapeHtml(acc.id)}')">
             ${isCurrent ? 'Active Profile' : 'Select'}
           </button>
         `;
@@ -2224,6 +3436,7 @@
       ipcRenderer.invoke('save-config', currentConfig);
       renderAccounts();
       if (currentConfig.activeAccount) loadAccountSkinAuto(currentConfig.activeAccount.name);
+      renderOverviewWidgets();
       toast('Profile switched.');
     }
 
@@ -2231,9 +3444,10 @@
       toast('Opening Microsoft sign-in...');
       try {
         const acc = await ipcRenderer.invoke('start-microsoft-login');
-        currentConfig.activeAccount = acc;
+        currentConfig = await ipcRenderer.invoke('get-config');
         renderAccounts();
         loadAccountSkinAuto(acc.name);
+        renderOverviewWidgets();
         toast(`Signed in as ${acc.name}!`);
       } catch (e) { alert(e.message); }
     }
@@ -2242,6 +3456,7 @@
       const name = document.getElementById('cfg-offline-user').value.trim() || 'Player';
       currentConfig.offlineUsername = name;
       await ipcRenderer.invoke('save-config', currentConfig);
+      renderOverviewWidgets();
       toast(`Offline player set to ${name}`);
     }
 
@@ -2271,7 +3486,13 @@
     }
 
     async function loadVault() {
+      const seq = ++vaultLoadSeq;
       const data = await ipcRenderer.invoke('get-vault-data');
+      if (seq !== vaultLoadSeq) return;
+
+      widgetWorldsCache = data.worlds || [];
+      widgetScreensCache = data.screenshots || [];
+
       const wCont = document.getElementById('vault-worlds');
       const sCont = document.getElementById('vault-screens');
 
@@ -2289,8 +3510,9 @@
             <strong style="font-size:0.84rem;">${escapeHtml(w.name)}</strong>
             <span style="font-size:0.72rem; color:var(--text-muted); display:block;">${w.sizeMb} MB</span>
           </div>
-          <button class="btn-secondary" style="font-size:0.74rem;" onclick="backupWorld('${escapeHtml(w.folder)}')">Backup</button>
+          <button class="btn-secondary" style="font-size:0.74rem;" data-act="backup">Backup</button>
         `;
+        row.querySelector('[data-act="backup"]').onclick = () => backupWorld(w.folder);
         wCont.appendChild(row);
       });
 
@@ -2306,6 +3528,12 @@
         img.style.objectFit = 'cover';
         img.style.borderRadius = '4px';
         img.style.border = '1px solid var(--border)';
+        img.style.cursor = 'pointer';
+        img.onclick = () => {
+          document.getElementById('ss-modal-title').innerText = s.fileName;
+          document.getElementById('ss-modal-img').src = s.url;
+          document.getElementById('modal-screenshot-preview').style.display = 'flex';
+        };
         sCont.appendChild(img);
       });
     }
