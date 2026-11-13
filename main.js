@@ -6,26 +6,18 @@ const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
 const zlib = require('zlib');
+const { pathToFileURL } = require('url');
 const { spawn, exec, execSync } = require('child_process');
 
-// -------------------------------------------------------------
-// PROCESS GUARDS & SINGLE INSTANCE LOCK
-// -------------------------------------------------------------
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.exit(0);
-}
-
+if (!app.requestSingleInstanceLock()) app.exit(0);
 process.on('uncaughtException', (err) => {
-  if (err && (err.code === 'EEXIST' || (err.message && err.message.includes('EEXIST')))) return;
+  if (err && (err.code === 'EEXIST' || err.message?.includes('EEXIST'))) return;
   console.error('[Uncaught Exception]', err);
 });
 
-let mainWindow = null;
-let activeGameProcess = null;
-let isLaunchingGame = false;
+let mainWindow = null, activeGameProcess = null, isLaunchingGame = false;
+let configCache = null, configWriteTimer = null, cachedManifest = null;
 
-// Directory Paths
 const APP_DIR = path.join(app.getPath('appData'), '.aetheria-launcher');
 const CONFIG_FILE = path.join(APP_DIR, 'launcher_config.json');
 const RUNTIMES_DIR = path.join(APP_DIR, 'runtimes');
@@ -37,564 +29,316 @@ const EXTENSIONS_BUNDLED_DIR = path.join(__dirname, 'extensions');
 
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
 const DEFAULT_ORYON_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
-
-// 21x21 Overview Grid Defaults
 const GRID_SIZE = 21;
+const CF_LOADER_MAP = { any: 0, forge: 1, cauldron: 2, liteloader: 3, fabric: 4, quilt: 5, neoforge: 6 };
+const MS_CLIENT_ID = '00000000402b5328';
+const MS_REDIRECT_URI = 'https://login.live.com/oauth20_desktop.srf';
+
 const DEFAULT_OVERVIEW_WIDGETS = [
   { id: 'hero', col: 5, row: 5, colSpan: 13, rowSpan: 5, borderRadius: 12, bgOpacity: 0.25, showBorder: true, settings: { showSubtitle: true, showConfigBtn: true } },
   { id: 'profile', col: 5, row: 11, colSpan: 8, rowSpan: 5, borderRadius: 12, bgOpacity: 0.55, showBorder: true, settings: {} },
   { id: 'play', col: 13, row: 11, colSpan: 5, rowSpan: 5, borderRadius: 12, bgOpacity: 0.92, showBorder: true, settings: {} }
 ];
 
-const WIDGET_BOUNDS = {
-  hero: { defaultColSpan: 13, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 12 },
-  profile: { defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 },
-  play: { defaultColSpan: 5, defaultRowSpan: 5, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
-  status: { defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
-  account: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 },
-  ram: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
-  java: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 12 },
-  quicklaunch: { defaultColSpan: 10, defaultRowSpan: 4, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 12 },
-  mods: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
-  updates: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
-  worlds: { defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 },
-  screenshots: { defaultColSpan: 10, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 },
-  console: { defaultColSpan: 11, defaultRowSpan: 6, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 18 },
-  telemetry: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
-  folders: { defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10 },
-  loader: { defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
-  jvm: { defaultColSpan: 10, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
-  skin: { defaultColSpan: 6, defaultRowSpan: 5, minColSpan: 2, maxColSpan: 16, minRowSpan: 2, maxRowSpan: 14 },
-  session: { defaultColSpan: 7, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10 },
-  clock: { defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14 }
+const WIDGET_BOUNDS = Object.fromEntries([
+  ['hero', 13, 5, 3, 21, 2, 12], ['profile', 8, 5, 3, 21, 2, 14], ['play', 5, 5, 2, 21, 1, 10],
+  ['status', 9, 3, 2, 21, 1, 10], ['account', 9, 5, 3, 21, 2, 14], ['ram', 9, 4, 2, 21, 2, 10],
+  ['java', 9, 5, 3, 21, 2, 12], ['quicklaunch', 10, 4, 3, 21, 2, 12], ['mods', 9, 4, 2, 21, 2, 10],
+  ['updates', 9, 4, 2, 21, 2, 10], ['worlds', 9, 5, 3, 21, 2, 14], ['screenshots', 10, 5, 3, 21, 2, 14],
+  ['console', 11, 6, 3, 21, 2, 18], ['telemetry', 9, 4, 2, 21, 2, 10], ['folders', 9, 4, 2, 21, 2, 10],
+  ['loader', 9, 3, 2, 21, 1, 10], ['jvm', 10, 3, 2, 21, 1, 10], ['skin', 6, 5, 2, 16, 2, 14],
+  ['session', 7, 3, 2, 21, 1, 10], ['clock', 8, 5, 2, 21, 2, 14]
+].map(([id, dc, dr, mc, xc, mr, xr]) => [id, { defaultColSpan: dc, defaultRowSpan: dr, minColSpan: mc, maxColSpan: xc, minRowSpan: mr, maxRowSpan: xr }]));
+
+const MANAGED_JDKS = {
+  '8': { name: 'OpenJDK 8 (Win64 via ARM64)', url: 'https://api.adoptium.net/v3/binary/latest/8/ga/windows/x64/jdk/hotspot/normal/eclipse', dirName: 'java-8-arm64', version: '8', major: 8, desc: 'Legacy Minecraft (< 1.17)' },
+  '17': { name: 'Microsoft OpenJDK 17 (ARM64)', url: 'https://aka.ms/download-jdk/microsoft-jdk-17-windows-aarch64.zip', dirName: 'java-17-arm64', version: '17', major: 17, desc: 'Modern Minecraft (1.17 – 1.20.4)' },
+  '21': { name: 'Microsoft OpenJDK 21 (ARM64)', url: 'https://aka.ms/download-jdk/microsoft-jdk-21-windows-aarch64.zip', dirName: 'java-21-arm64', version: '21', major: 21, desc: 'Current Minecraft (1.20.5 – 1.21.x)' },
+  '25': { name: 'Microsoft OpenJDK 25 (ARM64)', url: 'https://aka.ms/download-jdk/microsoft-jdk-25-windows-aarch64.zip', dirName: 'java-25-arm64', version: '25', major: 25, desc: 'Latest Minecraft (26.x+ / Next-Gen)' }
 };
 
-function clampInt(val, min, max) {
-  return Math.max(min, Math.min(max, Math.round(val)));
-}
+const clampInt = (v, min, max) => Math.max(min, Math.min(max, Math.round(v)));
+const clampFloat = (v, min, max) => Number.isFinite(Number(v)) ? Math.max(min, Math.min(max, Number(v))) : min;
+const rectsOverlap = (a, b) => a.col < b.col + b.colSpan && a.col + a.colSpan > b.col && a.row < b.row + b.rowSpan && a.row + a.rowSpan > b.row;
 
-function clampFloat(val, min, max) {
-  const n = Number(val);
-  if (!Number.isFinite(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
-
-function rectsOverlap(a, b) {
-  return (
-    a.col < b.col + b.colSpan &&
-    a.col + a.colSpan > b.col &&
-    a.row < b.row + b.rowSpan &&
-    a.row + a.rowSpan > b.row
-  );
-}
-
-function findFirstAvailableSlot(existingItems, colSpan, rowSpan) {
-  const spanC = clampInt(colSpan, 1, GRID_SIZE);
-  const spanR = clampInt(rowSpan, 1, GRID_SIZE);
-
-  for (let r = 1; r <= GRID_SIZE - spanR + 1; r++) {
-    for (let c = 1; c <= GRID_SIZE - spanC + 1; c++) {
-      const cand = { col: c, row: r, colSpan: spanC, rowSpan: spanR };
-      if (!existingItems.some(other => rectsOverlap(cand, other))) {
-        return { col: c, row: r };
-      }
+function findFirstAvailableSlot(existing, colSpan, rowSpan) {
+  const sc = clampInt(colSpan, 1, GRID_SIZE), sr = clampInt(rowSpan, 1, GRID_SIZE);
+  for (let r = 1; r <= GRID_SIZE - sr + 1; r++) {
+    for (let c = 1; c <= GRID_SIZE - sc + 1; c++) {
+      const cand = { col: c, row: r, colSpan: sc, rowSpan: sr };
+      if (!existing.some(o => rectsOverlap(cand, o))) return { col: c, row: r };
     }
   }
   return { col: 1, row: 1 };
 }
 
 function resolveCollisionsPushDown(items, anchorId) {
-  const clone = items.map(w => ({ ...w }));
-  const queue = [anchorId];
-  const maxIterations = clone.length * clone.length + 40;
-  let iter = 0;
-
-  while (queue.length && iter < maxIterations) {
-    iter++;
-    const moverId = queue.shift();
-    const mover = clone.find(w => w.id === moverId);
+  const clone = items.map(w => ({ ...w })), queue = [anchorId], maxIter = clone.length ** 2 + 40;
+  for (let iter = 0; queue.length && iter < maxIter; iter++) {
+    const moverId = queue.shift(), mover = clone.find(w => w.id === moverId);
     if (!mover) continue;
-
-    const others = clone
-      .filter(w => w.id !== moverId)
-      .sort((a, b) => a.row - b.row || a.col - b.col);
-
-    for (const other of others) {
-      if (rectsOverlap(mover, other)) {
-        const nextRow = mover.row + mover.rowSpan;
-        if (nextRow + other.rowSpan - 1 <= GRID_SIZE) {
-          other.row = nextRow;
-          queue.push(other.id);
-        } else {
-          const withoutOther = clone.filter(w => w.id !== other.id);
-          const free = findFirstAvailableSlot(withoutOther, other.colSpan, other.rowSpan);
-          other.col = free.col;
-          other.row = free.row;
-        }
-      }
+    for (const other of clone.filter(w => w.id !== moverId).sort((a, b) => a.row - b.row || a.col - b.col)) {
+      if (!rectsOverlap(mover, other)) continue;
+      const nextRow = mover.row + mover.rowSpan;
+      if (nextRow + other.rowSpan - 1 <= GRID_SIZE) { other.row = nextRow; queue.push(other.id); }
+      else Object.assign(other, findFirstAvailableSlot(clone.filter(w => w.id !== other.id), other.colSpan, other.rowSpan));
     }
   }
   return clone;
 }
 
 function normalizeOverviewWidgets(rawList, gridVersion = 21) {
-  if (!Array.isArray(rawList)) {
-    return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } }));
-  }
-
-  const isLegacyDefault =
-    rawList.length === 3 &&
-    rawList[0]?.id === 'hero' &&
-    rawList[1]?.id === 'profile' &&
-    rawList[2]?.id === 'play' &&
-    gridVersion !== 21;
-
-  if (isLegacyDefault) {
-    return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } }));
-  }
+  const def = () => DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } }));
+  if (!Array.isArray(rawList)) return def();
+  if (rawList.length === 3 && rawList[0]?.id === 'hero' && rawList[1]?.id === 'profile' && rawList[2]?.id === 'play' && gridVersion !== 21) return def();
 
   const seen = new Set();
   let placed = [];
-
   for (const raw of rawList) {
-    if (!raw || !raw.id || seen.has(raw.id)) continue;
+    if (!raw?.id || seen.has(raw.id)) continue;
     seen.add(raw.id);
-    const meta = WIDGET_BOUNDS[raw.id] || {
-      defaultColSpan: 6,
-      defaultRowSpan: 4,
-      minColSpan: 2,
-      maxColSpan: 21,
-      minRowSpan: 1,
-      maxRowSpan: 14
-    };
-
+    const meta = WIDGET_BOUNDS[raw.id] || { defaultColSpan: 6, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 14 };
     const borderRadius = clampInt(Number.isFinite(raw.borderRadius) ? raw.borderRadius : 12, 0, 28);
-    const defaultOpacity = raw.id === 'hero' ? 0.25 : (raw.id === 'play' ? 0.92 : 0.55);
-    const bgOpacity = clampFloat(Number.isFinite(raw.bgOpacity) ? raw.bgOpacity : defaultOpacity, 0, 1);
+    const bgOpacity = clampFloat(Number.isFinite(raw.bgOpacity) ? raw.bgOpacity : (raw.id === 'hero' ? 0.25 : raw.id === 'play' ? 0.92 : 0.55), 0, 1);
     const showBorder = typeof raw.showBorder === 'boolean' ? raw.showBorder : true;
-    const settings = (raw.settings && typeof raw.settings === 'object') ? { ...raw.settings } : {};
+    const settings = raw.settings && typeof raw.settings === 'object' ? { ...raw.settings } : {};
+    const full = [raw.col, raw.row, raw.colSpan, raw.rowSpan].every(Number.isFinite);
 
-    const hasFullCoords =
-      Number.isFinite(raw.col) &&
-      Number.isFinite(raw.row) &&
-      Number.isFinite(raw.colSpan) &&
-      Number.isFinite(raw.rowSpan);
-
-    if (hasFullCoords && gridVersion === 21) {
-      const colSpan = clampInt(raw.colSpan, meta.minColSpan, meta.maxColSpan);
-      const rowSpan = clampInt(raw.rowSpan, meta.minRowSpan, meta.maxRowSpan);
-      const col = clampInt(raw.col, 1, GRID_SIZE - colSpan + 1);
-      const row = clampInt(raw.row, 1, GRID_SIZE - rowSpan + 1);
-      placed.push({ id: raw.id, col, row, colSpan, rowSpan, borderRadius, bgOpacity, showBorder, settings });
-    } else if (hasFullCoords) {
-      const scaledColSpan = clampInt(Math.round((raw.colSpan * GRID_SIZE) / 12), meta.minColSpan, meta.maxColSpan);
-      const scaledRowSpan = clampInt(raw.rowSpan * 2, meta.minRowSpan, meta.maxRowSpan);
-      const scaledCol = clampInt(Math.round(((raw.col - 1) * GRID_SIZE) / 12) + 1, 1, GRID_SIZE - scaledColSpan + 1);
-      const scaledRow = clampInt((raw.row - 1) * 2 + 1, 1, GRID_SIZE - scaledRowSpan + 1);
-      placed.push({ id: raw.id, col: scaledCol, row: scaledRow, colSpan: scaledColSpan, rowSpan: scaledRowSpan, borderRadius, bgOpacity, showBorder, settings });
+    let colSpan = meta.defaultColSpan, rowSpan = meta.defaultRowSpan, col, row;
+    if (full && gridVersion === 21) {
+      colSpan = clampInt(raw.colSpan, meta.minColSpan, meta.maxColSpan);
+      rowSpan = clampInt(raw.rowSpan, meta.minRowSpan, meta.maxRowSpan);
+      col = clampInt(raw.col, 1, GRID_SIZE - colSpan + 1);
+      row = clampInt(raw.row, 1, GRID_SIZE - rowSpan + 1);
+    } else if (full) {
+      colSpan = clampInt(Math.round((raw.colSpan * GRID_SIZE) / 12), meta.minColSpan, meta.maxColSpan);
+      rowSpan = clampInt(raw.rowSpan * 2, meta.minRowSpan, meta.maxRowSpan);
+      col = clampInt(Math.round(((raw.col - 1) * GRID_SIZE) / 12) + 1, 1, GRID_SIZE - colSpan + 1);
+      row = clampInt((raw.row - 1) * 2 + 1, 1, GRID_SIZE - rowSpan + 1);
     } else {
-      const colSpan = meta.defaultColSpan;
-      const rowSpan = meta.defaultRowSpan;
-      const spot = findFirstAvailableSlot(placed, colSpan, rowSpan);
-      placed.push({ id: raw.id, col: spot.col, row: spot.row, colSpan, rowSpan, borderRadius, bgOpacity, showBorder, settings });
+      ({ col, row } = findFirstAvailableSlot(placed, colSpan, rowSpan));
     }
+    placed.push({ id: raw.id, col, row, colSpan, rowSpan, borderRadius, bgOpacity, showBorder, settings });
   }
-
-  for (let i = 0; i < placed.length; i++) {
-    placed = resolveCollisionsPushDown(placed, placed[i].id);
-  }
+  for (const w of placed) placed = resolveCollisionsPushDown(placed, w.id);
   return placed;
 }
 
-// CurseForge modLoaderType mappings
-const CF_LOADER_MAP = {
-  'any': 0,
-  'forge': 1,
-  'cauldron': 2,
-  'liteloader': 3,
-  'fabric': 4,
-  'quilt': 5,
-  'neoforge': 6
-};
-
-// Circular Ring Buffer for Console Output
-const LOG_BUFFER_MAX = 5000;
-const gameLogs = [];
-
+const LOG_BUFFER_MAX = 5000, gameLogs = [];
 function appendLog(line, stream = 'stdout') {
-  const entry = {
-    time: new Date().toLocaleTimeString(),
-    stream,
-    text: String(line).trimEnd()
-  };
+  const entry = { time: new Date().toLocaleTimeString(), stream, text: String(line).trimEnd() };
   gameLogs.push(entry);
   if (gameLogs.length > LOG_BUFFER_MAX) gameLogs.shift();
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('game-log-stream', entry);
-  }
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('game-log-stream', entry);
 }
 
-// -------------------------------------------------------------
-// PROCESS TERMINATION & TASK MANAGER CLEANUP
-// -------------------------------------------------------------
 function killActiveGameProcessSync() {
-  if (activeGameProcess && activeGameProcess.pid) {
-    const pid = activeGameProcess.pid;
-    try {
-      if (process.platform === 'win32') {
-        execSync(`taskkill /pid ${pid} /T /F`);
-      } else {
-        activeGameProcess.kill('SIGKILL');
-      }
-    } catch (e) {}
-    activeGameProcess = null;
-    isLaunchingGame = false;
-  }
+  if (!activeGameProcess?.pid) return;
+  try {
+    if (process.platform === 'win32') execSync(`taskkill /pid ${activeGameProcess.pid} /T /F`);
+    else activeGameProcess.kill('SIGKILL');
+  } catch (e) {}
+  activeGameProcess = null;
+  isLaunchingGame = false;
+}
+
+function flushConfigToDisk() {
+  if (configWriteTimer) { clearTimeout(configWriteTimer); configWriteTimer = null; }
+  if (!configCache) return;
+  try { safeMkdirSync(APP_DIR); fs.writeFileSync(CONFIG_FILE, JSON.stringify(configCache, null, 2)); } catch (e) {}
 }
 
 function forceCleanExit() {
+  flushConfigToDisk();
   killActiveGameProcessSync();
   app.exit(0);
 }
 
-// -------------------------------------------------------------
-// MANAGED RUNTIME CATALOG
-// -------------------------------------------------------------
-const MANAGED_JDKS = {
-  '8': {
-    name: 'OpenJDK 8 (Win64 via ARM64)',
-    url: 'https://api.adoptium.net/v3/binary/latest/8/ga/windows/x64/jdk/hotspot/normal/eclipse',
-    dirName: 'java-8-arm64',
-    version: '8',
-    major: 8,
-    desc: 'Legacy Minecraft (< 1.17)'
-  },
-  '17': {
-    name: 'Microsoft OpenJDK 17 (ARM64)',
-    url: 'https://aka.ms/download-jdk/microsoft-jdk-17-windows-aarch64.zip',
-    dirName: 'java-17-arm64',
-    version: '17',
-    major: 17,
-    desc: 'Modern Minecraft (1.17 – 1.20.4)'
-  },
-  '21': {
-    name: 'Microsoft OpenJDK 21 (ARM64)',
-    url: 'https://aka.ms/download-jdk/microsoft-jdk-21-windows-aarch64.zip',
-    dirName: 'java-21-arm64',
-    version: '21',
-    major: 21,
-    desc: 'Current Minecraft (1.20.5 – 1.21.x)'
-  },
-  '25': {
-    name: 'Microsoft OpenJDK 25 (ARM64)',
-    url: 'https://aka.ms/download-jdk/microsoft-jdk-25-windows-aarch64.zip',
-    dirName: 'java-25-arm64',
-    version: '25',
-    major: 25,
-    desc: 'Latest Minecraft (26.x+ / Next-Gen)'
-  }
-};
-
-// -------------------------------------------------------------
-// JUNCTION-SAFE DIRECTORY RESOLVER & COPIER
-// -------------------------------------------------------------
 function safeMkdirSync(targetPath) {
   if (!targetPath) return;
   try {
-    let lstat = null;
-    try {
-      lstat = fs.lstatSync(targetPath);
-    } catch (e) {}
-
+    const lstat = fs.existsSync(targetPath) ? fs.lstatSync(targetPath) : null;
     if (lstat) {
       if (lstat.isDirectory()) return;
       if (lstat.isSymbolicLink()) {
-        try {
-          if (fs.statSync(targetPath).isDirectory()) return;
-        } catch (symErr) {
-          try { fs.unlinkSync(targetPath); } catch (e) {}
-        }
-      } else {
-        try { fs.unlinkSync(targetPath); } catch (e) {}
+        try { if (fs.statSync(targetPath).isDirectory()) return; } catch (e) {}
       }
+      try { fs.unlinkSync(targetPath); } catch (e) {}
     }
     fs.mkdirSync(targetPath, { recursive: true });
   } catch (err) {
-    if (err.code === 'EEXIST' || (err.message && err.message.includes('EEXIST'))) {
-      try { if (fs.existsSync(targetPath)) return; } catch (e) {}
-    }
-    try {
-      fs.mkdirSync(path.resolve(targetPath), { recursive: true });
-    } catch (finalErr) {}
+    try { fs.mkdirSync(path.resolve(targetPath), { recursive: true }); } catch (e) {}
   }
 }
 
 function ensureProfileSubdirs(profPath) {
   if (!profPath) return;
   safeMkdirSync(profPath);
-  ['mods', 'resourcepacks', 'shaderpacks', 'saves', 'screenshots', 'config'].forEach(sub => {
-    safeMkdirSync(path.join(profPath, sub));
-  });
+  ['mods', 'resourcepacks', 'shaderpacks', 'saves', 'screenshots', 'config'].forEach(s => safeMkdirSync(path.join(profPath, s)));
 }
 
 function copyFolderRecursiveSync(src, dest) {
   try {
-    let lstat = null;
-    try { lstat = fs.lstatSync(src); } catch (e) { return; }
-    if (!lstat) return;
-
+    if (!fs.existsSync(src)) return;
     safeMkdirSync(dest);
-
-    let entries = [];
-    try { entries = fs.readdirSync(src); } catch (e) { return; }
-
-    for (const item of entries) {
-      const srcItem = path.join(src, item);
-      const destItem = path.join(dest, item);
-
+    for (const item of fs.readdirSync(src)) {
+      const s = path.join(src, item), d = path.join(dest, item);
       try {
-        const itemLstat = fs.lstatSync(srcItem);
-        if (itemLstat.isSymbolicLink()) {
-          try {
-            const targetStat = fs.statSync(srcItem);
-            if (targetStat.isDirectory()) {
-              copyFolderRecursiveSync(srcItem, destItem);
-            } else {
-              fs.copyFileSync(srcItem, destItem);
-            }
-          } catch (symErr) {
-            continue;
-          }
-        } else if (itemLstat.isDirectory()) {
-          copyFolderRecursiveSync(srcItem, destItem);
-        } else {
-          try { fs.copyFileSync(srcItem, destItem); } catch (e) {}
-        }
-      } catch (itemErr) {}
-    }
-  } catch (err) {}
-}
-
-function initDirectories() {
-  safeMkdirSync(APP_DIR);
-  safeMkdirSync(RUNTIMES_DIR);
-  safeMkdirSync(PROFILES_DIR);
-  safeMkdirSync(EXTENSIONS_USER_DIR);
-}
-
-// -------------------------------------------------------------
-// PURE NODE.JS ZIP READER & DLL EXTRACTOR (ZERO POWERSHELL)
-// -------------------------------------------------------------
-function readZipEntries(zipFilePath) {
-  let buf;
-  try {
-    buf = fs.readFileSync(zipFilePath);
-  } catch (e) {
-    return [];
-  }
-
-  let eocdOffset = -1;
-  const maxSearch = Math.max(0, buf.length - 65557);
-  for (let i = buf.length - 22; i >= maxSearch; i--) {
-    if (buf.readUInt32LE(i) === 0x06054b50) {
-      eocdOffset = i;
-      break;
-    }
-  }
-  if (eocdOffset === -1) return [];
-
-  const totalEntries = buf.readUInt16LE(eocdOffset + 10);
-  const cdOffset = buf.readUInt32LE(eocdOffset + 16);
-
-  const entries = [];
-  let cur = cdOffset;
-  for (let i = 0; i < totalEntries && cur < eocdOffset; i++) {
-    if (buf.readUInt32LE(cur) !== 0x02014b50) break;
-
-    const method = buf.readUInt16LE(cur + 10);
-    const compSize = buf.readUInt32LE(cur + 20);
-    const nameLen = buf.readUInt16LE(cur + 28);
-    const extraLen = buf.readUInt16LE(cur + 30);
-    const commentLen = buf.readUInt16LE(cur + 32);
-    const localHeaderOffset = buf.readUInt32LE(cur + 42);
-
-    const fileName = buf.toString('utf8', cur + 46, cur + 46 + nameLen);
-    cur += 46 + nameLen + extraLen + commentLen;
-
-    const isDir = fileName.endsWith('/');
-    entries.push({
-      fileName,
-      isDir,
-      getBuffer: () => {
-        if (isDir || localHeaderOffset + 30 > buf.length) return null;
-        const localNameLen = buf.readUInt16LE(localHeaderOffset + 26);
-        const localExtraLen = buf.readUInt16LE(localHeaderOffset + 28);
-        const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
-        const compressedData = buf.subarray(dataStart, dataStart + compSize);
-        if (method === 0) return compressedData;
-        if (method === 8) {
-          try { return zlib.inflateRawSync(compressedData); } catch (e) { return null; }
-        }
-        return null;
-      }
-    });
-  }
-  return entries;
-}
-
-function extractDllsFromZip(zipFilePath, destDir) {
-  safeMkdirSync(destDir);
-  const entries = readZipEntries(zipFilePath);
-  for (const entry of entries) {
-    if (entry.isDir) continue;
-    const lowerName = entry.fileName.toLowerCase();
-    if (!lowerName.endsWith('.dll')) continue;
-    const data = entry.getBuffer();
-    if (!data) continue;
-    const outPath = path.join(destDir, path.basename(entry.fileName));
-    try { fs.writeFileSync(outPath, data); } catch (e) {}
-  }
-}
-
-// -------------------------------------------------------------
-// SNAPDRAGON X HIGH-PERFORMANCE GPU PROFILER
-// -------------------------------------------------------------
-function setHighPerformanceGpu(javaPath) {
-  if (!javaPath || process.platform !== 'win32') return;
-  try {
-    const javaw = javaPath.replace(/java\.exe$/i, 'javaw.exe');
-    exec(`reg add "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences" /v "${javaPath}" /t REG_SZ /d "GpuPreference=2;" /f`, () => {});
-    if (fs.existsSync(javaw)) {
-      exec(`reg add "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences" /v "${javaw}" /t REG_SZ /d "GpuPreference=2;" /f`, () => {});
+        const ls = fs.lstatSync(s);
+        const isDir = ls.isSymbolicLink() ? fs.statSync(s).isDirectory() : ls.isDirectory();
+        if (isDir) copyFolderRecursiveSync(s, d);
+        else fs.copyFileSync(s, d);
+      } catch (e) {}
     }
   } catch (e) {}
 }
 
-// -------------------------------------------------------------
-// CONFIGURATION PIPELINE (WITH IN-MEMORY CACHE)
-// -------------------------------------------------------------
-let configCache = null;
+async function runPool(items, concurrency, worker) {
+  let idx = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, Math.max(1, items.length)) }, async () => {
+    while (idx < items.length) await worker(items[idx], idx++);
+  }));
+}
+
+// FD-based ZIP reader (reads EOCD + Central Directory only, inflates entries on demand)
+function readZipEntries(zipFilePath) {
+  let fd;
+  try {
+    fd = fs.openSync(zipFilePath, 'r');
+    const size = fs.fstatSync(fd).size;
+    const tailLen = Math.min(size, 65557);
+    const tail = Buffer.allocUnsafe(tailLen);
+    fs.readSync(fd, tail, 0, tailLen, size - tailLen);
+
+    let eocdInTail = -1;
+    for (let i = tailLen - 22; i >= 0; i--) {
+      if (tail.readUInt32LE(i) === 0x06054b50) { eocdInTail = i; break; }
+    }
+    if (eocdInTail === -1) return [];
+
+    const total = tail.readUInt16LE(eocdInTail + 10);
+    const cdSize = tail.readUInt32LE(eocdInTail + 12);
+    const cdOffset = tail.readUInt32LE(eocdInTail + 16);
+    const cdBuf = Buffer.allocUnsafe(cdSize);
+    fs.readSync(fd, cdBuf, 0, cdSize, cdOffset);
+
+    const entries = [];
+    for (let i = 0, cur = 0; i < total && cur + 46 <= cdBuf.length; i++) {
+      if (cdBuf.readUInt32LE(cur) !== 0x02014b50) break;
+      const method = cdBuf.readUInt16LE(cur + 10);
+      const compSize = cdBuf.readUInt32LE(cur + 20);
+      const nameLen = cdBuf.readUInt16LE(cur + 28);
+      const extraLen = cdBuf.readUInt16LE(cur + 30);
+      const commentLen = cdBuf.readUInt16LE(cur + 32);
+      const localOffset = cdBuf.readUInt32LE(cur + 42);
+      const fileName = cdBuf.toString('utf8', cur + 46, cur + 46 + nameLen);
+      cur += 46 + nameLen + extraLen + commentLen;
+      const isDir = fileName.endsWith('/');
+
+      entries.push({
+        fileName, isDir,
+        getBuffer: () => {
+          if (isDir) return null;
+          let efd;
+          try {
+            efd = fs.openSync(zipFilePath, 'r');
+            const lh = Buffer.allocUnsafe(30);
+            fs.readSync(efd, lh, 0, 30, localOffset);
+            const dataStart = localOffset + 30 + lh.readUInt16LE(26) + lh.readUInt16LE(28);
+            const raw = Buffer.allocUnsafe(compSize);
+            fs.readSync(efd, raw, 0, compSize, dataStart);
+            if (method === 0) return raw;
+            if (method === 8) return zlib.inflateRawSync(raw);
+            return null;
+          } catch (e) { return null; }
+          finally { if (efd !== undefined) try { fs.closeSync(efd); } catch (e) {} }
+        }
+      });
+    }
+    return entries;
+  } catch (e) { return []; }
+  finally { if (fd !== undefined) try { fs.closeSync(fd); } catch (e) {} }
+}
+
+function extractDllsFromZip(zipFilePath, destDir) {
+  safeMkdirSync(destDir);
+  let stat;
+  try { stat = fs.statSync(zipFilePath); } catch (e) { return; }
+  const stampFile = path.join(destDir, '.natives-stamp.json');
+  let stamps = {};
+  try { stamps = JSON.parse(fs.readFileSync(stampFile, 'utf8')); } catch (e) {}
+  const key = path.basename(zipFilePath), sig = `${stat.size}:${Math.trunc(stat.mtimeMs)}`;
+  if (stamps[key] === sig) return;
+
+  for (const entry of readZipEntries(zipFilePath)) {
+    if (entry.isDir || !entry.fileName.toLowerCase().endsWith('.dll')) continue;
+    const data = entry.getBuffer();
+    if (data) try { fs.writeFileSync(path.join(destDir, path.basename(entry.fileName)), data); } catch (e) {}
+  }
+  stamps[key] = sig;
+  try { fs.writeFileSync(stampFile, JSON.stringify(stamps)); } catch (e) {}
+}
+
+function setHighPerformanceGpu(javaPath) {
+  if (!javaPath || process.platform !== 'win32') return;
+  const targets = [javaPath, javaPath.replace(/java\.exe$/i, 'javaw.exe')];
+  for (const p of new Set(targets)) {
+    if (p === javaPath || fs.existsSync(p)) {
+      exec(`reg add "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences" /v "${p}" /t REG_SZ /d "GpuPreference=2;" /f`, () => {});
+    }
+  }
+}
 
 function normalizeConfig(cfg) {
   if (!cfg) {
     cfg = {
-      accounts: [],
-      activeAccount: null,
-      offlineUsername: 'Player',
-      selectedVersion: '1.20.4',
-      bgPreset: 'waves',
-      bgScreenshot: { path: '', blur: 6, dim: 0.55 },
-      colorPanel: 'standard',
-      animSpeed: 1,
-      minRam: 2048,
-      maxRam: 4096,
-      customJavaPath: '',
-      globalJavaRuntime: 'auto',
-      envVars: '',
-      closeOnLaunch: false,
-      jvmArgs: DEFAULT_ORYON_JVM,
-      profiles: [],
-      activeProfileId: 'default',
-      overviewGridVersion: 21,
-      overviewWidgets: DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } })),
-      extensions: {}
+      accounts: [], activeAccount: null, offlineUsername: 'Player', selectedVersion: '1.20.4',
+      bgPreset: 'waves', bgScreenshot: { path: '', blur: 6, dim: 0.55 }, colorPanel: 'standard', animSpeed: 1,
+      minRam: 2048, maxRam: 4096, customJavaPath: '', globalJavaRuntime: 'auto', envVars: '', closeOnLaunch: false,
+      jvmArgs: DEFAULT_ORYON_JVM, profiles: [], activeProfileId: 'default', overviewGridVersion: 21,
+      overviewWidgets: DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w, settings: { ...(w.settings || {}) } })), extensions: {}
     };
   }
-
   if (Array.isArray(cfg.instances) && !Array.isArray(cfg.profiles)) {
-    cfg.profiles = cfg.instances.map(inst => ({
-      ...inst,
-      path: inst.id === 'default' ? MINECRAFT_DIR : path.join(PROFILES_DIR, inst.id)
-    }));
+    cfg.profiles = cfg.instances.map(i => ({ ...i, path: i.id === 'default' ? MINECRAFT_DIR : path.join(PROFILES_DIR, i.id) }));
     cfg.activeProfileId = cfg.activeInstanceId || 'default';
-    delete cfg.instances;
-    delete cfg.activeInstanceId;
+    delete cfg.instances; delete cfg.activeInstanceId;
   }
-
   if (!Array.isArray(cfg.profiles) || !cfg.profiles.length) {
-    cfg.profiles = [{
-      id: 'default',
-      name: 'Default Profile (.minecraft)',
-      path: MINECRAFT_DIR,
-      version: '1.20.4',
-      loader: 'vanilla',
-      loaderVersion: '',
-      javaRuntime: 'auto',
-      minRam: 2048,
-      maxRam: 4096,
-      jvmArgs: DEFAULT_ORYON_JVM,
-      customJavaPath: '',
-      envVars: ''
-    }];
+    cfg.profiles = [{ id: 'default', name: 'Default Profile (.minecraft)', path: MINECRAFT_DIR, version: '1.20.4', loader: 'vanilla', loaderVersion: '', javaRuntime: 'auto', minRam: 2048, maxRam: 4096, jvmArgs: DEFAULT_ORYON_JVM, customJavaPath: '', envVars: '' }];
     cfg.activeProfileId = 'default';
   }
-
   if (!cfg.colorPanel) cfg.colorPanel = 'standard';
   if (!Number.isFinite(cfg.animSpeed)) cfg.animSpeed = 1;
-  if (!cfg.bgScreenshot || typeof cfg.bgScreenshot !== 'object') {
-    cfg.bgScreenshot = { path: '', blur: 6, dim: 0.55 };
-  }
-  if (!cfg.extensions || typeof cfg.extensions !== 'object') {
-    cfg.extensions = {};
-  }
-
+  if (!cfg.bgScreenshot || typeof cfg.bgScreenshot !== 'object') cfg.bgScreenshot = { path: '', blur: 6, dim: 0.55 };
+  if (!cfg.extensions || typeof cfg.extensions !== 'object') cfg.extensions = {};
   cfg.overviewWidgets = normalizeOverviewWidgets(cfg.overviewWidgets, cfg.overviewGridVersion);
   cfg.overviewGridVersion = 21;
-
   return cfg;
 }
 
 function loadConfig() {
   if (configCache) return configCache;
-
   safeMkdirSync(APP_DIR);
   let cfg = null;
-  if (fs.existsSync(CONFIG_FILE)) {
-    try {
-      cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-    } catch (e) {}
-  }
-
+  if (fs.existsSync(CONFIG_FILE)) try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8')); } catch (e) {}
   cfg = normalizeConfig(cfg);
-  for (const prof of cfg.profiles) {
-    if (prof.path && prof.id !== 'default') {
-      ensureProfileSubdirs(prof.path);
-    }
-  }
-
-  configCache = cfg;
-  return cfg;
+  for (const prof of cfg.profiles) if (prof.path && prof.id !== 'default') ensureProfileSubdirs(prof.path);
+  return (configCache = cfg);
 }
 
 function saveConfig(cfg) {
-  safeMkdirSync(APP_DIR);
-  const normalized = normalizeConfig(cfg);
-  configCache = normalized;
-  try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(normalized, null, 2));
-  } catch (e) {}
+  configCache = normalizeConfig(cfg);
+  if (configWriteTimer) clearTimeout(configWriteTimer);
+  configWriteTimer = setTimeout(flushConfigToDisk, 120);
 }
 
 function getActiveProfile(cfg) {
   const id = cfg.activeProfileId || 'default';
-  let prof = (cfg.profiles || []).find(p => p.id === id);
-  if (!prof) {
-    prof = (cfg.profiles && cfg.profiles[0]) || {
-      id: 'default',
-      name: 'Default Profile (.minecraft)',
-      path: MINECRAFT_DIR,
-      version: cfg.selectedVersion || '1.20.4',
-      loader: 'vanilla',
-      loaderVersion: '',
-      javaRuntime: 'auto',
-      minRam: 2048,
-      maxRam: 4096,
-      jvmArgs: DEFAULT_ORYON_JVM,
-      customJavaPath: '',
-      envVars: ''
-    };
-  }
-  return prof;
+  return (cfg.profiles || []).find(p => p.id === id) || cfg.profiles?.[0] || {
+    id: 'default', name: 'Default Profile (.minecraft)', path: MINECRAFT_DIR, version: cfg.selectedVersion || '1.20.4',
+    loader: 'vanilla', loaderVersion: '', javaRuntime: 'auto', minRam: 2048, maxRam: 4096, jvmArgs: DEFAULT_ORYON_JVM, customJavaPath: '', envVars: ''
+  };
 }
 
 function getActiveProfileDir(cfg) {
@@ -607,884 +351,484 @@ function getActiveProfileDir(cfg) {
 }
 
 // -------------------------------------------------------------
-// PHASE B ONE-TIME EXTENSION LOADER HOOK
+// UNIFIED HTTP CLIENT & DOWNLOAD PIPELINE
+// -------------------------------------------------------------
+function httpReq(url, { method = 'GET', headers = {}, body = null, raw = false, timeout = 15000, maxRedirects = 8 } = {}) {
+  return new Promise((resolve, reject) => {
+    const go = (targetUrl, depth) => {
+      if (depth > maxRedirects) return reject(new Error('Too many redirects'));
+      let u;
+      try { u = new URL(targetUrl); } catch (e) { return reject(e); }
+      const client = u.protocol === 'http:' ? http : https;
+      const reqHeaders = { 'User-Agent': 'Aetheria-ARM64-Launcher/1.0', ...headers };
+      let payload = body;
+      if (payload != null && typeof payload !== 'string' && !Buffer.isBuffer(payload)) {
+        payload = JSON.stringify(payload);
+        if (!reqHeaders['Content-Type']) reqHeaders['Content-Type'] = 'application/json';
+      } else if (typeof payload === 'string' && !reqHeaders['Content-Type']) {
+        reqHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+      }
+      if (payload != null) reqHeaders['Content-Length'] = Buffer.byteLength(payload);
+
+      const req = client.request(targetUrl, { method, headers: reqHeaders, timeout }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume();
+          return go(new URL(res.headers.location, targetUrl).toString(), depth + 1);
+        }
+        if (method === 'HEAD') {
+          res.resume();
+          return resolve({ statusCode: res.statusCode });
+        }
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            return reject(Object.assign(new Error(`HTTP ${res.statusCode}`), { statusCode: res.statusCode, body: buf.toString('utf8') }));
+          }
+          resolve(raw ? buf : buf.toString('utf8'));
+        });
+      });
+      req.on('timeout', () => req.destroy(new Error('Request timeout')));
+      req.on('error', reject);
+      if (payload != null) req.write(payload);
+      req.end();
+    };
+    go(url, 0);
+  });
+}
+
+const httpGetText = (url, extraHeaders = {}, maxRedirects = 8) =>
+  httpReq(url, { headers: { Accept: 'application/json, text/html, */*', ...extraHeaders }, maxRedirects });
+
+async function httpGet(url, token = null) {
+  const txt = await httpReq(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  try { return JSON.parse(txt); } catch (e) { return txt; }
+}
+
+async function httpPost(url, data, headers = {}) {
+  const txt = await httpReq(url, { method: 'POST', body: data, headers });
+  try { return JSON.parse(txt); } catch (e) { return txt; }
+}
+
+async function checkUrlReachable(url) {
+  try {
+    const res = await httpReq(url, { method: 'HEAD', timeout: 10000 });
+    return res.statusCode === 405 || (res.statusCode >= 200 && res.statusCode < 300);
+  } catch (e) { return false; }
+}
+
+function downloadFile(url, dest, onProgress = null, maxRedirects = 8) {
+  return new Promise((resolve, reject) => {
+    safeMkdirSync(path.dirname(dest));
+    const get = (targetUrl, depth) => {
+      if (depth > maxRedirects) return reject(new Error(`Too many redirects for ${url}`));
+      let u;
+      try { u = new URL(targetUrl); } catch (e) { return reject(e); }
+      const req = (u.protocol === 'https:' ? https : http).get(targetUrl, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher/1.0' }, timeout: 30000 }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume();
+          return get(new URL(res.headers.location, targetUrl).toString(), depth + 1);
+        }
+        if (res.statusCode !== 200) { res.resume(); return reject(new Error(`HTTP ${res.statusCode} from ${targetUrl}`)); }
+        const total = parseInt(res.headers['content-length'] || '0', 10);
+        let cur = 0;
+        const ws = fs.createWriteStream(dest);
+        if (onProgress && total) res.on('data', c => { cur += c.length; onProgress(cur / total); });
+        res.pipe(ws);
+        ws.on('finish', () => ws.close(() => resolve(dest)));
+        ws.on('error', (err) => { try { fs.unlinkSync(dest); } catch (e) {} reject(err); });
+      });
+      req.on('timeout', () => req.destroy(new Error(`Download timeout: ${targetUrl}`)));
+      req.on('error', (err) => { try { fs.unlinkSync(dest); } catch (e) {} reject(err); });
+    };
+    get(url, 0);
+  });
+}
+
+function extractMcVersion(str) {
+  if (!str) return '1.20.4';
+  const m = str.match(/(?:fabric-loader-[^-]+-|neoforge-|forge-)?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/);
+  return m ? m[1] : str;
+}
+
+function mavenToPath(coord) {
+  const [base, ext = 'jar'] = coord.split('@');
+  const [g, a, v, cls] = base.split(':');
+  return `${g.replace(/\./g, '/')}/${a}/${v}/${a}-${v}${cls ? '-' + cls : ''}.${ext}`;
+}
+
+// -------------------------------------------------------------
+// PHASE B EXTENSION LOADER
 // -------------------------------------------------------------
 const extensionRegistry = {
-  loaded: [],
-  tabs: [],
-  widgets: [],
-  beforeLaunchHooks: [],
-  gameExitHooks: [],
-  registeredHandleChannels: new Set(),
-  registeredOnChannels: new Set()
+  loaded: [], tabs: [], widgets: [], beforeLaunchHooks: [], gameExitHooks: [],
+  registeredHandleChannels: new Set(), registeredOnChannels: new Set()
 };
 
 function resolveExtensionSafePath(baseDir, relPath) {
   if (!relPath || typeof relPath !== 'string') return null;
   const target = path.resolve(baseDir, relPath);
-  if (!target.startsWith(path.resolve(baseDir))) return null;
-  return target;
+  return target.startsWith(path.resolve(baseDir)) ? target : null;
 }
 
 function discoverExtensionEntries() {
-  const foundById = new Map();
-  const dirsToScan = [
-    { dir: EXTENSIONS_BUNDLED_DIR, source: 'bundled' },
-    { dir: EXTENSIONS_USER_DIR, source: 'user' }
-  ];
-
-  for (const { dir, source } of dirsToScan) {
+  const found = new Map();
+  for (const [dir, source] of [[EXTENSIONS_BUNDLED_DIR, 'bundled'], [EXTENSIONS_USER_DIR, 'user']]) {
     if (!fs.existsSync(dir)) continue;
     let items = [];
-    try {
-      items = fs.readdirSync(dir, { withFileTypes: true });
-    } catch (e) { continue; }
-
+    try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { continue; }
     for (const entry of items) {
       if (entry.name.startsWith('.') || entry.name.startsWith('_')) continue;
-      const fullPath = path.join(dir, entry.name);
-
+      const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        const manifestPath = fs.existsSync(path.join(fullPath, 'extension.json'))
-          ? path.join(fullPath, 'extension.json')
-          : (fs.existsSync(path.join(fullPath, 'manifest.json')) ? path.join(fullPath, 'manifest.json') : null);
-
+        const mf = ['extension.json', 'manifest.json'].map(n => path.join(full, n)).find(p => fs.existsSync(p));
         let manifest = { id: entry.name, name: entry.name, version: '1.0.0', main: 'index.js' };
-        if (manifestPath) {
-          try {
-            const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-            manifest = { ...manifest, ...parsed, id: parsed.id || entry.name };
-          } catch (err) {
-            appendLog(`[Extensions] Invalid manifest in ${fullPath}: ${err.message}`, 'stderr');
-            continue;
-          }
+        if (mf) {
+          try { const p = JSON.parse(fs.readFileSync(mf, 'utf-8')); manifest = { ...manifest, ...p, id: p.id || entry.name }; }
+          catch (err) { appendLog(`[Extensions] Invalid manifest in ${full}: ${err.message}`, 'stderr'); continue; }
         }
-
-        const mainFile = resolveExtensionSafePath(fullPath, manifest.main || 'index.js');
-        if (mainFile && fs.existsSync(mainFile)) {
-          foundById.set(manifest.id, {
-            ...manifest,
-            dir: fullPath,
-            mainFile,
-            source
-          });
-        }
+        const mainFile = resolveExtensionSafePath(full, manifest.main || 'index.js');
+        if (mainFile && fs.existsSync(mainFile)) found.set(manifest.id, { ...manifest, dir: full, mainFile, source });
       } else if (entry.isFile() && entry.name.endsWith('.js')) {
-        const extId = entry.name.replace(/\.js$/i, '');
-        foundById.set(extId, {
-          id: extId,
-          name: extId,
-          version: '1.0.0',
-          dir,
-          mainFile: fullPath,
-          source
-        });
+        const id = entry.name.replace(/\.js$/i, '');
+        found.set(id, { id, name: id, version: '1.0.0', dir, mainFile: full, source });
       }
     }
   }
-
-  return Array.from(foundById.values());
+  return Array.from(found.values());
 }
 
 function createExtensionApi(extMeta) {
+  const readRel = (rel) => {
+    const p = resolveExtensionSafePath(extMeta.dir, rel);
+    return p && fs.existsSync(p) ? fs.readFileSync(p, 'utf-8') : '';
+  };
   return {
     extensionId: extMeta.id,
     extensionDir: extMeta.dir,
-    paths: {
-      appDir: APP_DIR,
-      extensionsUserDir: EXTENSIONS_USER_DIR,
-      extensionsBundledDir: EXTENSIONS_BUNDLED_DIR,
-      minecraftDir: MINECRAFT_DIR,
-      profilesDir: PROFILES_DIR,
-      runtimesDir: RUNTIMES_DIR
-    },
+    paths: { appDir: APP_DIR, extensionsUserDir: EXTENSIONS_USER_DIR, extensionsBundledDir: EXTENSIONS_BUNDLED_DIR, minecraftDir: MINECRAFT_DIR, profilesDir: PROFILES_DIR, runtimesDir: RUNTIMES_DIR },
     getConfig: () => loadConfig(),
     saveConfig: (cfg) => saveConfig(cfg),
     getActiveProfile: () => getActiveProfile(loadConfig()),
     getActiveProfileDir: () => getActiveProfileDir(loadConfig()),
     getMainWindow: () => mainWindow,
-    sendToRenderer: (channel, payload) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(channel, payload);
-      }
-    },
+    sendToRenderer: (ch, payload) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(ch, payload); },
     appendLog: (msg, stream = 'stdout') => appendLog(`[Ext:${extMeta.id}] ${msg}`, stream),
-    registerIpc: (channel, handler) => {
-      if (!channel || typeof handler !== 'function') return;
-      if (extensionRegistry.registeredHandleChannels.has(channel)) {
-        try { ipcMain.removeHandler(channel); } catch (e) {}
-      }
-      extensionRegistry.registeredHandleChannels.add(channel);
-      ipcMain.handle(channel, handler);
+    registerIpc: (ch, handler) => {
+      if (!ch || typeof handler !== 'function') return;
+      if (extensionRegistry.registeredHandleChannels.has(ch)) try { ipcMain.removeHandler(ch); } catch (e) {}
+      extensionRegistry.registeredHandleChannels.add(ch);
+      ipcMain.handle(ch, handler);
     },
-    registerIpcOn: (channel, listener) => {
-      if (!channel || typeof listener !== 'function') return;
-      if (extensionRegistry.registeredOnChannels.has(channel)) {
-        ipcMain.removeAllListeners(channel);
-      }
-      extensionRegistry.registeredOnChannels.add(channel);
-      ipcMain.on(channel, listener);
+    registerIpcOn: (ch, listener) => {
+      if (!ch || typeof listener !== 'function') return;
+      if (extensionRegistry.registeredOnChannels.has(ch)) ipcMain.removeAllListeners(ch);
+      extensionRegistry.registeredOnChannels.add(ch);
+      ipcMain.on(ch, listener);
     },
     registerTab: (tabDef) => {
-      if (!tabDef || !tabDef.id) return;
-      let htmlContent = tabDef.html || '';
-      let cssContent = tabDef.css || '';
-      let scriptCode = tabDef.script || '';
-
-      if (!htmlContent && tabDef.htmlFile) {
-        const p = resolveExtensionSafePath(extMeta.dir, tabDef.htmlFile);
-        if (p && fs.existsSync(p)) htmlContent = fs.readFileSync(p, 'utf-8');
-      }
-      if (!cssContent && tabDef.cssFile) {
-        const p = resolveExtensionSafePath(extMeta.dir, tabDef.cssFile);
-        if (p && fs.existsSync(p)) cssContent = fs.readFileSync(p, 'utf-8');
-      }
-      if (!scriptCode && tabDef.rendererFile) {
-        const p = resolveExtensionSafePath(extMeta.dir, tabDef.rendererFile);
-        if (p && fs.existsSync(p)) scriptCode = fs.readFileSync(p, 'utf-8');
-      }
-
-      const existingIdx = extensionRegistry.tabs.findIndex(t => t.id === tabDef.id);
-      const record = {
-        id: String(tabDef.id),
-        extensionId: extMeta.id,
-        label: tabDef.label || tabDef.id,
+      if (!tabDef?.id) return;
+      const rec = {
+        id: String(tabDef.id), extensionId: extMeta.id, label: tabDef.label || tabDef.id,
         order: Number.isFinite(tabDef.order) ? tabDef.order : 100,
-        html: htmlContent,
-        css: cssContent,
-        script: scriptCode
+        html: tabDef.html || readRel(tabDef.htmlFile),
+        css: tabDef.css || readRel(tabDef.cssFile),
+        script: tabDef.script || readRel(tabDef.rendererFile)
       };
-      if (existingIdx !== -1) extensionRegistry.tabs[existingIdx] = record;
-      else extensionRegistry.tabs.push(record);
+      const idx = extensionRegistry.tabs.findIndex(t => t.id === rec.id);
+      if (idx !== -1) extensionRegistry.tabs[idx] = rec; else extensionRegistry.tabs.push(rec);
     },
-    registerWidget: (widgetDef) => {
-      if (!widgetDef || !widgetDef.id) return;
-      const wId = String(widgetDef.id);
+    registerWidget: (w) => {
+      if (!w?.id) return;
+      const wId = String(w.id);
       const bounds = {
-        defaultColSpan: clampInt(widgetDef.defaultColSpan || 6, 2, GRID_SIZE),
-        defaultRowSpan: clampInt(widgetDef.defaultRowSpan || 4, 1, GRID_SIZE),
-        minColSpan: clampInt(widgetDef.minColSpan || 2, 1, GRID_SIZE),
-        maxColSpan: clampInt(widgetDef.maxColSpan || 21, 1, GRID_SIZE),
-        minRowSpan: clampInt(widgetDef.minRowSpan || 1, 1, GRID_SIZE),
-        maxRowSpan: clampInt(widgetDef.maxRowSpan || 16, 1, GRID_SIZE)
+        defaultColSpan: clampInt(w.defaultColSpan || 6, 2, GRID_SIZE), defaultRowSpan: clampInt(w.defaultRowSpan || 4, 1, GRID_SIZE),
+        minColSpan: clampInt(w.minColSpan || 2, 1, GRID_SIZE), maxColSpan: clampInt(w.maxColSpan || 21, 1, GRID_SIZE),
+        minRowSpan: clampInt(w.minRowSpan || 1, 1, GRID_SIZE), maxRowSpan: clampInt(w.maxRowSpan || 16, 1, GRID_SIZE)
       };
       WIDGET_BOUNDS[wId] = bounds;
-
-      let renderCode = widgetDef.renderJs || widgetDef.script || '';
-      if (!renderCode && widgetDef.renderFile) {
-        const p = resolveExtensionSafePath(extMeta.dir, widgetDef.renderFile);
-        if (p && fs.existsSync(p)) renderCode = fs.readFileSync(p, 'utf-8');
-      }
-
-      const record = {
-        id: wId,
-        extensionId: extMeta.id,
-        name: widgetDef.name || wId,
-        desc: widgetDef.desc || 'Extension Widget',
-        ...bounds,
-        renderJs: renderCode
-      };
-      const existingIdx = extensionRegistry.widgets.findIndex(w => w.id === wId);
-      if (existingIdx !== -1) extensionRegistry.widgets[existingIdx] = record;
-      else extensionRegistry.widgets.push(record);
+      const rec = { id: wId, extensionId: extMeta.id, name: w.name || wId, desc: w.desc || 'Extension Widget', ...bounds, renderJs: w.renderJs || w.script || readRel(w.renderFile) };
+      const idx = extensionRegistry.widgets.findIndex(x => x.id === wId);
+      if (idx !== -1) extensionRegistry.widgets[idx] = rec; else extensionRegistry.widgets.push(rec);
     },
-    onBeforeLaunch: (fn) => {
-      if (typeof fn === 'function') {
-        extensionRegistry.beforeLaunchHooks.push({ extensionId: extMeta.id, fn });
-      }
-    },
-    onGameExit: (fn) => {
-      if (typeof fn === 'function') {
-        extensionRegistry.gameExitHooks.push({ extensionId: extMeta.id, fn });
-      }
-    },
-    utils: {
-      httpGetText,
-      httpGet,
-      httpPost,
-      downloadFile,
-      readZipEntries,
-      safeMkdirSync,
-      extractMcVersion
-    }
+    onBeforeLaunch: (fn) => { if (typeof fn === 'function') extensionRegistry.beforeLaunchHooks.push({ extensionId: extMeta.id, fn }); },
+    onGameExit: (fn) => { if (typeof fn === 'function') extensionRegistry.gameExitHooks.push({ extensionId: extMeta.id, fn }); },
+    utils: { httpGetText, httpGet, httpPost, downloadFile, readZipEntries, safeMkdirSync, extractMcVersion }
   };
 }
 
 async function loadExtensions() {
-  extensionRegistry.loaded = [];
-  extensionRegistry.tabs = [];
-  extensionRegistry.widgets = [];
-  extensionRegistry.beforeLaunchHooks = [];
-  extensionRegistry.gameExitHooks = [];
-
-  const entries = discoverExtensionEntries();
-  for (const extMeta of entries) {
+  Object.assign(extensionRegistry, { loaded: [], tabs: [], widgets: [], beforeLaunchHooks: [], gameExitHooks: [] });
+  for (const extMeta of discoverExtensionEntries()) {
     try {
-      try {
-        delete require.cache[require.resolve(extMeta.mainFile)];
-      } catch (e) {}
-
-      const mod = require(extMeta.mainFile);
-      const api = createExtensionApi(extMeta);
-
-      if (typeof mod === 'function') {
-        await mod(api);
-      } else if (mod && typeof mod.activate === 'function') {
-        await mod.activate(api);
-      } else if (mod && typeof mod.init === 'function') {
-        await mod.init(api);
-      } else if (mod) {
+      try { delete require.cache[require.resolve(extMeta.mainFile)]; } catch (e) {}
+      const mod = require(extMeta.mainFile), api = createExtensionApi(extMeta);
+      if (typeof mod === 'function') await mod(api);
+      else if (typeof mod?.activate === 'function') await mod.activate(api);
+      else if (typeof mod?.init === 'function') await mod.init(api);
+      else if (mod) {
         if (typeof mod.onBeforeLaunch === 'function') api.onBeforeLaunch(mod.onBeforeLaunch);
         if (typeof mod.onGameExit === 'function') api.onGameExit(mod.onGameExit);
       }
-
-      if (extMeta.renderer) {
-        const rendererPath = resolveExtensionSafePath(extMeta.dir, extMeta.renderer);
-        if (rendererPath && fs.existsSync(rendererPath)) {
-          extMeta.rendererScript = fs.readFileSync(rendererPath, 'utf-8');
-        }
-      }
-
-      extensionRegistry.loaded.push({
-        id: extMeta.id,
-        name: extMeta.name || extMeta.id,
-        version: extMeta.version || '1.0.0',
-        description: extMeta.description || '',
-        source: extMeta.source,
-        dir: extMeta.dir,
-        rendererScript: extMeta.rendererScript || '',
-        status: 'active'
-      });
+      const rPath = extMeta.renderer ? resolveExtensionSafePath(extMeta.dir, extMeta.renderer) : null;
+      const rendererScript = rPath && fs.existsSync(rPath) ? fs.readFileSync(rPath, 'utf-8') : '';
+      extensionRegistry.loaded.push({ id: extMeta.id, name: extMeta.name || extMeta.id, version: extMeta.version || '1.0.0', description: extMeta.description || '', source: extMeta.source, dir: extMeta.dir, rendererScript, status: 'active' });
       appendLog(`[Extensions] Loaded "${extMeta.name || extMeta.id}" v${extMeta.version || '1.0.0'} (${extMeta.source})`);
     } catch (err) {
-      extensionRegistry.loaded.push({
-        id: extMeta.id,
-        name: extMeta.name || extMeta.id,
-        version: extMeta.version || '1.0.0',
-        source: extMeta.source,
-        dir: extMeta.dir,
-        rendererScript: '',
-        status: 'error',
-        error: err.message
-      });
+      extensionRegistry.loaded.push({ id: extMeta.id, name: extMeta.name || extMeta.id, version: extMeta.version || '1.0.0', source: extMeta.source, dir: extMeta.dir, rendererScript: '', status: 'error', error: err.message });
       appendLog(`[Extensions] Failed to load "${extMeta.id}": ${err.message}`, 'stderr');
     }
   }
-
   extensionRegistry.tabs.sort((a, b) => a.order - b.order);
   configCache = null;
 }
 
-ipcMain.handle('get-loaded-extensions', () => ({
-  extensions: extensionRegistry.loaded,
-  tabs: extensionRegistry.tabs,
-  widgets: extensionRegistry.widgets,
-  userExtensionsDir: EXTENSIONS_USER_DIR,
-  bundledExtensionsDir: EXTENSIONS_BUNDLED_DIR
-}));
-
-ipcMain.handle('open-extensions-dir', () => {
-  safeMkdirSync(EXTENSIONS_USER_DIR);
-  shell.openPath(EXTENSIONS_USER_DIR);
-  return EXTENSIONS_USER_DIR;
-});
-
-ipcMain.handle('reload-extensions', async () => {
-  await loadExtensions();
-  return {
-    extensions: extensionRegistry.loaded,
-    tabs: extensionRegistry.tabs,
-    widgets: extensionRegistry.widgets
-  };
-});
+ipcMain.handle('get-loaded-extensions', () => ({ extensions: extensionRegistry.loaded, tabs: extensionRegistry.tabs, widgets: extensionRegistry.widgets, userExtensionsDir: EXTENSIONS_USER_DIR, bundledExtensionsDir: EXTENSIONS_BUNDLED_DIR }));
+ipcMain.handle('open-extensions-dir', () => { safeMkdirSync(EXTENSIONS_USER_DIR); shell.openPath(EXTENSIONS_USER_DIR); return EXTENSIONS_USER_DIR; });
+ipcMain.handle('reload-extensions', async () => { await loadExtensions(); return { extensions: extensionRegistry.loaded, tabs: extensionRegistry.tabs, widgets: extensionRegistry.widgets }; });
 
 // -------------------------------------------------------------
-// WINDOW MANAGEMENT & LIFECYCLE
+// WINDOW, MEDIA, SKIN & TELEMETRY
 // -------------------------------------------------------------
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1260,
-    height: 860,
-    minWidth: 1040,
-    minHeight: 700,
-    frame: false,
-    backgroundColor: '#000000',
-    show: false,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-      spellcheck: false
-    }
+    width: 1260, height: 860, minWidth: 1040, minHeight: 700, frame: false, backgroundColor: '#000000', show: false,
+    webPreferences: { nodeIntegration: true, contextIsolation: false, spellcheck: false }
   });
-
   mainWindow.loadFile('index.html');
   mainWindow.once('ready-to-show', () => mainWindow.show());
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-    forceCleanExit();
-  });
+  mainWindow.on('closed', () => { mainWindow = null; forceCleanExit(); });
 }
 
 app.on('second-instance', () => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
-  }
+  if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
 });
 
-ipcMain.on('window-min', () => { if (mainWindow) mainWindow.minimize(); });
-ipcMain.on('window-max', () => {
-  if (mainWindow) {
-    mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
-  }
-});
-ipcMain.on('window-close', () => {
-  forceCleanExit();
-});
-
+ipcMain.on('window-min', () => mainWindow?.minimize());
+ipcMain.on('window-max', () => mainWindow && (mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize()));
+ipcMain.on('window-close', forceCleanExit);
 ipcMain.on('open-path', (e, target) => {
-  const cfg = loadConfig();
-  const baseDir = getActiveProfileDir(cfg);
+  const baseDir = getActiveProfileDir(loadConfig());
   const p = target ? path.join(baseDir, target) : baseDir;
   safeMkdirSync(p);
   shell.openPath(p);
 });
-
 ipcMain.handle('get-config', () => loadConfig());
 ipcMain.handle('save-config', (e, cfg) => { saveConfig(cfg); return true; });
 
-// -------------------------------------------------------------
-// BACKGROUND SCREENSHOTS & CUSTOM IMAGE PICKERS
-// -------------------------------------------------------------
 function fileToImageDataUrl(filePath) {
   if (!filePath || !fs.existsSync(filePath)) return null;
   const ext = path.extname(filePath).toLowerCase();
-  let mime = 'image/png';
-  if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
-  else if (ext === '.webp') mime = 'image/webp';
-  const buf = fs.readFileSync(filePath);
-  return `data:${mime};base64,${buf.toString('base64')}`;
+  const mime = (ext === '.jpg' || ext === '.jpeg') ? 'image/jpeg' : ext === '.webp' ? 'image/webp' : 'image/png';
+  return `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}`;
 }
 
-ipcMain.handle('load-image-data-url', async (event, filePath) => {
-  try {
-    return fileToImageDataUrl(filePath);
-  } catch (e) {
-    return null;
-  }
-});
+async function openDialogFocused(opts, save = false) {
+  const res = await (save ? dialog.showSaveDialog(mainWindow, opts) : dialog.showOpenDialog(mainWindow, opts));
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  return res;
+}
+
+ipcMain.handle('load-image-data-url', async (e, filePath) => { try { return fileToImageDataUrl(filePath); } catch (err) { return null; } });
 
 ipcMain.handle('get-all-screenshots', async () => {
-  const cfg = loadConfig();
-  const seenPaths = new Set();
-  const results = [];
-
-  const profileDirs = [];
-  const activeDir = getActiveProfileDir(cfg);
-  const activeProf = getActiveProfile(cfg);
-  profileDirs.push({ name: activeProf.name || 'Active', dir: activeDir });
-
+  const cfg = loadConfig(), seen = new Set(), results = [], dirs = [];
+  const activeDir = getActiveProfileDir(cfg), activeProf = getActiveProfile(cfg);
+  dirs.push({ name: activeProf.name || 'Active', dir: activeDir });
   for (const p of cfg.profiles || []) {
     const pDir = p.path && p.id !== 'default' ? p.path : MINECRAFT_DIR;
-    if (!profileDirs.some(x => x.dir === pDir)) {
-      profileDirs.push({ name: p.name || p.id, dir: pDir });
-    }
+    if (!dirs.some(x => x.dir === pDir)) dirs.push({ name: p.name || p.id, dir: pDir });
   }
-
-  for (const entry of profileDirs) {
+  for (const entry of dirs) {
     const ssDir = path.join(entry.dir, 'screenshots');
     if (!fs.existsSync(ssDir)) continue;
     try {
-      const files = (await fs.promises.readdir(ssDir))
-        .filter(f => /\.(png|jpe?g|webp)$/i.test(f))
-        .slice(-24)
-        .reverse();
-
+      const files = (await fs.promises.readdir(ssDir)).filter(f => /\.(png|jpe?g|webp)$/i.test(f)).slice(-24).reverse();
       for (const f of files) {
         const full = path.join(ssDir, f);
-        if (seenPaths.has(full)) continue;
-        seenPaths.add(full);
-        try {
-          const url = fileToImageDataUrl(full);
-          if (url) {
-            results.push({ fileName: f, profileName: entry.name, path: full, url });
-          }
-        } catch (e) {}
+        if (seen.has(full)) continue;
+        seen.add(full);
+        results.push({ fileName: f, profileName: entry.name, path: full, url: pathToFileURL(full).href });
       }
     } catch (e) {}
   }
-
   return results;
 });
 
 ipcMain.handle('pick-background-image', async () => {
-  const res = await dialog.showOpenDialog(mainWindow, {
-    title: 'Select Background Image or Screenshot',
-    filters: [
-      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
-      { name: 'All Files', extensions: ['*'] }
-    ],
-    properties: ['openFile']
-  });
-
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  const res = await openDialogFocused({ title: 'Select Background Image or Screenshot', filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }, { name: 'All Files', extensions: ['*'] }], properties: ['openFile'] });
   if (res.canceled || !res.filePaths.length) return null;
-
-  const filePath = res.filePaths[0];
-  const url = fileToImageDataUrl(filePath);
-  return { path: filePath, fileName: path.basename(filePath), url };
+  const p = res.filePaths[0];
+  return { path: p, fileName: path.basename(p), url: pathToFileURL(p).href };
 });
 
-// -------------------------------------------------------------
-// SKIN IMPORT, EXPORT & MOJANG API UPLOAD
-// -------------------------------------------------------------
 ipcMain.handle('import-skin-dialog', async () => {
-  const res = await dialog.showOpenDialog(mainWindow, {
-    title: 'Open Minecraft Skin PNG (64x64 or 64x32)',
-    filters: [
-      { name: 'PNG Skin Texture', extensions: ['png'] },
-      { name: 'All Files', extensions: ['*'] }
-    ],
-    properties: ['openFile']
-  });
-
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  const res = await openDialogFocused({ title: 'Open Minecraft Skin PNG (64x64 or 64x32)', filters: [{ name: 'PNG Skin Texture', extensions: ['png'] }, { name: 'All Files', extensions: ['*'] }], properties: ['openFile'] });
   if (res.canceled || !res.filePaths.length) return null;
-
-  const filePath = res.filePaths[0];
-  const url = fileToImageDataUrl(filePath);
-  return { fileName: path.basename(filePath), url };
+  return { fileName: path.basename(res.filePaths[0]), url: fileToImageDataUrl(res.filePaths[0]) };
 });
 
-ipcMain.handle('save-skin-dialog', async (event, { base64Png, defaultName = 'aetheria-skin.png' }) => {
-  const res = await dialog.showSaveDialog(mainWindow, {
-    title: 'Save Edited Skin PNG',
-    defaultPath: defaultName,
-    filters: [{ name: 'PNG Image', extensions: ['png'] }]
-  });
-
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+ipcMain.handle('save-skin-dialog', async (e, { base64Png, defaultName = 'aetheria-skin.png' }) => {
+  const res = await openDialogFocused({ title: 'Save Edited Skin PNG', defaultPath: defaultName, filters: [{ name: 'PNG Image', extensions: ['png'] }] }, true);
   if (res.canceled || !res.filePath) return null;
-
-  const clean = String(base64Png || '').replace(/^data:image\/png;base64,/, '');
-  fs.writeFileSync(res.filePath, Buffer.from(clean, 'base64'));
+  fs.writeFileSync(res.filePath, Buffer.from(String(base64Png || '').replace(/^data:image\/png;base64,/, ''), 'base64'));
   return res.filePath;
 });
 
-ipcMain.handle('upload-mojang-skin', async (event, { base64Png, variant = 'classic' }) => {
+ipcMain.handle('upload-mojang-skin', async (e, { base64Png, variant = 'classic' }) => {
   const cfg = loadConfig();
   let account = cfg.activeAccount;
-  if (!account || !account.token || account.token === 'null') {
-    throw new Error('Sign in with a Microsoft account in Accounts to apply skins directly to your Minecraft profile.');
-  }
+  if (!account?.token || account.token === 'null') throw new Error('Sign in with a Microsoft account in Accounts to apply skins directly to your Minecraft profile.');
+  if (account.refreshToken) account = await refreshMicrosoftAccountIfNeeded(account, cfg);
 
-  if (account.refreshToken) {
-    account = await refreshMicrosoftAccountIfNeeded(account, cfg);
-  }
-
-  const cleanBase64 = String(base64Png || '').replace(/^data:image\/png;base64,/, '');
-  const pngBuffer = Buffer.from(cleanBase64, 'base64');
-  const skinVariant = variant === 'slim' ? 'slim' : 'classic';
+  const pngBuf = Buffer.from(String(base64Png || '').replace(/^data:image\/png;base64,/, ''), 'base64');
   const boundary = '----AetheriaSkinBoundary' + crypto.randomBytes(8).toString('hex');
-
-  const part1 = Buffer.from(
-    `--${boundary}\r\nContent-Disposition: form-data; name="variant"\r\n\r\n${skinVariant}\r\n` +
-    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="skin.png"\r\nContent-Type: image/png\r\n\r\n`
-  );
-  const part3 = Buffer.from(`\r\n--${boundary}--\r\n`);
-  const bodyBuf = Buffer.concat([part1, pngBuffer, part3]);
-
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: 'api.minecraftservices.com',
-      port: 443,
-      path: '/minecraft/profile/skins',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${account.token}`,
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': bodyBuf.length,
-        'User-Agent': 'Aetheria-ARM64-Launcher/1.0'
-      }
-    }, (res) => {
-      let body = '';
-      res.on('data', c => { body += c; });
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve({ success: true, profileName: account.name });
-        } else {
-          let errMsg = `Mojang Skin API HTTP ${res.statusCode}`;
-          try {
-            const parsed = JSON.parse(body);
-            if (parsed.errorMessage || parsed.error) errMsg = parsed.errorMessage || parsed.error;
-          } catch (e) {}
-          reject(new Error(errMsg));
-        }
-      });
+  const body = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="variant"\r\n\r\n${variant === 'slim' ? 'slim' : 'classic'}\r\n--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="skin.png"\r\nContent-Type: image/png\r\n\r\n`),
+    pngBuf,
+    Buffer.from(`\r\n--${boundary}--\r\n`)
+  ]);
+  try {
+    await httpReq('https://api.minecraftservices.com/minecraft/profile/skins', {
+      method: 'POST', body, headers: { Authorization: `Bearer ${account.token}`, 'Content-Type': `multipart/form-data; boundary=${boundary}` }
     });
-
-    req.on('error', reject);
-    req.write(bodyBuf);
-    req.end();
-  });
+    return { success: true, profileName: account.name };
+  } catch (err) {
+    let msg = err.message;
+    try { const p = JSON.parse(err.body || '{}'); msg = p.errorMessage || p.error || msg; } catch (e) {}
+    throw new Error(msg);
+  }
 });
 
-// -------------------------------------------------------------
-// SYSTEM TELEMETRY & ACTIVE PROCESS CONTROLS (FOR WIDGETS)
-// -------------------------------------------------------------
 ipcMain.handle('get-system-telemetry', () => {
-  const totalBytes = os.totalmem();
-  const freeBytes = os.freemem();
-  const usedBytes = Math.max(0, totalBytes - freeBytes);
-  const cpus = os.cpus() || [];
+  const total = os.totalmem(), free = os.freemem(), cpus = os.cpus() || [];
   return {
-    totalMemMb: Math.round(totalBytes / (1024 * 1024)),
-    freeMemMb: Math.round(freeBytes / (1024 * 1024)),
-    usedMemMb: Math.round(usedBytes / (1024 * 1024)),
-    cpuModel: cpus[0] ? cpus[0].model.trim() : 'Qualcomm Snapdragon ARM64',
-    cpuCores: cpus.length || 8,
-    arch: process.arch,
-    platform: process.platform,
-    uptimeSec: Math.round(os.uptime())
+    totalMemMb: Math.round(total / 1048576), freeMemMb: Math.round(free / 1048576), usedMemMb: Math.round(Math.max(0, total - free) / 1048576),
+    cpuModel: cpus[0] ? cpus[0].model.trim() : 'Qualcomm Snapdragon ARM64', cpuCores: cpus.length || 8,
+    arch: process.arch, platform: process.platform, uptimeSec: Math.round(os.uptime())
   };
 });
-
-ipcMain.handle('get-active-game-state', () => ({
-  running: !!activeGameProcess,
-  pid: activeGameProcess ? activeGameProcess.pid : null
-}));
-
-ipcMain.handle('kill-active-game', () => {
-  const hadProcess = !!activeGameProcess;
-  killActiveGameProcessSync();
-  return { stopped: hadProcess };
-});
+ipcMain.handle('get-active-game-state', () => ({ running: !!activeGameProcess, pid: activeGameProcess?.pid || null }));
+ipcMain.handle('kill-active-game', () => { const had = !!activeGameProcess; killActiveGameProcessSync(); return { stopped: had }; });
 
 // -------------------------------------------------------------
-// ARM64 RUNTIME CATALOG & RESILIENT MULTI-PROVIDER INSTALLER
+// ARM64 RUNTIMES
 // -------------------------------------------------------------
+function getManagedJavaPathForKey(key) {
+  const def = MANAGED_JDKS[key];
+  if (!def) return null;
+  const p = path.join(RUNTIMES_DIR, def.dirName, 'bin', 'java.exe');
+  if (fs.existsSync(p)) return p;
+  if (key === '21') {
+    const leg = path.join(JDK_DIR, 'bin', 'java.exe');
+    if (fs.existsSync(leg)) return leg;
+  }
+  return null;
+}
+
 function getManagedJdkStatus() {
-  return Object.keys(MANAGED_JDKS).map(key => {
-    const def = MANAGED_JDKS[key];
-    const binPath = path.join(RUNTIMES_DIR, def.dirName, 'bin', 'java.exe');
-    let installed = fs.existsSync(binPath);
-    let effectivePath = installed ? binPath : null;
-
-    if (!installed && key === '21') {
-      const legacy21 = path.join(JDK_DIR, 'bin', 'java.exe');
-      if (fs.existsSync(legacy21)) {
-        installed = true;
-        effectivePath = legacy21;
-      }
-    }
-
-    return {
-      key,
-      name: def.name,
-      version: def.version,
-      desc: def.desc,
-      installed,
-      path: effectivePath
-    };
+  return Object.entries(MANAGED_JDKS).map(([key, def]) => {
+    const p = getManagedJavaPathForKey(key);
+    return { key, name: def.name, version: def.version, desc: def.desc, installed: !!p, path: p };
   });
 }
 
-function execAsync(cmd, timeoutMs = 2000) {
-  return new Promise((resolve) => {
-    exec(cmd, { timeout: timeoutMs }, (err, stdout, stderr) => {
-      resolve((stdout || '') + (stderr || ''));
-    });
-  });
-}
+const execAsync = (cmd, timeout = 2000) => new Promise(r => exec(cmd, { timeout }, (e, out, err) => r((out || '') + (err || ''))));
 
 async function scanSystemJavaRuntimesAsync() {
-  const results = [];
-  const managed = getManagedJdkStatus();
-  for (const m of managed) {
-    if (m.installed && m.path) {
-      results.push({ name: `Managed ${m.name}`, path: m.path, arch: 'ARM64', version: m.key });
-    }
-  }
-
-  const standardDirs = [
-    'C:\\Program Files\\Microsoft',
-    'C:\\Program Files\\Eclipse Adoptium',
-    'C:\\Program Files\\Zulu',
-    'C:\\Program Files\\BellSoft',
-    'C:\\Program Files\\Java'
-  ];
-
-  const probeTasks = [];
-  for (const root of standardDirs) {
+  const results = getManagedJdkStatus().filter(m => m.installed).map(m => ({ name: `Managed ${m.name}`, path: m.path, arch: 'ARM64', version: m.key }));
+  const tasks = [];
+  for (const root of ['Microsoft', 'Eclipse Adoptium', 'Zulu', 'BellSoft', 'Java'].map(d => `C:\\Program Files\\${d}`)) {
     if (!fs.existsSync(root)) continue;
     try {
       for (const entry of fs.readdirSync(root)) {
-        const binJava = path.join(root, entry, 'bin', 'java.exe');
-        if (fs.existsSync(binJava)) {
-          probeTasks.push((async () => {
-            const out = await execAsync(`"${binJava}" -XshowSettings:properties -version 2>&1`, 1500);
+        const bin = path.join(root, entry, 'bin', 'java.exe');
+        if (fs.existsSync(bin)) {
+          tasks.push((async () => {
+            const out = await execAsync(`"${bin}" -XshowSettings:properties -version 2>&1`, 1500);
             const arch = out.includes('aarch64') ? 'ARM64' : (out.includes('x86_64') || out.includes('amd64') ? 'x64' : 'x86');
-            results.push({ name: `${entry} (${arch})`, path: binJava, arch });
+            results.push({ name: `${entry} (${arch})`, path: bin, arch });
           })());
         }
       }
     } catch (e) {}
   }
-
-  await Promise.all(probeTasks);
+  await Promise.all(tasks);
   return results;
 }
 
-ipcMain.handle('get-managed-jdks', () => getManagedJdkStatus());
-ipcMain.handle('get-system-javas', async () => scanSystemJavaRuntimesAsync());
-
+ipcMain.handle('get-managed-jdks', getManagedJdkStatus);
+ipcMain.handle('get-system-javas', scanSystemJavaRuntimesAsync);
 ipcMain.handle('browse-java-path', async () => {
-  const res = await dialog.showOpenDialog(mainWindow, {
-    title: 'Select Java Executable (java.exe / javaw.exe)',
-    filters: [
-      { name: 'Java Executable', extensions: ['exe'] },
-      { name: 'All Files', extensions: ['*'] }
-    ],
-    properties: ['openFile']
-  });
-
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  const res = await openDialogFocused({ title: 'Select Java Executable (java.exe / javaw.exe)', filters: [{ name: 'Java Executable', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }], properties: ['openFile'] });
   if (res.canceled || !res.filePaths.length) return null;
-  const chosenPath = res.filePaths[0];
-  setHighPerformanceGpu(chosenPath);
-  return chosenPath;
+  setHighPerformanceGpu(res.filePaths[0]);
+  return res.filePaths[0];
 });
 
-function httpGetText(url, extraHeaders = {}, maxRedirects = 8) {
-  return new Promise((resolve, reject) => {
-    const fetchUrl = (targetUrl, depth) => {
-      if (depth > maxRedirects) return reject(new Error('Too many redirects'));
-      let parsed;
-      try { parsed = new URL(targetUrl); } catch (e) { return reject(e); }
-      const client = parsed.protocol === 'http:' ? http : https;
-      const req = client.get(targetUrl, {
-        headers: {
-          'User-Agent': 'Aetheria-ARM64-Launcher/1.0',
-          'Accept': 'application/json, text/html, */*',
-          ...extraHeaders
-        },
-        timeout: 15000
-      }, (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          res.resume();
-          const nextUrl = new URL(res.headers.location, targetUrl).toString();
-          return fetchUrl(nextUrl, depth + 1);
-        }
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          res.resume();
-          return reject(new Error(`HTTP ${res.statusCode}`));
-        }
-        let body = '';
-        res.on('data', chunk => { body += chunk; });
-        res.on('end', () => resolve(body));
-      });
-      req.on('timeout', () => req.destroy(new Error('Request timeout')));
-      req.on('error', reject);
-    };
-    fetchUrl(url, 0);
-  });
-}
-
-function checkUrlReachable(url, maxRedirects = 8) {
-  return new Promise((resolve) => {
-    const probe = (targetUrl, depth) => {
-      if (depth > maxRedirects) return resolve(false);
-      let parsed;
-      try { parsed = new URL(targetUrl); } catch (e) { return resolve(false); }
-      const client = parsed.protocol === 'http:' ? http : https;
-      const req = client.request(targetUrl, {
-        method: 'HEAD',
-        headers: { 'User-Agent': 'Aetheria-ARM64-Launcher/1.0' },
-        timeout: 10000
-      }, (res) => {
-        res.resume();
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          const nextUrl = new URL(res.headers.location, targetUrl).toString();
-          return probe(nextUrl, depth + 1);
-        }
-        if (res.statusCode === 405) {
-          return resolve(true);
-        }
-        resolve(res.statusCode >= 200 && res.statusCode < 300);
-      });
-      req.on('timeout', () => { req.destroy(); resolve(false); });
-      req.on('error', () => resolve(false));
-      req.end();
-    };
-    probe(url, 0);
-  });
-}
-
 async function resolveJdkDownloadCandidates(version) {
-  const candidates = [];
-  const major = String(version);
+  const major = String(version), out = [];
+  const tryJson = async (url, pick) => { try { const d = JSON.parse(await httpGetText(url)); if (Array.isArray(d)) d.forEach(x => { const u = pick(x); if (u) out.push(u); }); } catch (e) {} };
 
   if (major === '8') {
-    try {
-      const raw = await httpGetText('https://api.adoptium.net/v3/assets/latest/8/hotspot?architecture=x64&image_type=jdk&os=windows');
-      const list = JSON.parse(raw);
-      if (Array.isArray(list)) {
-        for (const item of list) {
-          const link = item?.binary?.package?.link;
-          if (link && link.toLowerCase().endsWith('.zip')) candidates.push(link);
-        }
-      }
-    } catch (e) {}
-
-    try {
-      const raw = await httpGetText('https://api.azul.com/metadata/v1/zulu/packages/?java_version=8&os=windows&arch=x86&hw_bitness=64&archive_type=zip&java_package_type=jdk&javafx_bundled=false&latest=true&release_status=ga');
-      const list = JSON.parse(raw);
-      if (Array.isArray(list)) {
-        for (const pkg of list) {
-          if (pkg.download_url) candidates.push(pkg.download_url);
-        }
-      }
-    } catch (e) {}
-
-    try {
-      const raw = await httpGetText('https://api.bell-sw.com/v1/liberica/releases?version-feature=8&os=windows&arch=x86&bitness=64&package-type=zip&bundle-type=jdk');
-      const list = JSON.parse(raw);
-      if (Array.isArray(list)) {
-        for (const item of list) {
-          if (item.downloadUrl) candidates.push(item.downloadUrl);
-        }
-      }
-    } catch (e) {}
-
-    candidates.push('https://api.adoptium.net/v3/binary/latest/8/ga/windows/x64/jdk/hotspot/normal/eclipse');
-    return Array.from(new Set(candidates.filter(Boolean)));
+    await tryJson('https://api.adoptium.net/v3/assets/latest/8/hotspot?architecture=x64&image_type=jdk&os=windows', i => i?.binary?.package?.link?.toLowerCase().endsWith('.zip') ? i.binary.package.link : null);
+    await tryJson('https://api.azul.com/metadata/v1/zulu/packages/?java_version=8&os=windows&arch=x86&hw_bitness=64&archive_type=zip&java_package_type=jdk&javafx_bundled=false&latest=true&release_status=ga', p => p.download_url);
+    await tryJson('https://api.bell-sw.com/v1/liberica/releases?version-feature=8&os=windows&arch=x86&bitness=64&package-type=zip&bundle-type=jdk', i => i.downloadUrl);
+    out.push(MANAGED_JDKS['8'].url);
+    return Array.from(new Set(out.filter(Boolean)));
   }
 
-  if (['17', '21', '25'].includes(major)) {
-    candidates.push(`https://aka.ms/download-jdk/microsoft-jdk-${major}-windows-aarch64.zip`);
+  if (['17', '21', '25'].includes(major)) out.push(`https://aka.ms/download-jdk/microsoft-jdk-${major}-windows-aarch64.zip`);
+  await tryJson(`https://api.azul.com/metadata/v1/zulu/packages/?java_version=${encodeURIComponent(major)}&os=windows&archive_type=zip&java_package_type=jdk&javafx_bundled=false&latest=true`, p => {
+    const lbl = `${p.name || ''} ${p.download_url || ''}`.toLowerCase();
+    return (lbl.includes('aarch64') || lbl.includes('arm64')) && !lbl.includes('crac') ? p.download_url : null;
+  });
+  await tryJson(`https://api.bell-sw.com/v1/liberica/releases?version-feature=${encodeURIComponent(major)}&os=windows&arch=arm&bitness=64&package-type=zip&bundle-type=jdk`, i => i.downloadUrl);
+  for (const ep of ['latest/' + encodeURIComponent(major) + '/hotspot', 'feature_releases/' + encodeURIComponent(major) + '/ea']) {
+    await tryJson(`https://api.adoptium.net/v3/assets/${ep}?architecture=aarch64&image_type=jdk&os=windows`, i => i?.binary?.package?.link || i?.binaries?.[0]?.package?.link);
   }
-
-  try {
-    const azulUrl = `https://api.azul.com/metadata/v1/zulu/packages/?java_version=${encodeURIComponent(major)}&os=windows&archive_type=zip&java_package_type=jdk&javafx_bundled=false&latest=true`;
-    const raw = await httpGetText(azulUrl);
-    const list = JSON.parse(raw);
-    if (Array.isArray(list)) {
-      const armMatches = list.filter(pkg => {
-        const label = `${pkg.name || ''} ${pkg.download_url || ''}`.toLowerCase();
-        return (label.includes('aarch64') || label.includes('arm64')) && !label.includes('crac');
-      });
-      for (const pkg of armMatches) {
-        if (pkg.download_url) candidates.push(pkg.download_url);
-      }
-    }
-  } catch (e) {}
-
-  try {
-    const bellUrl = `https://api.bell-sw.com/v1/liberica/releases?version-feature=${encodeURIComponent(major)}&os=windows&arch=arm&bitness=64&package-type=zip&bundle-type=jdk`;
-    const raw = await httpGetText(bellUrl);
-    const list = JSON.parse(raw);
-    if (Array.isArray(list)) {
-      for (const item of list) {
-        if (item.downloadUrl) candidates.push(item.downloadUrl);
-      }
-    }
-  } catch (e) {}
-
-  for (const endpoint of [
-    `https://api.adoptium.net/v3/assets/latest/${encodeURIComponent(major)}/hotspot?architecture=aarch64&image_type=jdk&os=windows`,
-    `https://api.adoptium.net/v3/assets/feature_releases/${encodeURIComponent(major)}/ea?architecture=aarch64&image_type=jdk&os=windows`
-  ]) {
-    try {
-      const raw = await httpGetText(endpoint);
-      const list = JSON.parse(raw);
-      if (Array.isArray(list)) {
-        for (const item of list) {
-          const link = item?.binary?.package?.link || item?.binaries?.[0]?.package?.link;
-          if (link) candidates.push(link);
-        }
-      }
-    } catch (e) {}
-  }
-
   if (major === '25') {
-    try {
-      const html = await httpGetText('https://jdk.java.net/25/');
-      const match = html.match(/https:\/\/download\.java\.net\/[^"'\s<>]+windows-aarch64_bin\.zip/i);
-      if (match && match[0]) candidates.push(match[0]);
-    } catch (e) {}
+    try { const html = await httpGetText('https://jdk.java.net/25/'); const m = html.match(/https:\/\/download\.java\.net\/[^"'\s<>]+windows-aarch64_bin\.zip/i); if (m?.[0]) out.push(m[0]); } catch (e) {}
   }
-
-  if (MANAGED_JDKS[major] && MANAGED_JDKS[major].url) {
-    candidates.push(MANAGED_JDKS[major].url);
-  }
-
-  return Array.from(new Set(candidates.filter(Boolean)));
+  if (MANAGED_JDKS[major]?.url) out.push(MANAGED_JDKS[major].url);
+  return Array.from(new Set(out.filter(Boolean)));
 }
 
-function findJavaBinRoot(searchRoot, depth = 0) {
-  if (fs.existsSync(path.join(searchRoot, 'bin', 'java.exe'))) {
-    return searchRoot;
-  }
+function findJavaBinRoot(root, depth = 0) {
+  if (fs.existsSync(path.join(root, 'bin', 'java.exe'))) return root;
   if (depth >= 3) return null;
   try {
-    for (const entry of fs.readdirSync(searchRoot, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        const hit = findJavaBinRoot(path.join(searchRoot, entry.name), depth + 1);
-        if (hit) return hit;
-      }
+    for (const e of fs.readdirSync(root, { withFileTypes: true })) {
+      if (e.isDirectory()) { const hit = findJavaBinRoot(path.join(root, e.name), depth + 1); if (hit) return hit; }
     }
   } catch (e) {}
   return null;
 }
 
-function extractZipAsync(zipPath, destDir) {
+function spawnArchiveTool(cmd, args, fallback) {
   return new Promise((resolve, reject) => {
-    const runPowershell = () => {
-      const ps = spawn('powershell.exe', [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${destDir.replace(/'/g, "''")}' -Force`
-      ], { windowsHide: true });
-      let stderr = '';
-      ps.stderr.on('data', d => { stderr += d.toString(); });
-      ps.on('close', code => {
-        if (code === 0) resolve();
-        else reject(new Error(stderr.trim() || `Expand-Archive exited with code ${code}`));
-      });
-      ps.on('error', reject);
-    };
-
-    if (process.platform === 'win32') {
-      const tar = spawn('tar.exe', ['-xf', zipPath, '-C', destDir], { windowsHide: true });
-      tar.on('close', code => {
-        if (code === 0) resolve();
-        else runPowershell();
-      });
-      tar.on('error', () => runPowershell());
-    } else {
-      runPowershell();
-    }
+    const p = spawn(cmd, args, { windowsHide: true });
+    let err = '';
+    p.stderr.on('data', d => { err += d; });
+    p.on('close', c => c === 0 ? resolve() : fallback ? fallback().then(resolve, reject) : reject(new Error(err.trim() || `${cmd} exited ${c}`)));
+    p.on('error', () => fallback ? fallback().then(resolve, reject) : reject(new Error(`Failed to run ${cmd}`)));
   });
 }
 
+function extractZipAsync(zipPath, destDir) {
+  const ps = () => spawnArchiveTool('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${destDir.replace(/'/g, "''")}' -Force`]);
+  return process.platform === 'win32' ? spawnArchiveTool('tar.exe', ['-xf', zipPath, '-C', destDir], ps) : ps();
+}
+
 async function moveDirSafe(src, dest) {
-  if (fs.existsSync(dest)) {
-    fs.rmSync(dest, { recursive: true, force: true });
-  }
+  if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
   safeMkdirSync(path.dirname(dest));
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      fs.renameSync(src, dest);
-      return;
-    } catch (err) {
-      if (attempt < 2) {
-        await new Promise(r => setTimeout(r, 250));
-      } else {
-        copyFolderRecursiveSync(src, dest);
-        try { fs.rmSync(src, { recursive: true, force: true }); } catch (e) {}
-      }
+  for (let i = 0; i < 3; i++) {
+    try { fs.renameSync(src, dest); return; }
+    catch (e) {
+      if (i < 2) await new Promise(r => setTimeout(r, 250));
+      else { copyFolderRecursiveSync(src, dest); try { fs.rmSync(src, { recursive: true, force: true }); } catch (e2) {} }
     }
   }
 }
@@ -1492,2399 +836,1034 @@ async function moveDirSafe(src, dest) {
 async function installManagedJdkInternal(version, onReport = null) {
   const def = MANAGED_JDKS[String(version)];
   if (!def) throw new Error(`Unknown JDK version requested: ${version}`);
-
   const targetDir = path.join(RUNTIMES_DIR, def.dirName);
   const zipPath = path.join(RUNTIMES_DIR, `temp-${def.dirName}.zip`);
   const tempExtract = path.join(RUNTIMES_DIR, `temp-extract-${def.dirName}`);
-
   const report = (step, progress) => {
-    if (onReport) onReport(step, progress);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('jdk-install-status', { version: String(version), step, progress });
-    }
+    onReport?.(step, progress);
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('jdk-install-status', { version: String(version), step, progress });
   };
 
   try {
     report(`Resolving mirror for Java ${version}...`, 0.04);
     const urls = await resolveJdkDownloadCandidates(version);
-    if (!urls.length) {
-      throw new Error(`No Windows package URL found for Java ${version}.`);
-    }
-
-    let chosenUrl = null;
-    for (const candidateUrl of urls) {
-      if (await checkUrlReachable(candidateUrl)) {
-        chosenUrl = candidateUrl;
-        break;
-      }
-    }
-    if (!chosenUrl) chosenUrl = urls[0];
+    if (!urls.length) throw new Error(`No Windows package URL found for Java ${version}.`);
+    let chosen = null;
+    for (const u of urls) if (await checkUrlReachable(u)) { chosen = u; break; }
+    const tryOrder = chosen ? [chosen, ...urls.filter(u => u !== chosen)] : urls;
 
     report(`Downloading ${def.name}...`, 0.08);
-    let downloaded = false;
-    let lastErr = null;
-    const tryOrder = [chosenUrl, ...urls.filter(u => u !== chosenUrl)];
-
+    let ok = false, lastErr = null;
     for (const u of tryOrder) {
       try {
-        await downloadFile(u, zipPath, (pct) => {
-          report(`Downloading Java ${version} (${Math.round(pct * 100)}%)...`, 0.08 + pct * 0.70);
-        });
-        if (fs.existsSync(zipPath) && fs.statSync(zipPath).size > 1024 * 1024) {
-          downloaded = true;
-          break;
-        }
-      } catch (e) {
-        lastErr = e;
-        try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (delErr) {}
-      }
+        await downloadFile(u, zipPath, pct => report(`Downloading Java ${version} (${Math.round(pct * 100)}%)...`, 0.08 + pct * 0.70));
+        if (fs.existsSync(zipPath) && fs.statSync(zipPath).size > 1048576) { ok = true; break; }
+      } catch (e) { lastErr = e; try { fs.unlinkSync(zipPath); } catch (e2) {} }
     }
-
-    if (!downloaded) {
-      throw lastErr || new Error(`Failed to download Java ${version} from any mirror.`);
-    }
+    if (!ok) throw lastErr || new Error(`Failed to download Java ${version} from any mirror.`);
 
     report('Extracting runtime binaries...', 0.84);
     if (fs.existsSync(tempExtract)) fs.rmSync(tempExtract, { recursive: true, force: true });
     safeMkdirSync(tempExtract);
-
     await extractZipAsync(zipPath, tempExtract);
 
     report('Finalizing Java runtime installation...', 0.94);
     const jdkRoot = findJavaBinRoot(tempExtract);
-    if (!jdkRoot) {
-      throw new Error(`Extracted Java ${version} archive did not contain bin/java.exe`);
-    }
-
+    if (!jdkRoot) throw new Error(`Extracted Java ${version} archive did not contain bin/java.exe`);
     await moveDirSafe(jdkRoot, targetDir);
 
-    try { fs.rmSync(tempExtract, { recursive: true, force: true }); } catch (e) {}
-    try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (e) {}
-
     const javaBin = path.join(targetDir, 'bin', 'java.exe');
-    if (!fs.existsSync(javaBin)) {
-      throw new Error(`Installation completed, but java.exe was not found at ${javaBin}`);
-    }
+    if (!fs.existsSync(javaBin)) throw new Error(`Installation completed, but java.exe was not found at ${javaBin}`);
     setHighPerformanceGpu(javaBin);
-
     report(`Java ${version} ready!`, 1.0);
     return { success: true, path: javaBin, version: String(version) };
-  } catch (err) {
+  } finally {
     try { if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); } catch (e) {}
     try { if (fs.existsSync(tempExtract)) fs.rmSync(tempExtract, { recursive: true, force: true }); } catch (e) {}
-    throw err;
   }
 }
 
-ipcMain.handle('install-managed-jdk', async (event, { version }) => {
-  return installManagedJdkInternal(version);
-});
+ipcMain.handle('install-managed-jdk', (e, { version }) => installManagedJdkInternal(version));
 
-// -------------------------------------------------------------
-// DYNAMIC JAVA SELECTION FOR CURRENT & FUTURE GAME VERSIONS
-// -------------------------------------------------------------
-function getRequiredJavaMajor(targetVersionId, versionDescriptor = null) {
-  if (versionDescriptor && versionDescriptor.javaVersion && versionDescriptor.javaVersion.majorVersion) {
-    return String(versionDescriptor.javaVersion.majorVersion);
-  }
-
-  const cleanVer = extractMcVersion(targetVersionId || '1.20.4');
-  const vParts = cleanVer.split('.').map(n => parseInt(n, 10) || 0);
-  const major = vParts[0] || 1;
-  const minor = vParts[1] || 0;
-  const patch = vParts[2] || 0;
-
-  if (major >= 25) return '25';
-  if (major === 1 && minor < 17) return '8';
-  if (major === 1 && (minor < 20 || (minor === 20 && patch <= 4))) return '17';
+function getRequiredJavaMajor(targetVersionId, desc = null) {
+  if (desc?.javaVersion?.majorVersion) return String(desc.javaVersion.majorVersion);
+  const [maj = 1, min = 0, pat = 0] = extractMcVersion(targetVersionId || '1.20.4').split('.').map(n => parseInt(n, 10) || 0);
+  if (maj >= 25) return '25';
+  if (maj === 1 && min < 17) return '8';
+  if (maj === 1 && (min < 20 || (min === 20 && pat <= 4))) return '17';
   return '21';
 }
 
-function getManagedJavaPathForKey(key) {
-  if (!MANAGED_JDKS[key]) return null;
-  const candidate = path.join(RUNTIMES_DIR, MANAGED_JDKS[key].dirName, 'bin', 'java.exe');
-  if (fs.existsSync(candidate)) return candidate;
-  if (key === '21') {
-    const leg21 = path.join(JDK_DIR, 'bin', 'java.exe');
-    if (fs.existsSync(leg21)) return leg21;
-  }
-  return null;
-}
-
-function resolveProfileJava(prof, globalCfg, targetVersionId, versionDescriptor = null) {
-  const chosenMode = prof.javaRuntime || globalCfg.globalJavaRuntime || 'auto';
-
-  if (['8', '17', '21', '25'].includes(chosenMode)) {
-    const p = getManagedJavaPathForKey(chosenMode);
-    if (p) return p;
-  }
-
-  if (chosenMode === 'custom' || prof.customJavaPath) {
+function resolveProfileJava(prof, globalCfg, targetVersionId, desc = null) {
+  const mode = prof.javaRuntime || globalCfg.globalJavaRuntime || 'auto';
+  if (['8', '17', '21', '25'].includes(mode)) { const p = getManagedJavaPathForKey(mode); if (p) return p; }
+  if (mode === 'custom' || prof.customJavaPath) {
     if (prof.customJavaPath && fs.existsSync(prof.customJavaPath)) return prof.customJavaPath;
     if (globalCfg.customJavaPath && fs.existsSync(globalCfg.customJavaPath)) return globalCfg.customJavaPath;
   }
-
-  const idealKey = getRequiredJavaMajor(targetVersionId || prof.version, versionDescriptor);
-  const idealPath = getManagedJavaPathForKey(idealKey);
-  if (idealPath) return idealPath;
-
-  if (idealKey === '17') {
-    const j21Path = getManagedJavaPathForKey('21');
-    if (j21Path) return j21Path;
-  }
-
-  return null;
+  const ideal = getRequiredJavaMajor(targetVersionId || prof.version, desc);
+  return getManagedJavaPathForKey(ideal) || (ideal === '17' ? getManagedJavaPathForKey('21') : null);
 }
 
 // -------------------------------------------------------------
-// PROFILE MANAGEMENT & MODPACK IMPORTER (.MRPACK + CURSEFORGE ZIP)
+// PROFILES, MODPACKS & EXTERNAL SCANNERS
 // -------------------------------------------------------------
 ipcMain.handle('create-profile', async (e, { name, version, loader = 'vanilla', loaderVersion = '', javaRuntime = 'auto' }) => {
-  const cfg = loadConfig();
-  const id = 'prof-' + Date.now();
-  const profPath = path.join(PROFILES_DIR, id);
-
+  const cfg = loadConfig(), id = 'prof-' + Date.now(), profPath = path.join(PROFILES_DIR, id);
   ensureProfileSubdirs(profPath);
-
-  const newProf = {
-    id,
-    name: name || `Minecraft ${version}`,
-    path: profPath,
-    version: version || '1.20.4',
-    loader: loader || 'vanilla',
-    loaderVersion: loaderVersion || '',
-    javaRuntime: javaRuntime || 'auto',
-    minRam: cfg.minRam || 2048,
-    maxRam: cfg.maxRam || 4096,
-    jvmArgs: DEFAULT_ORYON_JVM,
-    customJavaPath: '',
-    envVars: ''
-  };
-
-  cfg.profiles.push(newProf);
-  cfg.activeProfileId = id;
-  cfg.selectedVersion = newProf.version;
+  const newProf = { id, name: name || `Minecraft ${version}`, path: profPath, version: version || '1.20.4', loader, loaderVersion, javaRuntime, minRam: cfg.minRam || 2048, maxRam: cfg.maxRam || 4096, jvmArgs: DEFAULT_ORYON_JVM, customJavaPath: '', envVars: '' };
+  cfg.profiles.push(newProf); cfg.activeProfileId = id; cfg.selectedVersion = newProf.version;
   saveConfig(cfg);
   return newProf;
 });
 
-ipcMain.handle('update-profile', async (e, updatedData) => {
-  const cfg = loadConfig();
-  const idx = cfg.profiles.findIndex(p => p.id === updatedData.id);
-  if (idx !== -1) {
-    if (updatedData.customJavaPath) setHighPerformanceGpu(updatedData.customJavaPath);
-    cfg.profiles[idx] = { ...cfg.profiles[idx], ...updatedData };
-    if (cfg.activeProfileId === updatedData.id && updatedData.version) {
-      cfg.selectedVersion = updatedData.version;
-    }
-    saveConfig(cfg);
-    return true;
-  }
-  return false;
-});
-
-ipcMain.handle('duplicate-profile', async (e, profileId) => {
-  const cfg = loadConfig();
-  const srcProf = cfg.profiles.find(p => p.id === profileId);
-  if (!srcProf) throw new Error('Source profile not found.');
-
-  const newId = 'prof-' + Date.now();
-  const newProfPath = path.join(PROFILES_DIR, newId);
-  safeMkdirSync(newProfPath);
-
-  if (fs.existsSync(srcProf.path)) {
-    copyFolderRecursiveSync(srcProf.path, newProfPath);
-  }
-  ensureProfileSubdirs(newProfPath);
-
-  const clonedProf = {
-    ...srcProf,
-    id: newId,
-    name: `${srcProf.name} (Copy)`,
-    path: newProfPath
-  };
-
-  cfg.profiles.push(clonedProf);
-  cfg.activeProfileId = newId;
-  saveConfig(cfg);
-  return clonedProf;
-});
-
-ipcMain.handle('delete-profile', async (e, profileId) => {
-  if (profileId === 'default') return false;
-  const cfg = loadConfig();
-  const target = cfg.profiles.find(p => p.id === profileId);
-  if (target && target.path && fs.existsSync(target.path)) {
-    try { fs.rmSync(target.path, { recursive: true, force: true }); } catch (e) {}
-  }
-  cfg.profiles = cfg.profiles.filter(p => p.id !== profileId);
-  if (cfg.activeProfileId === profileId) {
-    cfg.activeProfileId = 'default';
-  }
+ipcMain.handle('update-profile', async (e, data) => {
+  const cfg = loadConfig(), idx = cfg.profiles.findIndex(p => p.id === data.id);
+  if (idx === -1) return false;
+  if (data.customJavaPath) setHighPerformanceGpu(data.customJavaPath);
+  cfg.profiles[idx] = { ...cfg.profiles[idx], ...data };
+  if (cfg.activeProfileId === data.id && data.version) cfg.selectedVersion = data.version;
   saveConfig(cfg);
   return true;
 });
 
-async function runPool(items, concurrency, worker) {
-  let idx = 0;
-  const runners = Array.from({ length: Math.min(concurrency, Math.max(1, items.length)) }, async () => {
-    while (idx < items.length) {
-      const cur = idx++;
-      await worker(items[cur], cur);
-    }
-  });
-  await Promise.all(runners);
-}
+ipcMain.handle('duplicate-profile', async (e, profileId) => {
+  const cfg = loadConfig(), src = cfg.profiles.find(p => p.id === profileId);
+  if (!src) throw new Error('Source profile not found.');
+  const newId = 'prof-' + Date.now(), newPath = path.join(PROFILES_DIR, newId);
+  if (fs.existsSync(src.path)) copyFolderRecursiveSync(src.path, newPath);
+  ensureProfileSubdirs(newPath);
+  const cloned = { ...src, id: newId, name: `${src.name} (Copy)`, path: newPath };
+  cfg.profiles.push(cloned); cfg.activeProfileId = newId;
+  saveConfig(cfg);
+  return cloned;
+});
+
+ipcMain.handle('delete-profile', async (e, profileId) => {
+  if (profileId === 'default') return false;
+  const cfg = loadConfig(), target = cfg.profiles.find(p => p.id === profileId);
+  if (target?.path && fs.existsSync(target.path)) try { fs.rmSync(target.path, { recursive: true, force: true }); } catch (e) {}
+  cfg.profiles = cfg.profiles.filter(p => p.id !== profileId);
+  if (cfg.activeProfileId === profileId) cfg.activeProfileId = 'default';
+  saveConfig(cfg);
+  return true;
+});
 
 function writeZipOverrides(entries, prefix, destDir) {
   for (const entry of entries) {
     if (entry.isDir) continue;
-    const normalized = entry.fileName.replace(/\\/g, '/');
-    if (!normalized.startsWith(prefix)) continue;
-    const rel = normalized.slice(prefix.length);
+    const norm = entry.fileName.replace(/\\/g, '/');
+    if (!norm.startsWith(prefix)) continue;
+    const rel = norm.slice(prefix.length);
     if (!rel || rel.includes('..')) continue;
-    const outPath = path.join(destDir, rel);
-    safeMkdirSync(path.dirname(outPath));
+    const out = path.join(destDir, rel);
+    safeMkdirSync(path.dirname(out));
     const buf = entry.getBuffer();
-    if (buf) {
-      try { fs.writeFileSync(outPath, buf); } catch (e) {}
-    }
+    if (buf) try { fs.writeFileSync(out, buf); } catch (e) {}
   }
 }
 
 ipcMain.handle('import-modpack-dialog', async () => {
-  const res = await dialog.showOpenDialog(mainWindow, {
-    title: 'Import Modpack (.mrpack / CurseForge .zip)',
-    filters: [
-      { name: 'Minecraft Modpacks', extensions: ['mrpack', 'zip'] },
-      { name: 'All Files', extensions: ['*'] }
-    ],
-    properties: ['openFile']
-  });
-
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  const res = await openDialogFocused({ title: 'Import Modpack (.mrpack / CurseForge .zip)', filters: [{ name: 'Minecraft Modpacks', extensions: ['mrpack', 'zip'] }, { name: 'All Files', extensions: ['*'] }], properties: ['openFile'] });
   if (res.canceled || !res.filePaths.length) return null;
 
-  const filePath = res.filePaths[0];
-  const entries = readZipEntries(filePath);
+  const filePath = res.filePaths[0], entries = readZipEntries(filePath);
   if (!entries.length) throw new Error('Invalid or unreadable modpack archive.');
+  const mrEntry = entries.find(e => e.fileName === 'modrinth.index.json');
+  const cfEntry = entries.find(e => e.fileName === 'manifest.json');
 
-  const mrIndexEntry = entries.find(e => e.fileName === 'modrinth.index.json');
-  const cfManifestEntry = entries.find(e => e.fileName === 'manifest.json');
-
-  const cfg = loadConfig();
-  const id = 'prof-pack-' + Date.now();
-  const destDir = path.join(PROFILES_DIR, id);
+  const cfg = loadConfig(), id = 'prof-pack-' + Date.now(), destDir = path.join(PROFILES_DIR, id);
   ensureProfileSubdirs(destDir);
+  let packName = path.basename(filePath, path.extname(filePath)), mcVersion = '1.20.4', loader = 'vanilla', loaderVersion = '';
 
-  let packName = path.basename(filePath, path.extname(filePath));
-  let mcVersion = '1.20.4';
-  let loader = 'vanilla';
-  let loaderVersion = '';
-
-  if (mrIndexEntry) {
-    const mrData = JSON.parse(mrIndexEntry.getBuffer().toString('utf8'));
-    if (mrData.name) packName = mrData.name;
-    const deps = mrData.dependencies || {};
+  if (mrEntry) {
+    const mr = JSON.parse(mrEntry.getBuffer().toString('utf8')), deps = mr.dependencies || {};
+    if (mr.name) packName = mr.name;
     if (deps.minecraft) mcVersion = deps.minecraft;
-    if (deps['fabric-loader']) { loader = 'fabric'; loaderVersion = deps['fabric-loader']; }
-    else if (deps.neoforge) { loader = 'neoforge'; loaderVersion = deps.neoforge; }
-    else if (deps.forge) { loader = 'forge'; loaderVersion = deps.forge; }
-    else if (deps['quilt-loader']) { loader = 'quilt'; loaderVersion = deps['quilt-loader']; }
-
-    const files = (mrData.files || []).filter(f => !(f.env && f.env.client === 'unsupported') && Array.isArray(f.downloads) && f.downloads.length);
+    for (const [k, l] of [['fabric-loader', 'fabric'], ['neoforge', 'neoforge'], ['forge', 'forge'], ['quilt-loader', 'quilt']]) {
+      if (deps[k]) { loader = l; loaderVersion = deps[k]; break; }
+    }
+    const files = (mr.files || []).filter(f => f.env?.client !== 'unsupported' && f.downloads?.length);
     appendLog(`Importing Modrinth modpack "${packName}" (${files.length} files)...`);
-
-    await runPool(files, 8, async (fileObj) => {
-      const relPath = String(fileObj.path || '').replace(/^\/+/, '');
-      if (!relPath || relPath.includes('..')) return;
-      const outPath = path.join(destDir, relPath);
-      safeMkdirSync(path.dirname(outPath));
-      for (const dl of fileObj.downloads) {
-        try {
-          await downloadFile(dl, outPath);
-          break;
-        } catch (e) {}
-      }
+    await runPool(files, 8, async (f) => {
+      const rel = String(f.path || '').replace(/^\/+/, '');
+      if (!rel || rel.includes('..')) return;
+      const out = path.join(destDir, rel);
+      safeMkdirSync(path.dirname(out));
+      for (const dl of f.downloads) { try { await downloadFile(dl, out); break; } catch (e) {} }
     });
-
     writeZipOverrides(entries, 'overrides/', destDir);
     writeZipOverrides(entries, 'client-overrides/', destDir);
-  } else if (cfManifestEntry) {
-    const cfData = JSON.parse(cfManifestEntry.getBuffer().toString('utf8'));
-    if (cfData.name) packName = cfData.name;
-    if (cfData.minecraft && cfData.minecraft.version) mcVersion = cfData.minecraft.version;
-    const modLoaders = (cfData.minecraft && cfData.minecraft.modLoaders) || [];
-    const primaryLoader = (modLoaders.find(l => l.primary) || modLoaders[0] || {}).id || '';
-    if (primaryLoader.startsWith('fabric-')) {
-      loader = 'fabric';
-      loaderVersion = primaryLoader.replace('fabric-', '');
-    } else if (primaryLoader.startsWith('neoforge-')) {
-      loader = 'neoforge';
-      loaderVersion = primaryLoader.replace('neoforge-', '');
-    } else if (primaryLoader.startsWith('forge-')) {
-      loader = 'forge';
-      loaderVersion = primaryLoader.replace('forge-', '');
-    }
-
-    const files = cfData.files || [];
+  } else if (cfEntry) {
+    const cf = JSON.parse(cfEntry.getBuffer().toString('utf8'));
+    if (cf.name) packName = cf.name;
+    if (cf.minecraft?.version) mcVersion = cf.minecraft.version;
+    const modLoaders = cf.minecraft?.modLoaders || [];
+    const primary = (modLoaders.find(l => l.primary) || modLoaders[0] || {}).id || '';
+    for (const l of ['fabric', 'neoforge', 'forge']) if (primary.startsWith(`${l}-`)) { loader = l; loaderVersion = primary.slice(l.length + 1); break; }
+    const files = cf.files || [], modsDir = path.join(destDir, 'mods');
     appendLog(`Importing CurseForge modpack "${packName}" (${files.length} mods)...`);
-    const modsDir = path.join(destDir, 'mods');
-    safeMkdirSync(modsDir);
-
     await runPool(files, 6, async (f) => {
       try {
-        const metaRaw = await httpGetText(`https://api.curseforge.com/v1/mods/${f.projectID}/files/${f.fileID}`, {
-          'Accept': 'application/json',
-          'x-api-key': CF_API_KEY
-        });
-        const meta = JSON.parse(metaRaw);
-        const fileInfo = meta && meta.data;
-        if (!fileInfo) return;
-        let dlUrl = fileInfo.downloadUrl;
-        if (!dlUrl) {
-          dlUrl = `https://edge.forgecdn.net/files/${Math.floor(fileInfo.id / 1000)}/${fileInfo.id % 1000}/${encodeURIComponent(fileInfo.fileName)}`;
-        }
-        await downloadFile(dlUrl, path.join(modsDir, fileInfo.fileName));
+        const meta = JSON.parse(await httpGetText(`https://api.curseforge.com/v1/mods/${f.projectID}/files/${f.fileID}`, { 'x-api-key': CF_API_KEY }));
+        const fi = meta?.data;
+        if (!fi) return;
+        const dl = fi.downloadUrl || `https://edge.forgecdn.net/files/${Math.floor(fi.id / 1000)}/${fi.id % 1000}/${encodeURIComponent(fi.fileName)}`;
+        await downloadFile(dl, path.join(modsDir, fi.fileName));
       } catch (e) {}
     });
-
-    const overridesPrefix = (cfData.overrides || 'overrides').replace(/\/+$/, '') + '/';
-    writeZipOverrides(entries, overridesPrefix, destDir);
+    writeZipOverrides(entries, (cf.overrides || 'overrides').replace(/\/+$/, '') + '/', destDir);
   } else {
     throw new Error('Archive does not contain modrinth.index.json or CurseForge manifest.json.');
   }
 
   let effectiveVersion = mcVersion;
-  if (loader === 'fabric' && loaderVersion) {
-    try {
-      const fabricProfileId = await installFabricProfileInternal(mcVersion, loaderVersion);
-      if (fabricProfileId) effectiveVersion = fabricProfileId;
-    } catch (e) {}
-  }
-
-  const newProfile = {
-    id,
-    name: packName,
-    path: destDir,
-    version: effectiveVersion,
-    loader,
-    loaderVersion,
-    javaRuntime: 'auto',
-    minRam: cfg.minRam || 2048,
-    maxRam: cfg.maxRam || 4096,
-    jvmArgs: DEFAULT_ORYON_JVM,
-    customJavaPath: '',
-    envVars: ''
-  };
-
-  cfg.profiles.push(newProfile);
-  cfg.activeProfileId = id;
-  cfg.selectedVersion = effectiveVersion;
+  if (loader === 'fabric' && loaderVersion) try { effectiveVersion = (await installFabricProfileInternal(mcVersion, loaderVersion)) || mcVersion; } catch (e) {}
+  const newProf = { id, name: packName, path: destDir, version: effectiveVersion, loader, loaderVersion, javaRuntime: 'auto', minRam: cfg.minRam || 2048, maxRam: cfg.maxRam || 4096, jvmArgs: DEFAULT_ORYON_JVM, customJavaPath: '', envVars: '' };
+  cfg.profiles.push(newProf); cfg.activeProfileId = id; cfg.selectedVersion = effectiveVersion;
   saveConfig(cfg);
   appendLog(`Modpack "${packName}" imported into profile ${id}.`);
-  return newProfile;
+  return newProf;
 });
 
-// -------------------------------------------------------------
-// EXTERNAL CLIENT SCANNERS & BULLETPROOF INSTANCE IMPORTER
-// -------------------------------------------------------------
-function parseIni(content) {
-  const map = {};
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eqIdx = trimmed.indexOf('=');
-    if (eqIdx !== -1) {
-      map[trimmed.slice(0, eqIdx).trim()] = trimmed.slice(eqIdx + 1).trim();
-    }
-  }
-  return map;
-}
-
-function resolveInstanceGameDir(sourcePath) {
-  const candidates = [
-    path.join(sourcePath, 'minecraft'),
-    path.join(sourcePath, '.minecraft'),
-    sourcePath
-  ];
-  for (const cand of candidates) {
-    if (fs.existsSync(cand)) {
-      try {
-        if (fs.statSync(cand).isDirectory()) {
-          if (
-            fs.existsSync(path.join(cand, 'mods')) ||
-            fs.existsSync(path.join(cand, 'config')) ||
-            fs.existsSync(path.join(cand, 'saves')) ||
-            fs.existsSync(path.join(cand, 'options.txt'))
-          ) {
-            return cand;
-          }
-        }
-      } catch (e) {}
-    }
-  }
-
-  if (fs.existsSync(path.join(sourcePath, 'minecraft'))) return path.join(sourcePath, 'minecraft');
-  if (fs.existsSync(path.join(sourcePath, '.minecraft'))) return path.join(sourcePath, '.minecraft');
-  return sourcePath;
+function parseMmcPack(packFile) {
+  const pack = JSON.parse(fs.readFileSync(packFile, 'utf-8')), comps = pack.components || [];
+  const mc = comps.find(c => c.uid === 'net.minecraft')?.version;
+  const fab = comps.find(c => c.uid === 'net.fabricmc.fabric-loader');
+  const neo = comps.find(c => c.uid === 'net.neoforged' || c.uid === 'net.neoforged.neoforge');
+  const forge = comps.find(c => c.uid === 'net.minecraftforge');
+  if (fab) return { mcVersion: mc, loader: 'fabric', loaderVersion: fab.version || '' };
+  if (neo) return { mcVersion: mc, loader: 'neoforge', loaderVersion: neo.version || '' };
+  if (forge) return { mcVersion: mc, loader: 'forge', loaderVersion: forge.version || '' };
+  return { mcVersion: mc, loader: 'vanilla', loaderVersion: '' };
 }
 
 ipcMain.handle('scan-external-clients', async () => {
-  const results = {
-    prism: [],
-    modrinth: [],
-    lunar: []
-  };
+  const results = { prism: [], modrinth: [], lunar: [] };
+  const appData = process.env.APPDATA || '', localApp = process.env.LOCALAPPDATA || '', home = process.env.USERPROFILE || '';
 
-  const appData = process.env.APPDATA || '';
-  const localAppData = process.env.LOCALAPPDATA || '';
-  const userProfile = process.env.USERPROFILE || '';
-
-  const prismDirs = [
-    path.join(appData, 'PrismLauncher', 'instances'),
-    path.join(localAppData, 'PrismLauncher', 'instances'),
-    path.join(userProfile, '.local', 'share', 'PrismLauncher', 'instances')
-  ];
-
-  for (const prismDir of prismDirs) {
+  for (const prismDir of [path.join(appData, 'PrismLauncher', 'instances'), path.join(localApp, 'PrismLauncher', 'instances'), path.join(home, '.local', 'share', 'PrismLauncher', 'instances')]) {
     if (!fs.existsSync(prismDir)) continue;
     try {
-      const entries = await fs.promises.readdir(prismDir, { withFileTypes: true });
-      for (const d of entries) {
+      for (const d of await fs.promises.readdir(prismDir, { withFileTypes: true })) {
         if (!d.isDirectory()) continue;
         const instDir = path.join(prismDir, d.name);
-        const cfgFile = path.join(instDir, 'instance.cfg');
-        const packFile = path.join(instDir, 'mmc-pack.json');
-        let name = d.name;
-        let mcVersion = '1.20.4';
-        let loader = 'vanilla';
-        let loaderVersion = '';
-        let minRam = 2048;
-        let maxRam = 4096;
-
+        if (results.prism.some(p => p.path === instDir)) continue;
+        let name = d.name, mcVersion = '1.20.4', loader = 'vanilla', loaderVersion = '', minRam = 2048, maxRam = 4096;
+        const cfgFile = path.join(instDir, 'instance.cfg'), packFile = path.join(instDir, 'mmc-pack.json');
         if (fs.existsSync(cfgFile)) {
           try {
-            const ini = parseIni(await fs.promises.readFile(cfgFile, 'utf-8'));
+            const ini = {};
+            for (const ln of (await fs.promises.readFile(cfgFile, 'utf-8')).split(/\r?\n/)) {
+              const i = ln.indexOf('='); if (i !== -1) ini[ln.slice(0, i).trim()] = ln.slice(i + 1).trim();
+            }
             if (ini.name) name = ini.name;
             if (ini.MinMemAlloc) minRam = parseInt(ini.MinMemAlloc, 10) || 2048;
             if (ini.MaxMemAlloc) maxRam = parseInt(ini.MaxMemAlloc, 10) || 4096;
           } catch (e) {}
         }
-
-        if (fs.existsSync(packFile)) {
-          try {
-            const pack = JSON.parse(await fs.promises.readFile(packFile, 'utf-8'));
-            const comps = pack.components || [];
-            const mcComp = comps.find(c => c.uid === 'net.minecraft');
-            if (mcComp && mcComp.version) mcVersion = mcComp.version;
-            const fabComp = comps.find(c => c.uid === 'net.fabricmc.fabric-loader');
-            const neoComp = comps.find(c => c.uid === 'net.neoforged' || c.uid === 'net.neoforged.neoforge');
-            const forgeComp = comps.find(c => c.uid === 'net.minecraftforge');
-            if (fabComp) { loader = 'fabric'; loaderVersion = fabComp.version || ''; }
-            else if (neoComp) { loader = 'neoforge'; loaderVersion = neoComp.version || ''; }
-            else if (forgeComp) { loader = 'forge'; loaderVersion = forgeComp.version || ''; }
-          } catch (e) {}
-        }
-
-        if (!results.prism.some(p => p.path === instDir)) {
-          results.prism.push({
-            id: `ext-prism-${d.name}`,
-            name,
-            path: instDir,
-            mcVersion,
-            loader: loader || 'vanilla',
-            loaderVersion,
-            minRam,
-            maxRam,
-            source: 'Prism'
-          });
-        }
+        if (fs.existsSync(packFile)) try { const p = parseMmcPack(packFile); if (p.mcVersion) mcVersion = p.mcVersion; loader = p.loader; loaderVersion = p.loaderVersion; } catch (e) {}
+        results.prism.push({ id: `ext-prism-${d.name}`, name, path: instDir, mcVersion, loader, loaderVersion, minRam, maxRam, source: 'Prism' });
       }
     } catch (e) {}
   }
 
-  const modrinthCandidates = [
-    path.join(appData, 'com.modrinth.theseus', 'profiles'),
-    path.join(appData, 'ModrinthApp', 'profiles')
-  ];
-  for (const mRoot of modrinthCandidates) {
+  for (const mRoot of [path.join(appData, 'com.modrinth.theseus', 'profiles'), path.join(appData, 'ModrinthApp', 'profiles')]) {
     if (!fs.existsSync(mRoot)) continue;
     try {
-      const entries = await fs.promises.readdir(mRoot, { withFileTypes: true });
-      for (const d of entries) {
+      for (const d of await fs.promises.readdir(mRoot, { withFileTypes: true })) {
         if (!d.isDirectory()) continue;
-        const profDir = path.join(mRoot, d.name);
-        const metaJson = path.join(profDir, 'profile.json');
-        let name = d.name;
-        let mcVersion = '1.20.4';
-        let loader = 'vanilla';
-        let loaderVersion = '';
-
-        if (fs.existsSync(metaJson)) {
-          try {
-            const meta = JSON.parse(await fs.promises.readFile(metaJson, 'utf-8'));
-            if (meta.name) name = meta.name;
-            if (meta.game_version) mcVersion = meta.game_version;
-            if (meta.loader) loader = meta.loader.toLowerCase();
-            if (meta.loader_version) loaderVersion = meta.loader_version;
-          } catch (e) {}
-        }
-        results.modrinth.push({
-          id: `ext-modrinth-${d.name}`,
-          name,
-          path: profDir,
-          mcVersion,
-          loader: loader || 'vanilla',
-          loaderVersion,
-          minRam: 2048,
-          maxRam: 4096,
-          source: 'Modrinth'
-        });
+        const profDir = path.join(mRoot, d.name), metaJson = path.join(profDir, 'profile.json');
+        let name = d.name, mcVersion = '1.20.4', loader = 'vanilla', loaderVersion = '';
+        if (fs.existsSync(metaJson)) try { const m = JSON.parse(await fs.promises.readFile(metaJson, 'utf-8')); name = m.name || name; mcVersion = m.game_version || mcVersion; loader = (m.loader || 'vanilla').toLowerCase(); loaderVersion = m.loader_version || ''; } catch (e) {}
+        results.modrinth.push({ id: `ext-modrinth-${d.name}`, name, path: profDir, mcVersion, loader, loaderVersion, minRam: 2048, maxRam: 4096, source: 'Modrinth' });
       }
     } catch (e) {}
   }
 
-  const lunarOffline = path.join(userProfile, '.lunarclient', 'offline', 'multiver');
-  if (fs.existsSync(lunarOffline)) {
+  const lunarDir = path.join(home, '.lunarclient', 'offline', 'multiver');
+  if (fs.existsSync(lunarDir)) {
     try {
-      const entries = await fs.promises.readdir(lunarOffline, { withFileTypes: true });
-      for (const d of entries) {
-        if (!d.isDirectory()) continue;
-        results.lunar.push({
-          id: `ext-lunar-${d.name}`,
-          name: `Lunar ${d.name}`,
-          path: path.join(lunarOffline, d.name),
-          mcVersion: d.name,
-          loader: 'lunar',
-          loaderVersion: '',
-          minRam: 2048,
-          maxRam: 4096,
-          source: 'Lunar'
-        });
+      for (const d of await fs.promises.readdir(lunarDir, { withFileTypes: true })) {
+        if (d.isDirectory()) results.lunar.push({ id: `ext-lunar-${d.name}`, name: `Lunar ${d.name}`, path: path.join(lunarDir, d.name), mcVersion: d.name, loader: 'lunar', loaderVersion: '', minRam: 2048, maxRam: 4096, source: 'Lunar' });
       }
     } catch (e) {}
   }
-
   return results;
 });
 
-ipcMain.handle('import-external-profile', async (event, {
-  sourcePath,
-  clientType = 'Prism',
-  targetName = '',
-  mcVersion = '1.20.4',
-  loader = 'vanilla',
-  loaderVersion = '',
-  minRam = 2048,
-  maxRam = 4096,
-  javaRuntime = 'auto',
-  jvmArgs = DEFAULT_ORYON_JVM
-}) => {
+ipcMain.handle('import-external-profile', async (e, { sourcePath, clientType = 'Prism', targetName = '', mcVersion = '1.20.4', loader = 'vanilla', loaderVersion = '', minRam = 2048, maxRam = 4096, javaRuntime = 'auto', jvmArgs = DEFAULT_ORYON_JVM }) => {
   if (!fs.existsSync(sourcePath)) throw new Error(`Source instance path not found: ${sourcePath}`);
-
-  const cfg = loadConfig();
-  const id = 'prof-imp-' + Date.now();
-  const destDir = path.join(PROFILES_DIR, id);
+  const cfg = loadConfig(), id = 'prof-imp-' + Date.now(), destDir = path.join(PROFILES_DIR, id);
   safeMkdirSync(destDir);
 
-  let detectedVersion = mcVersion || '1.20.4';
-  let detectedLoaderVersion = loaderVersion || '';
-  let rawLoader = String(loader || 'vanilla').toLowerCase();
-  let normalizedLoader = 'vanilla';
-  if (rawLoader.includes('fabric')) normalizedLoader = 'fabric';
-  else if (rawLoader.includes('neoforge')) normalizedLoader = 'neoforge';
-  else if (rawLoader.includes('forge')) normalizedLoader = 'forge';
-  else if (rawLoader.includes('quilt')) normalizedLoader = 'quilt';
-
-  if (clientType === 'Prism') {
-    const packFile = path.join(sourcePath, 'mmc-pack.json');
-    if (fs.existsSync(packFile)) {
-      try {
-        const pack = JSON.parse(fs.readFileSync(packFile, 'utf-8'));
-        const comps = pack.components || [];
-        const mcComp = comps.find(c => c.uid === 'net.minecraft');
-        if (mcComp && mcComp.version) detectedVersion = mcComp.version;
-        const fabComp = comps.find(c => c.uid === 'net.fabricmc.fabric-loader');
-        const neoComp = comps.find(c => c.uid === 'net.neoforged' || c.uid === 'net.neoforged.neoforge');
-        const forgeComp = comps.find(c => c.uid === 'net.minecraftforge');
-        if (fabComp) { normalizedLoader = 'fabric'; detectedLoaderVersion = fabComp.version || detectedLoaderVersion; }
-        else if (neoComp) { normalizedLoader = 'neoforge'; detectedLoaderVersion = neoComp.version || detectedLoaderVersion; }
-        else if (forgeComp) { normalizedLoader = 'forge'; detectedLoaderVersion = forgeComp.version || detectedLoaderVersion; }
-      } catch (e) {}
-    }
+  let ver = mcVersion, lVer = loaderVersion, rawL = String(loader).toLowerCase();
+  let normLoader = ['fabric', 'neoforge', 'forge', 'quilt'].find(l => rawL.includes(l)) || 'vanilla';
+  if (clientType === 'Prism' && fs.existsSync(path.join(sourcePath, 'mmc-pack.json'))) {
+    try { const p = parseMmcPack(path.join(sourcePath, 'mmc-pack.json')); if (p.mcVersion) ver = p.mcVersion; normLoader = p.loader; lVer = p.loaderVersion || lVer; } catch (err) {}
   }
 
-  const effectiveSourceRoot = resolveInstanceGameDir(sourcePath);
+  const cands = [path.join(sourcePath, 'minecraft'), path.join(sourcePath, '.minecraft'), sourcePath];
+  const srcRoot = cands.find(c => fs.existsSync(c) && fs.statSync(c).isDirectory() && ['mods', 'config', 'saves', 'options.txt'].some(s => fs.existsSync(path.join(c, s)))) || cands.find(c => fs.existsSync(c)) || sourcePath;
 
-  const copyPayload = ['mods', 'config', 'resourcepacks', 'shaderpacks', 'saves', 'screenshots', 'options.txt', 'servers.dat'];
-  for (const item of copyPayload) {
-    const src = path.join(effectiveSourceRoot, item);
-    const dest = path.join(destDir, item);
-    if (fs.existsSync(src)) {
-      try {
-        const stat = fs.statSync(src);
-        if (stat.isDirectory()) {
-          copyFolderRecursiveSync(src, dest);
-        } else {
-          fs.copyFileSync(src, dest);
-        }
-      } catch (e) {}
-    } else {
-      if (item !== 'options.txt' && item !== 'servers.dat') {
-        safeMkdirSync(dest);
-      }
-    }
+  for (const item of ['mods', 'config', 'resourcepacks', 'shaderpacks', 'saves', 'screenshots', 'options.txt', 'servers.dat']) {
+    const s = path.join(srcRoot, item), d = path.join(destDir, item);
+    if (fs.existsSync(s)) {
+      try { if (fs.statSync(s).isDirectory()) copyFolderRecursiveSync(s, d); else fs.copyFileSync(s, d); } catch (err) {}
+    } else if (item !== 'options.txt' && item !== 'servers.dat') safeMkdirSync(d);
   }
 
-  let effectiveVersion = detectedVersion;
-  if (normalizedLoader === 'fabric' && detectedLoaderVersion) {
-    try {
-      const fabricProfileId = await installFabricProfileInternal(detectedVersion, detectedLoaderVersion);
-      if (fabricProfileId) effectiveVersion = fabricProfileId;
-    } catch (e) {}
-  }
-
-  const newProfile = {
-    id,
-    name: targetName || path.basename(sourcePath) || 'Imported Profile',
-    path: destDir,
-    version: effectiveVersion,
-    loader: normalizedLoader,
-    loaderVersion: detectedLoaderVersion,
-    javaRuntime: javaRuntime || 'auto',
-    minRam: minRam || 2048,
-    maxRam: maxRam || 4096,
-    jvmArgs: jvmArgs || DEFAULT_ORYON_JVM,
-    customJavaPath: '',
-    envVars: ''
-  };
-
-  cfg.profiles.push(newProfile);
-  cfg.activeProfileId = id;
-  cfg.selectedVersion = effectiveVersion;
+  let effectiveVersion = ver;
+  if (normLoader === 'fabric' && lVer) try { effectiveVersion = (await installFabricProfileInternal(ver, lVer)) || ver; } catch (err) {}
+  const newProf = { id, name: targetName || path.basename(sourcePath) || 'Imported Profile', path: destDir, version: effectiveVersion, loader: normLoader, loaderVersion: lVer, javaRuntime, minRam, maxRam, jvmArgs: jvmArgs || DEFAULT_ORYON_JVM, customJavaPath: '', envVars: '' };
+  cfg.profiles.push(newProf); cfg.activeProfileId = id; cfg.selectedVersion = effectiveVersion;
   saveConfig(cfg);
-  return newProfile;
+  return newProf;
 });
 
 // -------------------------------------------------------------
-// DOWNLOAD PIPELINE
+// VERSIONS, LOADERS, CONTENT & MOD HUB
 // -------------------------------------------------------------
-function downloadFile(url, dest, onProgress = null, maxRedirects = 8) {
-  return new Promise((resolve, reject) => {
-    safeMkdirSync(path.dirname(dest));
-
-    const get = (targetUrl, depth) => {
-      if (depth > maxRedirects) return reject(new Error(`Too many redirects for ${url}`));
-      let parsed;
-      try { parsed = new URL(targetUrl); } catch (e) { return reject(e); }
-
-      const client = parsed.protocol === 'https:' ? https : http;
-      const req = client.get(targetUrl, {
-        headers: {
-          'User-Agent': 'Aetheria-ARM64-Launcher/1.0'
-        },
-        timeout: 30000
-      }, (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          res.resume();
-          const nextUrl = new URL(res.headers.location, targetUrl).toString();
-          return get(nextUrl, depth + 1);
-        }
-        if (res.statusCode !== 200) {
-          res.resume();
-          return reject(new Error(`HTTP ${res.statusCode} from ${targetUrl}`));
-        }
-
-        const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
-        let cur = 0;
-        const fileStream = fs.createWriteStream(dest);
-
-        res.on('data', chunk => {
-          cur += chunk.length;
-          if (onProgress && totalBytes) onProgress(cur / totalBytes);
-        });
-
-        res.pipe(fileStream);
-        fileStream.on('finish', () => fileStream.close(() => resolve(dest)));
-        fileStream.on('error', (err) => {
-          if (fs.existsSync(dest)) { try { fs.unlinkSync(dest); } catch (e) {} }
-          reject(err);
-        });
-      });
-
-      req.on('timeout', () => req.destroy(new Error(`Download timeout: ${targetUrl}`)));
-      req.on('error', (err) => {
-        if (fs.existsSync(dest)) { try { fs.unlinkSync(dest); } catch (e) {} }
-        reject(err);
-      });
-    };
-    get(url, 0);
-  });
-}
-
-function mavenToPath(coord) {
-  let ext = 'jar';
-  if (coord.includes('@')) {
-    const atParts = coord.split('@');
-    coord = atParts[0];
-    ext = atParts[1] || 'jar';
-  }
-  const parts = coord.split(':');
-  const group = parts[0].replace(/\./g, '/');
-  const artifact = parts[1];
-  const version = parts[2];
-  const classifier = parts[3] ? `-${parts[3]}` : '';
-  return `${group}/${artifact}/${version}/${artifact}-${version}${classifier}.${ext}`;
-}
-
-function extractMcVersion(str) {
-  if (!str) return '1.20.4';
-  const match = str.match(/(?:fabric-loader-[^-]+-|neoforge-|forge-)?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/);
-  return match ? match[1] : str;
-}
-
-// -------------------------------------------------------------
-// VERSION MANIFEST & SCANNER
-// -------------------------------------------------------------
-let cachedManifest = null;
-
 function scanInstalledVersions() {
-  const versionsDir = path.join(MINECRAFT_DIR, 'versions');
-  safeMkdirSync(versionsDir);
-
+  const dir = path.join(MINECRAFT_DIR, 'versions');
+  safeMkdirSync(dir);
   const list = [];
   try {
-    for (const entry of fs.readdirSync(versionsDir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        const jsonPath = path.join(versionsDir, entry.name, `${entry.name}.json`);
-        if (fs.existsSync(jsonPath)) {
-          try {
-            const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-            const isNeo = entry.name.toLowerCase().includes('neoforge');
-            const isForge = !isNeo && entry.name.toLowerCase().includes('forge');
-            const isFabric = entry.name.startsWith('fabric-loader') || !!data.inheritsFrom;
-            list.push({
-              id: entry.name,
-              inheritsFrom: data.inheritsFrom || null,
-              isFabric,
-              isNeoForge: isNeo,
-              isForge: isForge
-            });
-          } catch (e) {}
-        }
-      }
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      const jp = path.join(dir, e.name, `${e.name}.json`);
+      if (!fs.existsSync(jp)) continue;
+      try {
+        const d = JSON.parse(fs.readFileSync(jp, 'utf-8')), low = e.name.toLowerCase();
+        const isNeo = low.includes('neoforge');
+        list.push({ id: e.name, inheritsFrom: d.inheritsFrom || null, isFabric: e.name.startsWith('fabric-loader') || !!d.inheritsFrom, isNeoForge: isNeo, isForge: !isNeo && low.includes('forge') });
+      } catch (err) {}
     }
   } catch (e) {}
   return list;
 }
 
 ipcMain.handle('get-mc-versions', async () => {
-  return new Promise((resolve) => {
-    https.get('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json', (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          cachedManifest = parsed;
-          const releases = parsed.versions
-            .filter(v => v.type === 'release')
-            .map(v => ({ id: v.id, url: v.url, releaseTime: v.releaseTime }));
-          resolve({
-            latest: parsed.latest.release,
-            versions: releases,
-            installed: scanInstalledVersions()
-          });
-        } catch (e) {
-          resolve({ latest: '1.20.4', versions: [{ id: '1.20.4', url: '' }], installed: scanInstalledVersions() });
-        }
-      });
-    }).on('error', () => {
-      resolve({ latest: '1.20.4', versions: [{ id: '1.20.4', url: '' }], installed: scanInstalledVersions() });
-    });
-  });
+  try {
+    const parsed = JSON.parse(await httpGetText('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'));
+    cachedManifest = parsed;
+    return { latest: parsed.latest.release, versions: parsed.versions.filter(v => v.type === 'release').map(v => ({ id: v.id, url: v.url, releaseTime: v.releaseTime })), installed: scanInstalledVersions() };
+  } catch (e) {
+    return { latest: '1.20.4', versions: [{ id: '1.20.4', url: '' }], installed: scanInstalledVersions() };
+  }
 });
 
-// -------------------------------------------------------------
-// FABRIC & NEOFORGE SETUP
-// -------------------------------------------------------------
 async function getFabricLoadersForMc(gameVersion) {
-  const cleanVer = extractMcVersion(gameVersion);
-  const url = `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(cleanVer)}`;
   try {
-    const raw = await httpGetText(url);
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length) {
-      return parsed.map(i => ({ version: i.loader.version, stable: !!i.loader.stable }));
-    }
-  } catch (e) {}
-  return [];
+    const list = JSON.parse(await httpGetText(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(extractMcVersion(gameVersion))}`));
+    return Array.isArray(list) ? list.map(i => ({ version: i.loader.version, stable: !!i.loader.stable })) : [];
+  } catch (e) { return []; }
 }
 
 async function installFabricProfileInternal(gameVersion, loaderVersion) {
   const cleanVer = extractMcVersion(gameVersion);
-  let chosenLoader = loaderVersion;
-  if (!chosenLoader) {
+  let chosen = loaderVersion;
+  if (!chosen) {
     const list = await getFabricLoadersForMc(cleanVer);
-    const stable = list.find(l => l.stable) || list[0];
-    if (!stable) throw new Error(`No Fabric loader found for Minecraft ${cleanVer}`);
-    chosenLoader = stable.version;
+    chosen = (list.find(l => l.stable) || list[0])?.version;
+    if (!chosen) throw new Error(`No Fabric loader found for Minecraft ${cleanVer}`);
   }
-
-  const profileUrl = `https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(cleanVer)}/${encodeURIComponent(chosenLoader)}/profile/json`;
-  const raw = await httpGetText(profileUrl);
-  const profile = JSON.parse(raw);
-  const profileId = profile.id || `fabric-loader-${chosenLoader}-${cleanVer}`;
-  const targetDir = path.join(MINECRAFT_DIR, 'versions', profileId);
-  safeMkdirSync(targetDir);
-  fs.writeFileSync(path.join(targetDir, `${profileId}.json`), JSON.stringify(profile, null, 2));
-  return profileId;
+  const profile = JSON.parse(await httpGetText(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(cleanVer)}/${encodeURIComponent(chosen)}/profile/json`));
+  const id = profile.id || `fabric-loader-${chosen}-${cleanVer}`, dir = path.join(MINECRAFT_DIR, 'versions', id);
+  safeMkdirSync(dir);
+  fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(profile, null, 2));
+  return id;
 }
 
-ipcMain.handle('get-fabric-loaders', async (event, gameVersion = '1.20.4') => {
-  return getFabricLoadersForMc(gameVersion);
+ipcMain.handle('get-fabric-loaders', (e, v = '1.20.4') => getFabricLoadersForMc(v));
+ipcMain.handle('install-fabric-profile', async (e, { gameVersion, loaderVersion }) => ({ success: true, profileId: await installFabricProfileInternal(gameVersion, loaderVersion) }));
+
+ipcMain.handle('get-neoforge-versions', async (e, gameVersion = '1.20.4') => {
+  const clean = extractMcVersion(gameVersion);
+  try {
+    const xml = await httpGetText('https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml');
+    const all = (xml.match(/<version>([^<]+)<\/version>/g) || []).map(v => v.replace(/<\/?version>/g, ''));
+    const mm = clean.split('.').slice(1).join('.');
+    return all.filter(v => v.startsWith(mm) || v.startsWith(`20.${clean.split('.')[2] || 0}`)).reverse();
+  } catch (err) { return []; }
 });
 
-ipcMain.handle('install-fabric-profile', async (event, { gameVersion, loaderVersion }) => {
-  const profileId = await installFabricProfileInternal(gameVersion, loaderVersion);
-  return { success: true, profileId };
-});
-
-ipcMain.handle('get-neoforge-versions', async (event, gameVersion = '1.20.4') => {
-  const cleanVer = extractMcVersion(gameVersion);
-  const url = 'https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml';
-  return new Promise((resolve) => {
-    https.get(url, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (res) => {
-      let xml = '';
-      res.on('data', c => xml += c);
-      res.on('end', () => {
-        try {
-          const versionMatches = xml.match(/<version>([^<]+)<\/version>/g) || [];
-          const allVersions = versionMatches.map(v => v.replace(/<\/?version>/g, ''));
-          const majorMinor = cleanVer.split('.').slice(1).join('.');
-          const matched = allVersions.filter(v => v.startsWith(majorMinor) || v.startsWith(`20.${cleanVer.split('.')[2] || 0}`));
-          resolve(matched.reverse());
-        } catch (e) { resolve([]); }
-      });
-    }).on('error', () => resolve([]));
-  });
-});
-
-ipcMain.handle('install-neoforge-profile', async (event, { neoforgeVersion }) => {
-  const detected = await findSystemArmJavaAsync();
-  const cfg = loadConfig();
-  const prof = getActiveProfile(cfg);
-  const javaBin = resolveProfileJava(prof, cfg, neoforgeVersion) || detected.path;
-
-  if (!javaBin || !fs.existsSync(javaBin)) {
-    throw new Error('ARM64 JDK required for NeoForge installer. Please install Microsoft OpenJDK 21.');
-  }
-
-  const installerUrl = `https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoforgeVersion}/neoforge-${neoforgeVersion}-installer.jar`;
-  const tempInstaller = path.join(RUNTIMES_DIR, `neoforge-installer-${neoforgeVersion}.jar`);
-
+ipcMain.handle('install-neoforge-profile', async (e, { neoforgeVersion }) => {
+  const cfg = loadConfig(), prof = getActiveProfile(cfg);
+  const javaBin = resolveProfileJava(prof, cfg, neoforgeVersion) || (await findSystemArmJavaAsync()).path;
+  if (!javaBin || !fs.existsSync(javaBin)) throw new Error('ARM64 JDK required for NeoForge installer. Please install Microsoft OpenJDK 21.');
+  const temp = path.join(RUNTIMES_DIR, `neoforge-installer-${neoforgeVersion}.jar`);
   appendLog(`Downloading NeoForge installer (${neoforgeVersion})...`);
-  await downloadFile(installerUrl, tempInstaller);
-
-  appendLog(`Executing headless NeoForge client installation...`);
+  await downloadFile(`https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoforgeVersion}/neoforge-${neoforgeVersion}-installer.jar`, temp);
+  appendLog('Executing headless NeoForge client installation...');
   return new Promise((resolve, reject) => {
-    const proc = spawn(javaBin, ['-jar', tempInstaller, '--installClient', MINECRAFT_DIR], {
-      cwd: MINECRAFT_DIR
-    });
-
-    proc.stdout.on('data', d => appendLog(d.toString(), 'stdout'));
-    proc.stderr.on('data', d => appendLog(d.toString(), 'stderr'));
-
-    proc.on('close', (code) => {
-      try { fs.unlinkSync(tempInstaller); } catch (e) {}
-      if (code === 0) {
-        appendLog(`NeoForge installed successfully.`);
-        resolve({ success: true, profileId: `neoforge-${neoforgeVersion}` });
-      } else {
-        reject(new Error(`NeoForge installer exited with code ${code}`));
-      }
+    const p = spawn(javaBin, ['-jar', temp, '--installClient', MINECRAFT_DIR], { cwd: MINECRAFT_DIR });
+    p.stdout.on('data', d => appendLog(d.toString(), 'stdout'));
+    p.stderr.on('data', d => appendLog(d.toString(), 'stderr'));
+    p.on('close', code => {
+      try { fs.unlinkSync(temp); } catch (err) {}
+      if (code === 0) { appendLog('NeoForge installed successfully.'); resolve({ success: true, profileId: `neoforge-${neoforgeVersion}` }); }
+      else reject(new Error(`NeoForge installer exited with code ${code}`));
     });
   });
 });
 
-ipcMain.handle('install-shader-engine', async (event, gameVersion) => {
-  const cleanVer = extractMcVersion(gameVersion);
-  const cfg = loadConfig();
-  const modsFolder = path.join(getActiveProfileDir(cfg), 'mods');
-  safeMkdirSync(modsFolder);
-
-  const targets = [
-    { name: 'Fabric API', id: 'P7dR8mda' },
-    { name: 'Sodium', id: 'AANobbMI' },
-    { name: 'Iris Shaders', id: 'YL57xq9U' }
-  ];
-
+ipcMain.handle('install-shader-engine', async (e, gameVersion) => {
+  const clean = extractMcVersion(gameVersion), modsDir = path.join(getActiveProfileDir(loadConfig()), 'mods');
+  safeMkdirSync(modsDir);
   const results = [];
-  for (const t of targets) {
-    let url = `https://api.modrinth.com/v2/project/${t.id}/version?game_versions=["${encodeURIComponent(cleanVer)}"]&loaders=["fabric"]`;
-    let verData = await new Promise((res) => {
-      https.get(url, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (r) => {
-        let b = ''; r.on('data', c => b += c); r.on('end', () => {
-          try { res(JSON.parse(b)); } catch (e) { res([]); }
-        });
-      }).on('error', () => res([]));
-    });
-
-    if (!verData || !verData.length) {
-      const fallbackUrl = `https://api.modrinth.com/v2/project/${t.id}/version?loaders=["fabric"]`;
-      verData = await new Promise((res) => {
-        https.get(fallbackUrl, { headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' } }, (r) => {
-          let b = ''; r.on('data', c => b += c); r.on('end', () => {
-            try { res(JSON.parse(b)); } catch (e) { res([]); }
-          });
-        }).on('error', () => res([]));
-      });
-    }
-
-    if (verData && verData.length) {
-      const primary = verData[0].files.find(f => f.primary) || verData[0].files[0];
-      const dest = path.join(modsFolder, primary.filename);
-      await downloadFile(primary.url, dest);
-      results.push(primary.filename);
+  for (const id of ['P7dR8mda', 'AANobbMI', 'YL57xq9U']) {
+    let vers = [];
+    try { vers = JSON.parse(await httpGetText(`https://api.modrinth.com/v2/project/${id}/version?game_versions=["${encodeURIComponent(clean)}"]&loaders=["fabric"]`)); } catch (err) {}
+    if (!vers?.length) try { vers = JSON.parse(await httpGetText(`https://api.modrinth.com/v2/project/${id}/version?loaders=["fabric"]`)); } catch (err) {}
+    if (vers?.length) {
+      const f = vers[0].files.find(x => x.primary) || vers[0].files[0];
+      await downloadFile(f.url, path.join(modsDir, f.filename));
+      results.push(f.filename);
     }
   }
-
   return results;
 });
 
-// -------------------------------------------------------------
-// MOD UPDATER PIPELINE
-// -------------------------------------------------------------
 function hashFileSha1(filePath) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     try {
-      const hash = crypto.createHash('sha1');
-      const stream = fs.createReadStream(filePath);
-      stream.on('data', data => hash.update(data));
-      stream.on('end', () => resolve(hash.digest('hex')));
-      stream.on('error', () => resolve(null));
+      const h = crypto.createHash('sha1'), s = fs.createReadStream(filePath);
+      s.on('data', d => h.update(d));
+      s.on('end', () => resolve(h.digest('hex')));
+      s.on('error', () => resolve(null));
     } catch (e) { resolve(null); }
   });
 }
 
 ipcMain.handle('check-mod-updates', async () => {
-  const cfg = loadConfig();
-  const modsFolder = path.join(getActiveProfileDir(cfg), 'mods');
-  safeMkdirSync(modsFolder);
-
-  const jarFiles = fs.readdirSync(modsFolder).filter(f => f.endsWith('.jar') && !f.endsWith('.disabled'));
-  if (!jarFiles.length) return [];
+  const cfg = loadConfig(), modsDir = path.join(getActiveProfileDir(cfg), 'mods');
+  safeMkdirSync(modsDir);
+  const jars = fs.readdirSync(modsDir).filter(f => f.endsWith('.jar') && !f.endsWith('.disabled'));
+  if (!jars.length) return [];
 
   const hashesMap = {};
-  for (const file of jarFiles) {
-    const full = path.join(modsFolder, file);
-    const sha = await hashFileSha1(full);
+  await runPool(jars, 8, async (file) => {
+    const sha = await hashFileSha1(path.join(modsDir, file));
     if (sha) hashesMap[sha] = file;
-  }
-
+  });
   const hashes = Object.keys(hashesMap);
   if (!hashes.length) return [];
 
-  const updateHits = [];
+  const hits = [];
   try {
-    const bodyStr = JSON.stringify({ hashes, algorithm: 'sha1' });
-    const versionFilesRes = await new Promise((resolve, reject) => {
-      const req = https.request('https://api.modrinth.com/v2/version_files', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Aetheria-ARM64-Launcher'
+    const verFiles = await httpPost('https://api.modrinth.com/v2/version_files', { hashes, algorithm: 'sha1' });
+    const mcVer = extractMcVersion(getActiveProfile(cfg).version || cfg.selectedVersion || '1.20.4');
+    await runPool(Object.entries(verFiles || {}), 8, async ([hash, info]) => {
+      try {
+        const vers = JSON.parse(await httpGetText(`https://api.modrinth.com/v2/project/${info.project_id}/version?game_versions=["${encodeURIComponent(mcVer)}"]`));
+        if (vers?.length && vers[0].id !== info.id) {
+          const f = vers[0].files.find(x => x.primary) || vers[0].files[0];
+          hits.push({ currentFileName: hashesMap[hash], currentVersionNumber: info.version_number, newVersionNumber: vers[0].version_number, newFileName: f.filename, downloadUrl: f.url, projectId: info.project_id });
         }
-      }, (res) => {
-        let b = '';
-        res.on('data', c => b += c);
-        res.on('end', () => {
-          try { resolve(JSON.parse(b)); } catch (e) { resolve({}); }
-        });
-      });
-      req.on('error', reject);
-      req.write(bodyStr);
-      req.end();
+      } catch (e) {}
     });
-
-    const activeProf = getActiveProfile(cfg);
-    const activeMcVer = extractMcVersion(activeProf.version || cfg.selectedVersion || '1.20.4');
-
-    for (const [currHash, verInfo] of Object.entries(versionFilesRes)) {
-      const projectId = verInfo.project_id;
-      const fileName = hashesMap[currHash];
-
-      const projVersions = await new Promise((resolve) => {
-        https.get(`https://api.modrinth.com/v2/project/${projectId}/version?game_versions=["${encodeURIComponent(activeMcVer)}"]`, {
-          headers: { 'User-Agent': 'Aetheria-ARM64-Launcher' }
-        }, (res) => {
-          let b = '';
-          res.on('data', c => b += c);
-          res.on('end', () => {
-            try { resolve(JSON.parse(b)); } catch (e) { resolve([]); }
-          });
-        }).on('error', () => resolve([]));
-      });
-
-      if (projVersions && projVersions.length) {
-        const latestVersion = projVersions[0];
-        if (latestVersion.id !== verInfo.id) {
-          const primaryFile = latestVersion.files.find(f => f.primary) || latestVersion.files[0];
-          updateHits.push({
-            currentFileName: fileName,
-            currentVersionNumber: verInfo.version_number,
-            newVersionNumber: latestVersion.version_number,
-            newFileName: primaryFile.filename,
-            downloadUrl: primaryFile.url,
-            projectId: projectId
-          });
-        }
-      }
-    }
-  } catch (err) {
-    appendLog(`Update check fault: ${err.message}`, 'stderr');
-  }
-
-  return updateHits;
+  } catch (err) { appendLog(`Update check fault: ${err.message}`, 'stderr'); }
+  return hits;
 });
 
-ipcMain.handle('apply-mod-update', async (event, updateItem) => {
-  const cfg = loadConfig();
-  const modsFolder = path.join(getActiveProfileDir(cfg), 'mods');
-  const oldPath = path.join(modsFolder, updateItem.currentFileName);
-  const bakPath = path.join(modsFolder, `${updateItem.currentFileName}.bak`);
-  const newPath = path.join(modsFolder, updateItem.newFileName);
-
-  if (fs.existsSync(oldPath)) {
-    try { fs.renameSync(oldPath, bakPath); } catch (e) {}
-  }
-
-  await downloadFile(updateItem.downloadUrl, newPath);
-  if (fs.existsSync(bakPath)) {
-    try { fs.unlinkSync(bakPath); } catch (e) {}
-  }
-
-  return updateItem.newFileName;
+ipcMain.handle('apply-mod-update', async (e, item) => {
+  const dir = path.join(getActiveProfileDir(loadConfig()), 'mods');
+  const oldP = path.join(dir, item.currentFileName), bakP = `${oldP}.bak`;
+  if (fs.existsSync(oldP)) try { fs.renameSync(oldP, bakP); } catch (err) {}
+  await downloadFile(item.downloadUrl, path.join(dir, item.newFileName));
+  if (fs.existsSync(bakP)) try { fs.unlinkSync(bakP); } catch (err) {}
+  return item.newFileName;
 });
 
-// -------------------------------------------------------------
-// LIVE CONSOLE & ARM64 CRASH HEURISTICS
-// -------------------------------------------------------------
 ipcMain.handle('get-console-logs', () => gameLogs);
 ipcMain.handle('clear-console-logs', () => { gameLogs.length = 0; return true; });
 
-function diagnoseCrash(fullLogs) {
-  const summary = {
-    faultIdentified: false,
-    title: 'Unknown JVM Termination',
-    recommendation: 'Verify that allocated memory is sufficient and incompatible mod combinations are disabled.'
-  };
-
-  if (fullLogs.includes('EXCEPTION_ACCESS_VIOLATION') || fullLogs.includes('0xc0000005')) {
-    summary.faultIdentified = true;
-    summary.title = 'ARM64 Native Execution Trap (Access Violation)';
-    summary.recommendation = 'An unmapped instruction faulted inside Windows ARM64 translation layers. Ensure native ARM64 LWJGL binaries are unpacked and Qualcomm Adreno drivers are up to date.';
-  } else if (fullLogs.includes('java.lang.UnsatisfiedLinkError')) {
-    summary.faultIdentified = true;
-    summary.title = 'Missing Native ARM64 DLL / Architecture Mismatch';
-    summary.recommendation = 'Minecraft attempted to load an x86/x64 native binary. Verify ARM64 LWJGL extraction completed without disk permission errors.';
-  } else if (fullLogs.includes('java.lang.OutOfMemoryError') || fullLogs.includes('Metaspace')) {
-    summary.faultIdentified = true;
-    summary.title = 'JVM Heap / Metaspace Exhaustion';
-    summary.recommendation = 'The game exceeded allocated RAM. Increase Max RAM in Profile Settings to 4096MB or 6144MB.';
-  } else if (fullLogs.includes('UnsupportedClassVersionError')) {
-    summary.faultIdentified = true;
-    summary.title = 'Java Runtime Version Mismatch';
-    summary.recommendation = 'Minecraft version and Java runtime mismatch (< 1.17 requires Java 8; 1.17 – 1.20.4 requires Java 17; 1.20.5 – 1.21.x requires Java 21; 26.x+ requires Java 25). Set Java Runtime to Auto-Detect or select the matching runtime.';
-  }
-
-  return summary;
+function diagnoseCrash(logs) {
+  const rules = [
+    [l => l.includes('EXCEPTION_ACCESS_VIOLATION') || l.includes('0xc0000005'), 'ARM64 Native Execution Trap (Access Violation)', 'An unmapped instruction faulted inside Windows ARM64 translation layers. Ensure native ARM64 LWJGL binaries are unpacked and Qualcomm Adreno drivers are up to date.'],
+    [l => l.includes('java.lang.UnsatisfiedLinkError'), 'Missing Native ARM64 DLL / Architecture Mismatch', 'Minecraft attempted to load an x86/x64 native binary. Verify ARM64 LWJGL extraction completed without disk permission errors.'],
+    [l => l.includes('java.lang.OutOfMemoryError') || l.includes('Metaspace'), 'JVM Heap / Metaspace Exhaustion', 'The game exceeded allocated RAM. Increase Max RAM in Profile Settings to 4096MB or 6144MB.'],
+    [l => l.includes('UnsupportedClassVersionError'), 'Java Runtime Version Mismatch', 'Minecraft version and Java runtime mismatch (< 1.17 requires Java 8; 1.17 – 1.20.4 requires Java 17; 1.20.5 – 1.21.x requires Java 21; 26.x+ requires Java 25). Set Java Runtime to Auto-Detect or select the matching runtime.']
+  ];
+  for (const [pred, title, recommendation] of rules) if (pred(logs)) return { faultIdentified: true, title, recommendation };
+  return { faultIdentified: false, title: 'Unknown JVM Termination', recommendation: 'Verify that allocated memory is sufficient and incompatible mod combinations are disabled.' };
 }
 
-// -------------------------------------------------------------
-// SYSTEM ARM64 JDK SCANNER (FAST + NON-BLOCKING ASYNC)
-// -------------------------------------------------------------
 function findSystemArmJavaFast() {
-  for (const k of ['21', '25', '17', '8']) {
-    const local = getManagedJavaPathForKey(k);
-    if (local) return { found: true, path: local, source: `Managed ${MANAGED_JDKS[k].name}` };
-  }
-
-  const candidates = [
-    'C:\\Program Files\\Microsoft\\jdk-25\\bin\\java.exe',
-    'C:\\Program Files\\Microsoft\\jdk-21\\bin\\java.exe',
-    'C:\\Program Files\\Microsoft\\jdk-17\\bin\\java.exe',
-    'C:\\Program Files\\Eclipse Adoptium\\jdk-21-arm64\\bin\\java.exe',
-    'C:\\Program Files\\Zulu\\zulu-21-arm64\\bin\\java.exe',
-    'C:\\Program Files\\Zulu\\zulu-17-arm64\\bin\\java.exe'
-  ];
-  for (const c of candidates) {
+  for (const k of ['21', '25', '17', '8']) { const p = getManagedJavaPathForKey(k); if (p) return { found: true, path: p, source: `Managed ${MANAGED_JDKS[k].name}` }; }
+  for (const c of ['Microsoft\\jdk-25', 'Microsoft\\jdk-21', 'Microsoft\\jdk-17', 'Eclipse Adoptium\\jdk-21-arm64', 'Zulu\\zulu-21-arm64', 'Zulu\\zulu-17-arm64'].map(s => `C:\\Program Files\\${s}\\bin\\java.exe`)) {
     if (fs.existsSync(c)) return { found: true, path: c, source: 'Installed System ARM64 JDK' };
   }
-
   return { found: false, path: null, source: null };
 }
 
 async function findSystemArmJavaAsync() {
   const fast = findSystemArmJavaFast();
   if (fast.found) return fast;
-
   const out = await execAsync('java -XshowSettings:properties -version 2>&1', 2000);
-  if (out.includes('aarch64')) {
-    return { found: true, path: 'java', source: 'PATH (ARM64 Native)' };
-  }
-  return { found: false, path: null, source: null };
+  return out.includes('aarch64') ? { found: true, path: 'java', source: 'PATH (ARM64 Native)' } : { found: false, path: null, source: null };
 }
-
-ipcMain.handle('detect-arm-java', async () => findSystemArmJavaAsync());
+ipcMain.handle('detect-arm-java', findSystemArmJavaAsync);
 
 // -------------------------------------------------------------
-// MICROSOFT OAUTH + AUTOMATIC TOKEN REFRESH
+// MICROSOFT OAUTH & SKIN STUDIO
 // -------------------------------------------------------------
-const MS_CLIENT_ID = '00000000402b5328';
-const MS_REDIRECT_URI = 'https://login.live.com/oauth20_desktop.srf';
-
-function httpPost(url, data, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const bodyStr = typeof data === 'string' ? data : JSON.stringify(data);
-    const req = https.request({
-      hostname: u.hostname,
-      port: 443,
-      path: u.pathname + u.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': typeof data === 'string' ? 'application/x-www-form-urlencoded' : 'application/json',
-        'Content-Length': Buffer.byteLength(bodyStr),
-        ...headers
-      }
-    }, (res) => {
-      let b = '';
-      res.on('data', c => b += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(b)); } catch (e) { resolve(b); }
-      });
-    });
-    req.on('error', reject);
-    req.write(bodyStr);
-    req.end();
-  });
-}
-
-function httpGet(url, token = null) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const client = u.protocol === 'http:' ? http : https;
-    const headers = { 'User-Agent': 'Aetheria-ARM64-Launcher' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const req = client.request({
-      hostname: u.hostname,
-      port: u.port || (u.protocol === 'http:' ? 80 : 443),
-      path: u.pathname + u.search,
-      method: 'GET',
-      headers
-    }, (res) => {
-      let b = '';
-      res.on('data', c => b += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(b)); } catch (e) { resolve(b); }
-      });
-    });
-    req.on('error', reject);
-    req.end();
-  });
-}
-
 async function exchangeLiveTokenForMcAccount(liveRes) {
-  if (!liveRes || !liveRes.access_token) {
-    throw new Error(liveRes?.error_description || liveRes?.error || 'Missing Microsoft access token.');
-  }
-
-  const xblRes = await httpPost('https://user.auth.xboxlive.com/user/authenticate', {
-    Properties: {
-      AuthMethod: 'RPS',
-      SiteName: 'user.auth.xboxlive.com',
-      RpsTicket: liveRes.access_token
-    },
-    RelyingParty: 'http://auth.xboxlive.com',
-    TokenType: 'JWT'
-  });
-
-  const uhs = xblRes?.DisplayClaims?.xui?.[0]?.uhs;
-  if (!uhs || !xblRes.Token) throw new Error('Xbox Live authentication failed.');
-
-  const xstsRes = await httpPost('https://xsts.auth.xboxlive.com/xsts/authorize', {
-    Properties: {
-      SandboxId: 'RETAIL',
-      UserTokens: [xblRes.Token]
-    },
-    RelyingParty: 'rp://api.minecraftservices.com/',
-    TokenType: 'JWT'
-  });
-
-  if (!xstsRes.Token) throw new Error('XSTS authorization failed.');
-
-  const mojangRes = await httpPost('https://api.minecraftservices.com/authentication/login_with_xbox', {
-    identityToken: `XBL3.0 x=${uhs};${xstsRes.Token}`
-  });
-
-  if (!mojangRes.access_token) throw new Error('Minecraft Services login failed.');
-
-  const profile = await httpGet('https://api.minecraftservices.com/minecraft/profile', mojangRes.access_token);
-  if (!profile || !profile.id) throw new Error('Failed to fetch Minecraft profile ownership.');
-
-  const expiresInSec = parseInt(mojangRes.expires_in || 86400, 10);
-  return {
-    id: profile.id,
-    name: profile.name,
-    token: mojangRes.access_token,
-    refreshToken: liveRes.refresh_token || null,
-    expiresAt: Date.now() + expiresInSec * 1000
-  };
+  if (!liveRes?.access_token) throw new Error(liveRes?.error_description || liveRes?.error || 'Missing Microsoft access token.');
+  const xbl = await httpPost('https://user.auth.xboxlive.com/user/authenticate', { Properties: { AuthMethod: 'RPS', SiteName: 'user.auth.xboxlive.com', RpsTicket: liveRes.access_token }, RelyingParty: 'http://auth.xboxlive.com', TokenType: 'JWT' });
+  const uhs = xbl?.DisplayClaims?.xui?.[0]?.uhs;
+  if (!uhs || !xbl.Token) throw new Error('Xbox Live authentication failed.');
+  const xsts = await httpPost('https://xsts.auth.xboxlive.com/xsts/authorize', { Properties: { SandboxId: 'RETAIL', UserTokens: [xbl.Token] }, RelyingParty: 'rp://api.minecraftservices.com/', TokenType: 'JWT' });
+  if (!xsts.Token) throw new Error('XSTS authorization failed.');
+  const mc = await httpPost('https://api.minecraftservices.com/authentication/login_with_xbox', { identityToken: `XBL3.0 x=${uhs};${xsts.Token}` });
+  if (!mc.access_token) throw new Error('Minecraft Services login failed.');
+  const prof = await httpGet('https://api.minecraftservices.com/minecraft/profile', mc.access_token);
+  if (!prof?.id) throw new Error('Failed to fetch Minecraft profile ownership.');
+  return { id: prof.id, name: prof.name, token: mc.access_token, refreshToken: liveRes.refresh_token || null, expiresAt: Date.now() + (parseInt(mc.expires_in || 86400, 10) * 1000) };
 }
 
 async function refreshMicrosoftAccountIfNeeded(account, cfg) {
-  if (!account || !account.refreshToken) return account;
-  if (account.expiresAt && Date.now() < (account.expiresAt - 300000)) {
-    return account;
-  }
-
-  const liveRes = await httpPost(
-    'https://login.live.com/oauth20_token.srf',
-    `client_id=${MS_CLIENT_ID}&refresh_token=${encodeURIComponent(account.refreshToken)}&grant_type=refresh_token&redirect_uri=${encodeURIComponent(MS_REDIRECT_URI)}`
-  );
-
-  const refreshed = await exchangeLiveTokenForMcAccount(liveRes);
+  if (!account?.refreshToken || (account.expiresAt && Date.now() < account.expiresAt - 300000)) return account;
+  const live = await httpPost('https://login.live.com/oauth20_token.srf', `client_id=${MS_CLIENT_ID}&refresh_token=${encodeURIComponent(account.refreshToken)}&grant_type=refresh_token&redirect_uri=${encodeURIComponent(MS_REDIRECT_URI)}`);
+  const refreshed = await exchangeLiveTokenForMcAccount(live);
   if (!refreshed.refreshToken) refreshed.refreshToken = account.refreshToken;
-
-  cfg.accounts = (cfg.accounts || []).filter(a => a.id !== refreshed.id);
-  cfg.accounts.push(refreshed);
-  if (cfg.activeAccount && cfg.activeAccount.id === refreshed.id) {
-    cfg.activeAccount = refreshed;
-  }
+  cfg.accounts = (cfg.accounts || []).filter(a => a.id !== refreshed.id).concat(refreshed);
+  if (cfg.activeAccount?.id === refreshed.id) cfg.activeAccount = refreshed;
   saveConfig(cfg);
   return refreshed;
 }
 
-ipcMain.handle('refresh-microsoft-account', async (event, accountId) => {
-  const cfg = loadConfig();
-  const target = (cfg.accounts || []).find(a => a.id === accountId) || cfg.activeAccount;
+ipcMain.handle('refresh-microsoft-account', async (e, id) => {
+  const cfg = loadConfig(), target = (cfg.accounts || []).find(a => a.id === id) || cfg.activeAccount;
   if (!target) throw new Error('No account selected.');
   target.expiresAt = 0;
   return refreshMicrosoftAccountIfNeeded(target, cfg);
 });
 
-ipcMain.handle('start-microsoft-login', async () => {
-  return new Promise((resolve, reject) => {
-    const authUrl = `https://login.live.com/oauth20_authorize.srf?client_id=${MS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(MS_REDIRECT_URI)}&scope=XboxLive.signin%20offline_access&prompt=select_account`;
+ipcMain.handle('start-microsoft-login', () => new Promise((resolve, reject) => {
+  const authUrl = `https://login.live.com/oauth20_authorize.srf?client_id=${MS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(MS_REDIRECT_URI)}&scope=XboxLive.signin%20offline_access&prompt=select_account`;
+  const win = new BrowserWindow({ width: 520, height: 640, parent: mainWindow, modal: true, backgroundColor: '#09090b', title: 'Sign In — Microsoft' });
+  win.setMenu(null);
+  win.loadURL(authUrl);
+  let done = false;
+  const onUrl = async (newUrl) => {
+    if (!newUrl?.startsWith(MS_REDIRECT_URI) || done) return;
+    const p = new URL(newUrl), err = p.searchParams.get('error'), code = p.searchParams.get('code');
+    if (err || code) { done = true; win.close(); if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); }
+    if (err) return reject(new Error(p.searchParams.get('error_description') || err));
+    if (code) {
+      try {
+        const live = await httpPost('https://login.live.com/oauth20_token.srf', `client_id=${MS_CLIENT_ID}&code=${encodeURIComponent(code)}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(MS_REDIRECT_URI)}`);
+        const account = await exchangeLiveTokenForMcAccount(live), cfg = loadConfig();
+        cfg.accounts = (cfg.accounts || []).filter(a => a.id !== account.id).concat(account);
+        cfg.activeAccount = account;
+        saveConfig(cfg);
+        resolve(account);
+      } catch (e) { reject(new Error('Auth failed: ' + (e.message || e))); }
+    }
+  };
+  win.webContents.on('will-redirect', (e, u) => onUrl(u));
+  win.webContents.on('did-navigate', (e, u) => onUrl(u));
+  win.on('closed', () => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); if (!done) reject(new Error('Login window was closed.')); });
+}));
 
-    const authWindow = new BrowserWindow({
-      width: 520,
-      height: 640,
-      parent: mainWindow,
-      modal: true,
-      backgroundColor: '#09090b',
-      title: 'Sign In — Microsoft'
-    });
+const downloadSkinAsBase64 = async (url) => `data:image/png;base64,${(await httpReq(url, { raw: true })).toString('base64')}`;
 
-    authWindow.setMenu(null);
-    authWindow.loadURL(authUrl);
-
-    let finished = false;
-
-    const handleRedirect = async (newUrl) => {
-      if (!newUrl || !newUrl.startsWith(MS_REDIRECT_URI) || finished) return;
-      const parsed = new URL(newUrl);
-      const errParam = parsed.searchParams.get('error');
-      if (errParam) {
-        finished = true;
-        authWindow.close();
-        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
-        return reject(new Error(parsed.searchParams.get('error_description') || errParam));
-      }
-
-      const code = parsed.searchParams.get('code');
-      if (code) {
-        finished = true;
-        authWindow.close();
-        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
-
-        try {
-          const liveRes = await httpPost(
-            'https://login.live.com/oauth20_token.srf',
-            `client_id=${MS_CLIENT_ID}&code=${encodeURIComponent(code)}&grant_type=authorization_code&redirect_uri=${encodeURIComponent(MS_REDIRECT_URI)}`
-          );
-
-          const account = await exchangeLiveTokenForMcAccount(liveRes);
-          const cfg = loadConfig();
-          cfg.accounts = (cfg.accounts || []).filter(a => a.id !== account.id);
-          cfg.accounts.push(account);
-          cfg.activeAccount = account;
-          saveConfig(cfg);
-
-          resolve(account);
-        } catch (err) {
-          reject(new Error('Auth failed: ' + (err.message || err)));
-        }
-      }
-    };
-
-    authWindow.webContents.on('will-redirect', (event, newUrl) => {
-      handleRedirect(newUrl);
-    });
-    authWindow.webContents.on('did-navigate', (event, newUrl) => {
-      handleRedirect(newUrl);
-    });
-
-    authWindow.on('closed', () => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
-      if (!finished) reject(new Error('Login window was closed.'));
-    });
-  });
-});
-
-// -------------------------------------------------------------
-// SKIN STUDIO
-// -------------------------------------------------------------
-async function downloadSkinAsBase64(skinUrl) {
-  return new Promise((resolve, reject) => {
-    const client = skinUrl.startsWith('https:') ? https : http;
-    client.get(skinUrl, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return downloadSkinAsBase64(res.headers.location).then(resolve).catch(reject);
-      }
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => {
-        const b64 = Buffer.concat(chunks).toString('base64');
-        resolve(`data:image/png;base64,${b64}`);
-      });
-    }).on('error', reject);
-  });
-}
-
-ipcMain.handle('fetch-player-skin', async (event, username) => {
-  const cleanUser = username.trim();
-
+ipcMain.handle('fetch-player-skin', async (e, username) => {
+  const clean = username.trim();
   try {
-    const prof = await httpGet(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(cleanUser)}`);
-    if (prof && prof.id) {
-      const session = await httpGet(`https://sessionserver.mojang.com/session/minecraft/profile/${prof.id}`);
-      const prop = session.properties && session.properties.find(p => p.name === 'textures');
+    const prof = await httpGet(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(clean)}`);
+    if (prof?.id) {
+      const sess = await httpGet(`https://sessionserver.mojang.com/session/minecraft/profile/${prof.id}`);
+      const prop = sess.properties?.find(p => p.name === 'textures');
       if (prop) {
-        const parsed = JSON.parse(Buffer.from(prop.value, 'base64').toString('utf8'));
-        const skinUrl = parsed.textures && parsed.textures.SKIN && parsed.textures.SKIN.url;
-        if (skinUrl) {
-          const skinB64 = await downloadSkinAsBase64(skinUrl);
-          return {
-            username: prof.name,
-            uuid: prof.id,
-            skinUrl: skinB64,
-            isSlim: !!(parsed.textures.SKIN.metadata && parsed.textures.SKIN.metadata.model === 'slim')
-          };
-        }
+        const parsed = JSON.parse(Buffer.from(prop.value, 'base64').toString('utf8')), skin = parsed.textures?.SKIN;
+        if (skin?.url) return { username: prof.name, uuid: prof.id, skinUrl: await downloadSkinAsBase64(skin.url), isSlim: skin.metadata?.model === 'slim' };
       }
     }
-  } catch (e) {}
-
+  } catch (err) {}
   try {
-    const pdb = await httpGet(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(cleanUser)}`);
-    if (pdb && pdb.success && pdb.data && pdb.data.player) {
-      const player = pdb.data.player;
-      const skinB64 = await downloadSkinAsBase64(player.skin_texture);
-      return {
-        username: player.username,
-        uuid: player.id,
-        skinUrl: skinB64,
-        isSlim: false
-      };
-    }
-  } catch (e) {}
-
+    const pdb = await httpGet(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(clean)}`);
+    if (pdb?.success && pdb.data?.player) return { username: pdb.data.player.username, uuid: pdb.data.player.id, skinUrl: await downloadSkinAsBase64(pdb.data.player.skin_texture), isSlim: false };
+  } catch (err) {}
   try {
-    const minotarUrl = `https://minotar.net/skin/${encodeURIComponent(cleanUser)}`;
-    const skinB64 = await downloadSkinAsBase64(minotarUrl);
-    return {
-      username: cleanUser,
-      uuid: 'Unknown',
-      skinUrl: skinB64,
-      isSlim: false
-    };
-  } catch (e) {
-    throw new Error(`Unable to fetch skin for ${cleanUser}.`);
-  }
+    return { username: clean, uuid: 'Unknown', skinUrl: await downloadSkinAsBase64(`https://minotar.net/skin/${encodeURIComponent(clean)}`), isSlim: false };
+  } catch (err) { throw new Error(`Unable to fetch skin for ${clean}.`); }
 });
 
 // -------------------------------------------------------------
-// LOCAL CONTENT MANAGER (ASYNC IO)
+// LOCAL CONTENT, MODRINTH/CURSEFORGE HUB & VAULT
 // -------------------------------------------------------------
-function resolveFolderTarget(type) {
-  if (type === 'resourcepacks') return 'resourcepacks';
-  if (type === 'shaderpacks') return 'shaderpacks';
-  return 'mods';
-}
+const resolveFolderTarget = t => t === 'resourcepacks' ? 'resourcepacks' : t === 'shaderpacks' ? 'shaderpacks' : 'mods';
 
-ipcMain.handle('get-installed-content', async (event, type = 'mods') => {
-  const cfg = loadConfig();
-  const baseDir = getActiveProfileDir(cfg);
-  const target = resolveFolderTarget(type);
-  const folder = path.join(baseDir, target);
+ipcMain.handle('get-installed-content', async (e, type = 'mods') => {
+  const target = resolveFolderTarget(type), folder = path.join(getActiveProfileDir(loadConfig()), target);
   safeMkdirSync(folder);
-
-  let files = [];
   try {
-    files = await fs.promises.readdir(folder);
-  } catch (e) {
-    return [];
-  }
-
-  const items = await Promise.all(files.map(async (file) => {
-    const full = path.join(folder, file);
-    let stat = { size: 0, mtime: new Date(), isDirectory: () => false };
-    try { stat = await fs.promises.stat(full); } catch (e) {}
-
-    return {
-      fileName: file,
-      name: file.replace(/\.disabled$/, ''),
-      sizeMb: (stat.size / (1024 * 1024)).toFixed(2),
-      modified: stat.mtime.toLocaleDateString(),
-      isEnabled: !file.endsWith('.disabled'),
-      isDirectory: stat.isDirectory(),
-      folder: target
-    };
-  }));
-
-  return items;
+    const files = await fs.promises.readdir(folder);
+    return await Promise.all(files.map(async (file) => {
+      let st = { size: 0, mtime: new Date(), isDirectory: () => false };
+      try { st = await fs.promises.stat(path.join(folder, file)); } catch (err) {}
+      return { fileName: file, name: file.replace(/\.disabled$/, ''), sizeMb: (st.size / 1048576).toFixed(2), modified: st.mtime.toLocaleDateString(), isEnabled: !file.endsWith('.disabled'), isDirectory: st.isDirectory(), folder: target };
+    }));
+  } catch (err) { return []; }
 });
 
-ipcMain.handle('toggle-content-item', async (event, { folder, fileName }) => {
-  const cfg = loadConfig();
-  const dir = path.join(getActiveProfileDir(cfg), folder);
-  const src = path.join(dir, fileName);
-  const dest = fileName.endsWith('.disabled')
-    ? path.join(dir, fileName.replace(/\.disabled$/, ''))
-    : path.join(dir, `${fileName}.disabled`);
+ipcMain.handle('toggle-content-item', async (e, { folder, fileName }) => {
+  const dir = path.join(getActiveProfileDir(loadConfig()), folder), src = path.join(dir, fileName);
+  const dest = path.join(dir, fileName.endsWith('.disabled') ? fileName.replace(/\.disabled$/, '') : `${fileName}.disabled`);
   if (fs.existsSync(src)) await fs.promises.rename(src, dest);
   return true;
 });
 
-ipcMain.handle('toggle-all-content', async (event, { folder, enable }) => {
-  const cfg = loadConfig();
-  const dir = path.join(getActiveProfileDir(cfg), folder);
+ipcMain.handle('toggle-all-content', async (e, { folder, enable }) => {
+  const dir = path.join(getActiveProfileDir(loadConfig()), folder);
   safeMkdirSync(dir);
-  const files = await fs.promises.readdir(dir);
-  for (const f of files) {
-    const full = path.join(dir, f);
-    if (enable && f.endsWith('.disabled')) {
-      await fs.promises.rename(full, path.join(dir, f.replace(/\.disabled$/, '')));
-    } else if (!enable && !f.endsWith('.disabled')) {
-      await fs.promises.rename(full, path.join(dir, `${f}.disabled`));
-    }
+  for (const f of await fs.promises.readdir(dir)) {
+    if (enable && f.endsWith('.disabled')) await fs.promises.rename(path.join(dir, f), path.join(dir, f.replace(/\.disabled$/, '')));
+    else if (!enable && !f.endsWith('.disabled')) await fs.promises.rename(path.join(dir, f), path.join(dir, `${f}.disabled`));
   }
   return true;
 });
 
-ipcMain.handle('delete-content-item', async (event, { folder, fileName }) => {
-  const cfg = loadConfig();
-  const target = path.join(getActiveProfileDir(cfg), folder, fileName);
-  if (fs.existsSync(target)) {
-    if (fs.statSync(target).isDirectory()) fs.rmSync(target, { recursive: true, force: true });
-    else fs.unlinkSync(target);
-  }
+ipcMain.handle('delete-content-item', async (e, { folder, fileName }) => {
+  const target = path.join(getActiveProfileDir(loadConfig()), folder, fileName);
+  if (fs.existsSync(target)) { if (fs.statSync(target).isDirectory()) fs.rmSync(target, { recursive: true, force: true }); else fs.unlinkSync(target); }
   return true;
 });
 
-ipcMain.handle('import-content-dialog', async (event, folderType) => {
+ipcMain.handle('import-content-dialog', async (e, folderType) => {
   const target = resolveFolderTarget(folderType);
-  const res = await dialog.showOpenDialog(mainWindow, {
-    title: `Import into ${target}`,
-    filters: [
-      { name: 'Minecraft Packages', extensions: ['jar', 'zip'] },
-      { name: 'All Files', extensions: ['*'] }
-    ],
-    properties: ['openFile', 'multiSelections']
-  });
-
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  const res = await openDialogFocused({ title: `Import into ${target}`, filters: [{ name: 'Minecraft Packages', extensions: ['jar', 'zip'] }, { name: 'All Files', extensions: ['*'] }], properties: ['openFile', 'multiSelections'] });
   if (res.canceled || !res.filePaths.length) return false;
-
-  const cfg = loadConfig();
-  const destFolder = path.join(getActiveProfileDir(cfg), target);
-  safeMkdirSync(destFolder);
-
-  for (const src of res.filePaths) {
-    fs.copyFileSync(src, path.join(destFolder, path.basename(src)));
-  }
+  const dest = path.join(getActiveProfileDir(loadConfig()), target);
+  safeMkdirSync(dest);
+  for (const src of res.filePaths) fs.copyFileSync(src, path.join(dest, path.basename(src)));
   return true;
 });
 
-ipcMain.handle('import-dropped-files', async (event, { folderType, filePaths }) => {
-  const cfg = loadConfig();
-  const target = resolveFolderTarget(folderType);
-  const destFolder = path.join(getActiveProfileDir(cfg), target);
-  safeMkdirSync(destFolder);
-
-  for (const src of filePaths) {
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(destFolder, path.basename(src)));
-    }
-  }
+ipcMain.handle('import-dropped-files', async (e, { folderType, filePaths }) => {
+  const dest = path.join(getActiveProfileDir(loadConfig()), resolveFolderTarget(folderType));
+  safeMkdirSync(dest);
+  for (const src of filePaths) if (fs.existsSync(src)) fs.copyFileSync(src, path.join(dest, path.basename(src)));
   return true;
 });
 
-// -------------------------------------------------------------
-// DUAL PROVIDER (MODRINTH + CURSEFORGE) + DEPENDENCY RESOLUTION
-// -------------------------------------------------------------
-ipcMain.handle('search-modrinth', async (event, { query, type = 'mod', version = '1.20.4', loader = 'all' }) => {
-  const cleanVer = extractMcVersion(version);
-  const facets = [
-    [`project_type:${type}`],
-    [`versions:${cleanVer}`]
-  ];
+const contentFolderForType = t => t === 'resourcepack' ? 'resourcepacks' : t === 'shader' ? 'shaderpacks' : 'mods';
 
-  if (type === 'mod' && loader && loader !== 'all' && loader !== 'vanilla') {
-    facets.push([`categories:${loader.toLowerCase()}`]);
-  }
-
-  const url = `https://api.modrinth.com/v2/search?query=${encodeURIComponent(query || '')}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=20`;
-
-  try {
-    const raw = await httpGetText(url);
-    return JSON.parse(raw).hits || [];
-  } catch (e) {
-    return [];
-  }
+ipcMain.handle('search-modrinth', async (e, { query, type = 'mod', version = '1.20.4', loader = 'all' }) => {
+  const facets = [[`project_type:${type}`], [`versions:${extractMcVersion(version)}`]];
+  if (type === 'mod' && loader && loader !== 'all' && loader !== 'vanilla') facets.push([`categories:${loader.toLowerCase()}`]);
+  try { return JSON.parse(await httpGetText(`https://api.modrinth.com/v2/search?query=${encodeURIComponent(query || '')}&facets=${encodeURIComponent(JSON.stringify(facets))}&limit=20`)).hits || []; }
+  catch (err) { return []; }
 });
 
-async function installModrinthWithDeps(projectId, type, cleanVer, loader, destDir, visited, depth, installedNames) {
+async function installModrinthWithDeps(projectId, type, cleanVer, loader, destDir, visited, depth, installed) {
   if (!projectId || visited.has(projectId) || depth > 2) return;
   visited.add(projectId);
-
-  let loaderQuery = '';
-  if (type === 'mod' && loader && loader !== 'all' && loader !== 'vanilla') {
-    loaderQuery = `&loaders=["${encodeURIComponent(loader.toLowerCase())}"]`;
-  }
-
-  let versionsUrl = `https://api.modrinth.com/v2/project/${projectId}/version?game_versions=["${encodeURIComponent(cleanVer)}"]${loaderQuery}`;
-  let versions = [];
-  try {
-    versions = JSON.parse(await httpGetText(versionsUrl));
-  } catch (e) {}
-
-  if ((!versions || !versions.length) && type !== 'mod') {
-    try {
-      versions = JSON.parse(await httpGetText(`https://api.modrinth.com/v2/project/${projectId}/version`));
-    } catch (e) {}
-  }
-
-  if (!versions || !versions.length) {
-    if (depth === 0) {
-      throw new Error(`No compatible release found for MC ${cleanVer}${loader && loader !== 'all' ? ` (${loader})` : ''}.`);
-    }
-    return;
-  }
-
-  const chosenVersion = versions[0];
-  const primary = chosenVersion.files.find(f => f.primary) || chosenVersion.files[0];
-  if (!primary) return;
-
-  const filePath = path.join(destDir, primary.filename);
-  if (!fs.existsSync(filePath)) {
-    await downloadFile(primary.url, filePath);
-  }
-  installedNames.push(primary.filename);
-
-  if (type === 'mod' && Array.isArray(chosenVersion.dependencies)) {
-    for (const dep of chosenVersion.dependencies) {
-      if (dep.dependency_type === 'required' && dep.project_id && !visited.has(dep.project_id)) {
-        try {
-          await installModrinthWithDeps(dep.project_id, 'mod', cleanVer, loader, destDir, visited, depth + 1, installedNames);
-        } catch (e) {}
-      }
+  const lq = (type === 'mod' && loader && loader !== 'all' && loader !== 'vanilla') ? `&loaders=["${encodeURIComponent(loader.toLowerCase())}"]` : '';
+  let vers = [];
+  try { vers = JSON.parse(await httpGetText(`https://api.modrinth.com/v2/project/${projectId}/version?game_versions=["${encodeURIComponent(cleanVer)}"]${lq}`)); } catch (e) {}
+  if (!vers?.length && type !== 'mod') try { vers = JSON.parse(await httpGetText(`https://api.modrinth.com/v2/project/${projectId}/version`)); } catch (e) {}
+  if (!vers?.length) { if (depth === 0) throw new Error(`No compatible release found for MC ${cleanVer}${loader && loader !== 'all' ? ` (${loader})` : ''}.`); return; }
+  const f = vers[0].files.find(x => x.primary) || vers[0].files[0];
+  if (!f) return;
+  const fp = path.join(destDir, f.filename);
+  if (!fs.existsSync(fp)) await downloadFile(f.url, fp);
+  installed.push(f.filename);
+  if (type === 'mod' && Array.isArray(vers[0].dependencies)) {
+    for (const d of vers[0].dependencies) if (d.dependency_type === 'required' && d.project_id && !visited.has(d.project_id)) {
+      try { await installModrinthWithDeps(d.project_id, 'mod', cleanVer, loader, destDir, visited, depth + 1, installed); } catch (e) {}
     }
   }
 }
 
-ipcMain.handle('install-modrinth-item', async (event, { projectId, type, version = '1.20.4', loader = 'all' }) => {
-  const cleanVer = extractMcVersion(version);
-  let targetFolder = 'mods';
-  if (type === 'resourcepack') targetFolder = 'resourcepacks';
-  if (type === 'shader') targetFolder = 'shaderpacks';
-
-  const cfg = loadConfig();
-  const destDir = path.join(getActiveProfileDir(cfg), targetFolder);
+ipcMain.handle('install-modrinth-item', async (e, { projectId, type, version = '1.20.4', loader = 'all' }) => {
+  const destDir = path.join(getActiveProfileDir(loadConfig()), contentFolderForType(type));
   safeMkdirSync(destDir);
-
-  const visited = new Set();
-  const installedNames = [];
-  await installModrinthWithDeps(projectId, type, cleanVer, loader, destDir, visited, 0, installedNames);
-
-  return {
-    primary: installedNames[0],
-    all: installedNames,
-    depsCount: Math.max(0, installedNames.length - 1)
-  };
+  const installed = [];
+  await installModrinthWithDeps(projectId, type, extractMcVersion(version), loader, destDir, new Set(), 0, installed);
+  return { primary: installed[0], all: installed, depsCount: Math.max(0, installed.length - 1) };
 });
 
-ipcMain.handle('search-curseforge', async (event, { query, type = 'mod', version = '1.20.4', loader = 'all' }) => {
-  const cleanVer = extractMcVersion(version);
-  let classId = 6;
-  if (type === 'resourcepack') classId = 12;
-  if (type === 'shader') classId = 6552;
+const cfClassId = t => t === 'resourcepack' ? 12 : t === 'shader' ? 6552 : 6;
+const cfLoaderParam = (t, l) => (t === 'mod' && l && l !== 'all' && CF_LOADER_MAP[l.toLowerCase()]) ? `&modLoaderType=${CF_LOADER_MAP[l.toLowerCase()]}` : '';
 
-  let loaderParam = '';
-  if (type === 'mod' && loader && loader !== 'all' && CF_LOADER_MAP[loader.toLowerCase()]) {
-    loaderParam = `&modLoaderType=${CF_LOADER_MAP[loader.toLowerCase()]}`;
-  }
-
-  const url = `https://api.curseforge.com/v1/mods/search?gameId=432&classId=${classId}&searchFilter=${encodeURIComponent(query || '')}&gameVersion=${encodeURIComponent(cleanVer)}${loaderParam}&pageSize=20&sortField=2&sortOrder=desc`;
-
+ipcMain.handle('search-curseforge', async (e, { query, type = 'mod', version = '1.20.4', loader = 'all' }) => {
   try {
-    const raw = await httpGetText(url, { 'Accept': 'application/json', 'x-api-key': CF_API_KEY });
-    const parsed = JSON.parse(raw);
-    return (parsed.data || []).map(m => ({
-      id: m.id,
-      title: m.name,
-      author: m.authors && m.authors[0] ? m.authors[0].name : 'Unknown',
-      description: m.summary,
-      icon_url: m.logo ? m.logo.thumbnailUrl : null,
-      provider: 'curseforge'
-    }));
-  } catch (e) {
-    return [];
-  }
+    const raw = await httpGetText(`https://api.curseforge.com/v1/mods/search?gameId=432&classId=${cfClassId(type)}&searchFilter=${encodeURIComponent(query || '')}&gameVersion=${encodeURIComponent(extractMcVersion(version))}${cfLoaderParam(type, loader)}&pageSize=20&sortField=2&sortOrder=desc`, { 'x-api-key': CF_API_KEY });
+    return (JSON.parse(raw).data || []).map(m => ({ id: m.id, title: m.name, author: m.authors?.[0]?.name || 'Unknown', description: m.summary, icon_url: m.logo?.thumbnailUrl || null, provider: 'curseforge' }));
+  } catch (err) { return []; }
 });
 
-async function installCurseforgeWithDeps(modId, type, cleanVer, loader, destDir, visited, depth, installedNames) {
+async function installCurseforgeWithDeps(modId, type, cleanVer, loader, destDir, visited, depth, installed) {
   const key = String(modId);
   if (!modId || visited.has(key) || depth > 2) return;
   visited.add(key);
-
-  let loaderParam = '';
-  if (type === 'mod' && loader && loader !== 'all' && CF_LOADER_MAP[loader.toLowerCase()]) {
-    loaderParam = `&modLoaderType=${CF_LOADER_MAP[loader.toLowerCase()]}`;
-  }
-
-  const filesUrl = `https://api.curseforge.com/v1/mods/${modId}/files?gameVersion=${encodeURIComponent(cleanVer)}${loaderParam}`;
   let files = [];
-  try {
-    const raw = await httpGetText(filesUrl, { 'Accept': 'application/json', 'x-api-key': CF_API_KEY });
-    files = JSON.parse(raw).data || [];
-  } catch (e) {}
-
-  if (!files.length && type !== 'mod') {
-    try {
-      const raw = await httpGetText(`https://api.curseforge.com/v1/mods/${modId}/files`, { 'Accept': 'application/json', 'x-api-key': CF_API_KEY });
-      files = JSON.parse(raw).data || [];
-    } catch (e) {}
-  }
-
-  if (!files.length) {
-    if (depth === 0) {
-      throw new Error(`No compatible CurseForge build found for MC ${cleanVer}${loader && loader !== 'all' ? ` (${loader})` : ''}.`);
-    }
-    return;
-  }
-
-  const file = files[0];
-  let downloadUrl = file.downloadUrl;
-  if (!downloadUrl) {
-    downloadUrl = `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName)}`;
-  }
-
-  const filePath = path.join(destDir, file.fileName);
-  if (!fs.existsSync(filePath)) {
-    await downloadFile(downloadUrl, filePath);
-  }
-  installedNames.push(file.fileName);
-
-  if (type === 'mod' && Array.isArray(file.dependencies)) {
-    for (const dep of file.dependencies) {
-      if (dep.relationType === 3 && dep.modId && !visited.has(String(dep.modId))) {
-        try {
-          await installCurseforgeWithDeps(dep.modId, 'mod', cleanVer, loader, destDir, visited, depth + 1, installedNames);
-        } catch (e) {}
-      }
+  try { files = JSON.parse(await httpGetText(`https://api.curseforge.com/v1/mods/${modId}/files?gameVersion=${encodeURIComponent(cleanVer)}${cfLoaderParam(type, loader)}`, { 'x-api-key': CF_API_KEY })).data || []; } catch (e) {}
+  if (!files.length && type !== 'mod') try { files = JSON.parse(await httpGetText(`https://api.curseforge.com/v1/mods/${modId}/files`, { 'x-api-key': CF_API_KEY })).data || []; } catch (e) {}
+  if (!files.length) { if (depth === 0) throw new Error(`No compatible CurseForge build found for MC ${cleanVer}${loader && loader !== 'all' ? ` (${loader})` : ''}.`); return; }
+  const f = files[0], dl = f.downloadUrl || `https://edge.forgecdn.net/files/${Math.floor(f.id / 1000)}/${f.id % 1000}/${encodeURIComponent(f.fileName)}`;
+  const fp = path.join(destDir, f.fileName);
+  if (!fs.existsSync(fp)) await downloadFile(dl, fp);
+  installed.push(f.fileName);
+  if (type === 'mod' && Array.isArray(f.dependencies)) {
+    for (const d of f.dependencies) if (d.relationType === 3 && d.modId && !visited.has(String(d.modId))) {
+      try { await installCurseforgeWithDeps(d.modId, 'mod', cleanVer, loader, destDir, visited, depth + 1, installed); } catch (e) {}
     }
   }
 }
 
-ipcMain.handle('install-curseforge-item', async (event, { modId, type, version = '1.20.4', loader = 'all' }) => {
-  const cleanVer = extractMcVersion(version);
-  let targetFolder = 'mods';
-  if (type === 'resourcepack') targetFolder = 'resourcepacks';
-  if (type === 'shader') targetFolder = 'shaderpacks';
-
-  const cfg = loadConfig();
-  const destDir = path.join(getActiveProfileDir(cfg), targetFolder);
+ipcMain.handle('install-curseforge-item', async (e, { modId, type, version = '1.20.4', loader = 'all' }) => {
+  const destDir = path.join(getActiveProfileDir(loadConfig()), contentFolderForType(type));
   safeMkdirSync(destDir);
-
-  const visited = new Set();
-  const installedNames = [];
-  await installCurseforgeWithDeps(modId, type, cleanVer, loader, destDir, visited, 0, installedNames);
-
-  return {
-    primary: installedNames[0],
-    all: installedNames,
-    depsCount: Math.max(0, installedNames.length - 1)
-  };
+  const installed = [];
+  await installCurseforgeWithDeps(modId, type, extractMcVersion(version), loader, destDir, new Set(), 0, installed);
+  return { primary: installed[0], all: installed, depsCount: Math.max(0, installed.length - 1) };
 });
 
-// -------------------------------------------------------------
-// VAULT DATA & BACKUP (ASYNC IO)
-// -------------------------------------------------------------
 ipcMain.handle('get-vault-data', async () => {
-  const cfg = loadConfig();
-  const baseDir = getActiveProfileDir(cfg);
-  const savesDir = path.join(baseDir, 'saves');
-  const screenshotsDir = path.join(baseDir, 'screenshots');
-  safeMkdirSync(savesDir);
-  safeMkdirSync(screenshotsDir);
-
-  const worlds = [];
+  const base = getActiveProfileDir(loadConfig()), savesDir = path.join(base, 'saves'), ssDir = path.join(base, 'screenshots');
+  safeMkdirSync(savesDir); safeMkdirSync(ssDir);
+  const worlds = [], screenshots = [];
   try {
-    const saveEntries = await fs.promises.readdir(savesDir, { withFileTypes: true });
-    await Promise.all(saveEntries.map(async (d) => {
-      if (d.isDirectory()) {
-        const p = path.join(savesDir, d.name);
-        let bytes = 0;
-        try {
-          const files = await fs.promises.readdir(p);
-          const stats = await Promise.all(files.map(f => fs.promises.stat(path.join(p, f)).catch(() => null)));
-          for (const st of stats) {
-            if (st) bytes += st.size;
-          }
-        } catch (e) {}
-        worlds.push({ name: d.name, folder: d.name, sizeMb: (bytes / (1024 * 1024)).toFixed(1) });
-      }
+    await Promise.all((await fs.promises.readdir(savesDir, { withFileTypes: true })).map(async d => {
+      if (!d.isDirectory()) return;
+      const p = path.join(savesDir, d.name);
+      let bytes = 0;
+      try { for (const f of await fs.promises.readdir(p)) { const st = await fs.promises.stat(path.join(p, f)).catch(() => null); if (st) bytes += st.size; } } catch (e) {}
+      worlds.push({ name: d.name, folder: d.name, sizeMb: (bytes / 1048576).toFixed(1) });
     }));
   } catch (e) {}
-
-  const screenshots = [];
   try {
-    const ssFiles = (await fs.promises.readdir(screenshotsDir))
-      .filter(f => f.toLowerCase().endsWith('.png'))
-      .slice(-24)
-      .reverse();
-    await Promise.all(ssFiles.map(async (f) => {
-      try {
-        const buf = await fs.promises.readFile(path.join(screenshotsDir, f));
-        screenshots.push({ fileName: f, url: `data:image/png;base64,${buf.toString('base64')}` });
-      } catch (e) {}
-    }));
+    const files = (await fs.promises.readdir(ssDir)).filter(f => /\.(png|jpe?g|webp)$/i.test(f)).slice(-24).reverse();
+    for (const f of files) { const full = path.join(ssDir, f); screenshots.push({ fileName: f, path: full, url: pathToFileURL(full).href }); }
   } catch (e) {}
-
   return { worlds, screenshots };
 });
 
-ipcMain.handle('backup-world', async (event, folderName) => {
-  const cfg = loadConfig();
-  const baseDir = getActiveProfileDir(cfg);
-  const targetDir = path.join(baseDir, 'saves', folderName);
-  const backupsDir = path.join(baseDir, 'backups');
-  safeMkdirSync(backupsDir);
-
-  const zipTarget = path.join(backupsDir, `${folderName}-backup-${Date.now()}.zip`);
-  return new Promise((resolve, reject) => {
-    exec(`powershell.exe -NoProfile -Command "Compress-Archive -Path '${targetDir.replace(/'/g, "''")}' -DestinationPath '${zipTarget.replace(/'/g, "''")}' -Force"`, (err) => {
-      if (err) reject(err);
-      else resolve(zipTarget);
-    });
-  });
+ipcMain.handle('backup-world', async (e, folderName) => {
+  const base = getActiveProfileDir(loadConfig()), target = path.join(base, 'saves', folderName), backups = path.join(base, 'backups');
+  safeMkdirSync(backups);
+  const zipTarget = path.join(backups, `${folderName}-backup-${Date.now()}.zip`);
+  const ps = () => spawnArchiveTool('powershell.exe', ['-NoProfile', '-Command', `Compress-Archive -Path '${target.replace(/'/g, "''")}' -DestinationPath '${zipTarget.replace(/'/g, "''")}' -Force`]);
+  if (process.platform === 'win32') await spawnArchiveTool('tar.exe', ['-a', '-cf', zipTarget, '-C', path.join(base, 'saves'), folderName], ps);
+  else await ps();
+  return zipTarget;
 });
 
 // -------------------------------------------------------------
-// FUTURE-PROOF GAME LAUNCH PIPELINE
+// GAME LAUNCH PIPELINE
 // -------------------------------------------------------------
+const LAUNCHER_FEATURES = { is_demo_user: false, has_custom_resolution: false, has_quick_plays_support: false, is_quick_play_singleplayer: false, is_quick_play_multiplayer: false, is_quick_play_realms: false, is_quick_play_chat: false };
+
 async function resolveVanillaDescriptor(versionId, sendStatus) {
-  const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
-  const versionJsonPath = path.join(versionsDir, `${versionId}.json`);
-  safeMkdirSync(versionsDir);
-
-  if (!fs.existsSync(versionJsonPath) || fs.statSync(versionJsonPath).size < 100) {
+  const dir = path.join(MINECRAFT_DIR, 'versions', versionId), jp = path.join(dir, `${versionId}.json`);
+  safeMkdirSync(dir);
+  if (!fs.existsSync(jp) || fs.statSync(jp).size < 100) {
     sendStatus(`Fetching version descriptor for ${versionId}...`);
-    if (!cachedManifest) {
-      const raw = await httpGetText('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
-      cachedManifest = JSON.parse(raw);
-    }
-
+    if (!cachedManifest) cachedManifest = JSON.parse(await httpGetText('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'));
     const entry = cachedManifest.versions.find(v => v.id === versionId);
     if (!entry) throw new Error(`Version ${versionId} is not in Mojang's manifest.`);
-    await downloadFile(entry.url, versionJsonPath);
+    await downloadFile(entry.url, jp);
   }
-
-  return JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
+  return JSON.parse(fs.readFileSync(jp, 'utf-8'));
 }
 
 function parseEnvString(str = '') {
-  const envObj = {};
-  for (const line of str.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eqIdx = trimmed.indexOf('=');
-    if (eqIdx !== -1) {
-      const key = trimmed.slice(0, eqIdx).trim();
-      const val = trimmed.slice(eqIdx + 1).trim();
-      if (key) envObj[key] = val;
-    }
+  const env = {};
+  for (const ln of str.split(/\r?\n/)) {
+    const t = ln.trim();
+    if (!t || t.startsWith('#')) continue;
+    const i = t.indexOf('=');
+    if (i > 0) env[t.slice(0, i).trim()] = t.slice(i + 1).trim();
   }
-  return envObj;
-}
-
-const LAUNCHER_FEATURES = {
-  is_demo_user: false,
-  has_custom_resolution: false,
-  has_quick_plays_support: false,
-  is_quick_play_singleplayer: false,
-  is_quick_play_multiplayer: false,
-  is_quick_play_realms: false,
-  is_quick_play_chat: false
-};
-
-function evaluateRule(rule) {
-  if (!rule) return true;
-  let matches = true;
-  if (rule.os) {
-    if (rule.os.name && rule.os.name !== 'windows') matches = false;
-    if (rule.os.arch && rule.os.arch !== 'arm64' && rule.os.arch !== 'aarch64') matches = false;
-  }
-  if (rule.features) {
-    for (const [featKey, reqVal] of Object.entries(rule.features)) {
-      const actualVal = !!LAUNCHER_FEATURES[featKey];
-      if (actualVal !== !!reqVal) {
-        matches = false;
-        break;
-      }
-    }
-  }
-  return (rule.action === 'allow') ? matches : !matches;
+  return env;
 }
 
 function evaluateRules(rules) {
-  if (!rules || !rules.length) return true;
+  if (!rules?.length) return true;
   let allowed = false;
   for (const r of rules) {
-    const ruleResult = evaluateRule(r);
-    let conditionMatches = true;
+    let cond = true;
     if (r.os) {
-      if (r.os.name && r.os.name !== 'windows') conditionMatches = false;
-      if (r.os.arch && r.os.arch !== 'arm64' && r.os.arch !== 'aarch64') conditionMatches = false;
+      if (r.os.name && r.os.name !== 'windows') cond = false;
+      if (r.os.arch && r.os.arch !== 'arm64' && r.os.arch !== 'aarch64') cond = false;
     }
-    if (r.features) {
-      for (const [featKey, reqVal] of Object.entries(r.features)) {
-        if (!!LAUNCHER_FEATURES[featKey] !== !!reqVal) {
-          conditionMatches = false;
-          break;
-        }
-      }
-    }
-    if (conditionMatches) {
-      allowed = (r.action === 'allow');
-    } else if (!r.os && !r.features) {
-      allowed = ruleResult;
-    }
+    if (r.features) for (const [k, v] of Object.entries(r.features)) if (!!LAUNCHER_FEATURES[k] !== !!v) { cond = false; break; }
+    if (cond) allowed = (r.action === 'allow');
   }
   return allowed;
 }
 
-function resolveArgumentToken(arg, context) {
-  let text = arg;
-  for (const key of Object.keys(context)) {
-    const regex = new RegExp(`\\$\\{${key}\\}`, 'g');
-    text = text.replace(regex, context[key]);
-  }
-  return text;
-}
+const resolveArgTokens = (arg, ctx) => arg.replace(/\$\{([^}]+)\}/g, (_, k) => (k in ctx ? ctx[k] : `\${${k}}`));
 
 async function ensureAssetsDownloaded(assetIndexFile, sendStatus) {
   if (!fs.existsSync(assetIndexFile)) return;
-  let idxJson;
-  try {
-    idxJson = JSON.parse(fs.readFileSync(assetIndexFile, 'utf-8'));
-  } catch (e) {
-    return;
-  }
-  const objects = idxJson && idxJson.objects;
+  let objects;
+  try { objects = JSON.parse(fs.readFileSync(assetIndexFile, 'utf-8'))?.objects; } catch (e) { return; }
   if (!objects) return;
-
-  const objectsDir = path.join(MINECRAFT_DIR, 'assets', 'objects');
+  const objectsDir = path.join(MINECRAFT_DIR, 'assets', 'objects'), missing = [];
   safeMkdirSync(objectsDir);
 
-  const missing = [];
-  for (const obj of Object.values(objects)) {
-    if (!obj || !obj.hash) continue;
-    const prefix = obj.hash.slice(0, 2);
-    const dest = path.join(objectsDir, prefix, obj.hash);
-    if (!fs.existsSync(dest) || (obj.size && fs.statSync(dest).size !== obj.size)) {
-      missing.push({ hash: obj.hash, prefix, dest });
-    }
-  }
-
+  await runPool(Object.values(objects), 32, async (obj) => {
+    if (!obj?.hash) return;
+    const prefix = obj.hash.slice(0, 2), dest = path.join(objectsDir, prefix, obj.hash);
+    const st = await fs.promises.stat(dest).catch(() => null);
+    if (!st || (obj.size && st.size !== obj.size)) missing.push({ hash: obj.hash, prefix, dest });
+  });
   if (!missing.length) return;
   sendStatus(`Downloading ${missing.length} missing game assets (textures & audio)...`);
-
-  let completed = 0;
+  let done = 0;
   await runPool(missing, 16, async (item) => {
-    const url = `https://resources.download.minecraft.net/${item.prefix}/${item.hash}`;
-    try {
-      await downloadFile(url, item.dest);
-    } catch (e) {}
-    completed++;
-    if (completed % 150 === 0 || completed === missing.length) {
-      sendStatus(`Downloading game assets (${completed}/${missing.length})...`);
-    }
+    try { await downloadFile(`https://resources.download.minecraft.net/${item.prefix}/${item.hash}`, item.dest); } catch (e) {}
+    if (++done % 150 === 0 || done === missing.length) sendStatus(`Downloading game assets (${done}/${missing.length})...`);
   });
 }
 
-function getMavenGroupArtifact(coord) {
+const getMavenGroupArtifact = coord => {
   if (!coord) return null;
-  const parts = coord.split('@')[0].split(':');
-  if (parts.length < 2) return null;
-  const classifier = parts[3] ? `:${parts[3]}` : '';
-  return `${parts[0]}:${parts[1]}${classifier}`;
-}
+  const p = coord.split('@')[0].split(':');
+  return p.length >= 2 ? `${p[0]}:${p[1]}${p[3] ? ':' + p[3] : ''}` : null;
+};
 
 async function runGameExitHooks(payload) {
-  for (const hook of extensionRegistry.gameExitHooks) {
-    try {
-      await hook.fn(payload);
-    } catch (err) {
-      appendLog(`[Ext:${hook.extensionId}] onGameExit error: ${err.message}`, 'stderr');
-    }
+  for (const h of extensionRegistry.gameExitHooks) {
+    try { await h.fn(payload); } catch (e) { appendLog(`[Ext:${h.extensionId}] onGameExit error: ${e.message}`, 'stderr'); }
   }
 }
 
 ipcMain.on('launch-game', async (event, reqCfg) => {
-  if (isLaunchingGame || activeGameProcess) {
-    return;
-  }
+  if (isLaunchingGame || activeGameProcess) return;
   isLaunchingGame = true;
-
-  const sendStatus = (message, isError = false) => {
-    appendLog(message, isError ? 'stderr' : 'stdout');
-    event.reply('launch-status', { message, isError });
-  };
+  const sendStatus = (message, isError = false) => { appendLog(message, isError ? 'stderr' : 'stdout'); event.reply('launch-status', { message, isError }); };
 
   try {
-    const globalCfg = loadConfig();
-    const prof = getActiveProfile(globalCfg);
-    let versionId = prof.version || (reqCfg && reqCfg.selectedVersion) || '1.20.4';
-    const activeGameDir = getActiveProfileDir(globalCfg);
-
+    const globalCfg = loadConfig(), prof = getActiveProfile(globalCfg), activeGameDir = getActiveProfileDir(globalCfg);
+    let versionId = prof.version || reqCfg?.selectedVersion || '1.20.4';
     const profLoader = String(prof.loader || 'vanilla').toLowerCase();
+
     if (profLoader === 'fabric' && !versionId.startsWith('fabric-loader-')) {
-      const cleanMc = extractMcVersion(versionId);
-      const installed = scanInstalledVersions();
-      const match = installed.find(v => v.isFabric && v.inheritsFrom === cleanMc && (!prof.loaderVersion || v.id.includes(prof.loaderVersion)));
-      if (match) {
-        versionId = match.id;
-      } else {
-        sendStatus(`Setting up Fabric loader profile for MC ${cleanMc}...`);
-        versionId = await installFabricProfileInternal(cleanMc, prof.loaderVersion || '');
-      }
-      prof.version = versionId;
-      saveConfig(globalCfg);
+      const clean = extractMcVersion(versionId);
+      const match = scanInstalledVersions().find(v => v.isFabric && v.inheritsFrom === clean && (!prof.loaderVersion || v.id.includes(prof.loaderVersion)));
+      if (match) versionId = match.id;
+      else { sendStatus(`Setting up Fabric loader profile for MC ${clean}...`); versionId = await installFabricProfileInternal(clean, prof.loaderVersion || ''); }
+      prof.version = versionId; saveConfig(globalCfg);
     } else if (profLoader === 'neoforge' && !versionId.toLowerCase().includes('neoforge')) {
-      const cleanMc = extractMcVersion(versionId);
-      const installed = scanInstalledVersions();
-      const match = installed.find(v => v.isNeoForge && (v.inheritsFrom === cleanMc || v.id.includes(cleanMc)));
-      if (match) {
-        versionId = match.id;
-        prof.version = versionId;
-        saveConfig(globalCfg);
-      }
+      const clean = extractMcVersion(versionId);
+      const match = scanInstalledVersions().find(v => v.isNeoForge && (v.inheritsFrom === clean || v.id.includes(clean)));
+      if (match) { versionId = match.id; prof.version = versionId; saveConfig(globalCfg); }
     }
 
-    const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId);
-    const versionJsonPath = path.join(versionsDir, `${versionId}.json`);
+    const versionsDir = path.join(MINECRAFT_DIR, 'versions', versionId), vJsonPath = path.join(versionsDir, `${versionId}.json`);
     safeMkdirSync(versionsDir);
+    const versionData = fs.existsSync(vJsonPath) ? JSON.parse(fs.readFileSync(vJsonPath, 'utf-8')) : await resolveVanillaDescriptor(versionId, sendStatus);
+    const isInherited = !!versionData.inheritsFrom;
+    const baseGameVersion = isInherited ? versionData.inheritsFrom : versionId;
+    if (isInherited) sendStatus(`Resolving base client (${baseGameVersion})...`);
+    const parentData = isInherited ? await resolveVanillaDescriptor(baseGameVersion, sendStatus) : null;
+    const baseDesc = parentData || versionData;
 
-    let versionData;
-    let baseGameVersion = versionId;
-    let isInherited = false;
-
-    if (fs.existsSync(versionJsonPath)) {
-      versionData = JSON.parse(fs.readFileSync(versionJsonPath, 'utf-8'));
-    } else {
-      versionData = await resolveVanillaDescriptor(versionId, sendStatus);
+    const reqMajor = getRequiredJavaMajor(baseGameVersion, baseDesc);
+    let javaBin = resolveProfileJava(prof, globalCfg, baseGameVersion, baseDesc);
+    if (!javaBin && (prof.javaRuntime === 'auto' || !prof.javaRuntime) && MANAGED_JDKS[reqMajor]) {
+      sendStatus(`Minecraft ${baseGameVersion} requires Java ${reqMajor}. Installing managed runtime automatically...`);
+      javaBin = (await installManagedJdkInternal(reqMajor, step => sendStatus(step))).path;
     }
-
-    let parentData = null;
-    if (versionData.inheritsFrom) {
-      isInherited = true;
-      baseGameVersion = versionData.inheritsFrom;
-      sendStatus(`Resolving base client (${baseGameVersion})...`);
-      parentData = await resolveVanillaDescriptor(baseGameVersion, sendStatus);
-    }
-
-    const requiredMajor = getRequiredJavaMajor(baseGameVersion, parentData || versionData);
-    let javaBin = resolveProfileJava(prof, globalCfg, baseGameVersion, parentData || versionData);
-
-    if (!javaBin && (prof.javaRuntime === 'auto' || !prof.javaRuntime) && MANAGED_JDKS[requiredMajor]) {
-      sendStatus(`Minecraft ${baseGameVersion} requires Java ${requiredMajor}. Installing managed runtime automatically...`);
-      const res = await installManagedJdkInternal(requiredMajor, (step) => sendStatus(step));
-      javaBin = res.path;
-    }
-
     if (!javaBin || !fs.existsSync(javaBin)) {
       isLaunchingGame = false;
-      return sendStatus(`Java ${requiredMajor} runtime not found. Please install Java ${requiredMajor} in Settings -> Runtimes.`, true);
+      return sendStatus(`Java ${reqMajor} runtime not found. Please install Java ${reqMajor} in Settings -> Runtimes.`, true);
     }
 
     let account = globalCfg.activeAccount;
-    if (account && account.refreshToken) {
-      try {
-        sendStatus('Verifying Microsoft session...');
-        account = await refreshMicrosoftAccountIfNeeded(account, globalCfg);
-      } catch (authErr) {
-        appendLog(`Session refresh warning: ${authErr.message}`, 'stderr');
-      }
+    if (account?.refreshToken) {
+      try { sendStatus('Verifying Microsoft session...'); account = await refreshMicrosoftAccountIfNeeded(account, globalCfg); }
+      catch (authErr) { appendLog(`Session refresh warning: ${authErr.message}`, 'stderr'); }
     }
-    if (!account) {
-      account = { name: globalCfg.offlineUsername || 'Player', id: '00000000000000000000000000000000', token: 'null' };
-    }
+    if (!account) account = { name: globalCfg.offlineUsername || 'Player', id: '00000000000000000000000000000000', token: 'null' };
 
     setHighPerformanceGpu(javaBin);
     sendStatus(`Preparing Snapdragon X Oryon launch pipeline using ${path.basename(path.dirname(path.dirname(javaBin)))}...`);
 
-    const effectiveBaseDir = path.join(MINECRAFT_DIR, 'versions', baseGameVersion);
-    const clientJarPath = path.join(effectiveBaseDir, `${baseGameVersion}.jar`);
-    const nativesDir = path.join(effectiveBaseDir, 'natives-arm64');
+    const baseDir = path.join(MINECRAFT_DIR, 'versions', baseGameVersion), clientJar = path.join(baseDir, `${baseGameVersion}.jar`), nativesDir = path.join(baseDir, 'natives-arm64');
     safeMkdirSync(nativesDir);
-
-    const clientDownloadUrl = (parentData || versionData).downloads?.client?.url;
-    if (!fs.existsSync(clientJarPath) || fs.statSync(clientJarPath).size < 1000) {
-      if (!clientDownloadUrl) throw new Error(`Missing client binary for ${baseGameVersion}`);
+    if (!fs.existsSync(clientJar) || fs.statSync(clientJar).size < 1000) {
+      const url = baseDesc.downloads?.client?.url;
+      if (!url) throw new Error(`Missing client binary for ${baseGameVersion}`);
       sendStatus(`Downloading client binary (${baseGameVersion}.jar)...`);
-      await downloadFile(clientDownloadUrl, clientJarPath);
+      await downloadFile(url, clientJar);
     }
 
     sendStatus('Verifying libraries & native ARM64 LWJGL binaries...');
-    const classpath = [];
-    const seenArtifacts = new Set();
-
-    const addClasspathEntry = (jarPath, coordName = null) => {
-      if (!jarPath || !fs.existsSync(jarPath)) return;
-      const ga = getMavenGroupArtifact(coordName);
-      if (ga) {
-        if (seenArtifacts.has(ga)) return;
-        seenArtifacts.add(ga);
-      }
-      if (!classpath.includes(jarPath)) classpath.push(jarPath);
+    const classpath = [], seenGA = new Set();
+    const addCp = (p, coord) => {
+      if (!p || !fs.existsSync(p)) return;
+      const ga = getMavenGroupArtifact(coord);
+      if (ga) { if (seenGA.has(ga)) return; seenGA.add(ga); }
+      if (!classpath.includes(p)) classpath.push(p);
     };
 
     if (isInherited && Array.isArray(versionData.libraries)) {
-      await runPool(versionData.libraries, 8, async (lib) => {
-        if (!lib.name || !evaluateRules(lib.rules)) return;
-        if (lib.downloads && lib.downloads.artifact) {
-          const libDest = path.join(MINECRAFT_DIR, 'libraries', lib.downloads.artifact.path);
-          if (!fs.existsSync(libDest) || fs.statSync(libDest).size < 10) {
-            if (lib.downloads.artifact.url) {
-              try { await downloadFile(lib.downloads.artifact.url, libDest); } catch (e) {}
-            }
-          }
-        } else {
-          const libRelPath = mavenToPath(lib.name);
-          const libDest = path.join(MINECRAFT_DIR, 'libraries', libRelPath);
-          if (!fs.existsSync(libDest) || fs.statSync(libDest).size < 10) {
-            const baseUrl = lib.url || 'https://maven.fabricmc.net/';
-            const fullUrl = baseUrl.endsWith('/') ? `${baseUrl}${libRelPath}` : `${baseUrl}/${libRelPath}`;
-            try { await downloadFile(fullUrl, libDest); } catch (e) {}
-          }
+      const activeModLibs = versionData.libraries.filter(l => l.name && evaluateRules(l.rules));
+      await runPool(activeModLibs, 8, async (lib) => {
+        const art = lib.downloads?.artifact;
+        const dest = art ? path.join(MINECRAFT_DIR, 'libraries', art.path) : path.join(MINECRAFT_DIR, 'libraries', mavenToPath(lib.name));
+        if (!fs.existsSync(dest) || fs.statSync(dest).size < 10) {
+          const url = art?.url || `${(lib.url || 'https://maven.fabricmc.net/').replace(/\/?$/, '/')}${mavenToPath(lib.name)}`;
+          if (url) try { await downloadFile(url, dest); } catch (e) {}
         }
       });
-
-      for (const lib of versionData.libraries) {
-        if (!lib.name || !evaluateRules(lib.rules)) continue;
-        const libDest = (lib.downloads && lib.downloads.artifact)
-          ? path.join(MINECRAFT_DIR, 'libraries', lib.downloads.artifact.path)
-          : path.join(MINECRAFT_DIR, 'libraries', mavenToPath(lib.name));
-        addClasspathEntry(libDest, lib.name);
+      for (const lib of activeModLibs) {
+        const dest = lib.downloads?.artifact ? path.join(MINECRAFT_DIR, 'libraries', lib.downloads.artifact.path) : path.join(MINECRAFT_DIR, 'libraries', mavenToPath(lib.name));
+        addCp(dest, lib.name);
       }
     }
 
-    const vanillaLibs = (parentData || versionData).libraries || [];
-    const activeVanillaLibs = vanillaLibs.filter(lib => evaluateRules(lib.rules));
-
+    const activeVanillaLibs = (baseDesc.libraries || []).filter(l => evaluateRules(l.rules));
     await runPool(activeVanillaLibs, 8, async (lib) => {
-      if (lib.downloads && lib.downloads.artifact) {
-        const libDest = path.join(MINECRAFT_DIR, 'libraries', lib.downloads.artifact.path);
-        if (!fs.existsSync(libDest) || fs.statSync(libDest).size < 10) {
-          await downloadFile(lib.downloads.artifact.url, libDest);
-        }
-        if (lib.name && lib.name.includes('natives-windows-arm64')) {
-          extractDllsFromZip(libDest, nativesDir);
-        }
+      const art = lib.downloads?.artifact;
+      if (art) {
+        const dest = path.join(MINECRAFT_DIR, 'libraries', art.path);
+        if (!fs.existsSync(dest) || fs.statSync(dest).size < 10) await downloadFile(art.url, dest);
+        if (lib.name?.includes('natives-windows-arm64')) extractDllsFromZip(dest, nativesDir);
       }
-
-      if (lib.downloads && lib.downloads.classifiers) {
-        const cls = lib.downloads.classifiers;
-        let nativeKey = cls['natives-windows-arm64'] ? 'natives-windows-arm64' : null;
-
-        if (!nativeKey && lib.name && lib.name.startsWith('org.lwjgl')) {
-          const parts = lib.name.split(':');
-          const artifact = parts[1];
-          const ver = parts[2];
-          const arm64RelPath = `org/lwjgl/${artifact}/${ver}/${artifact}-${ver}-natives-windows-arm64.jar`;
-          const arm64Dest = path.join(MINECRAFT_DIR, 'libraries', arm64RelPath);
-          if (!fs.existsSync(arm64Dest) || fs.statSync(arm64Dest).size < 10) {
-            try {
-              await downloadFile(`https://repo1.maven.org/maven2/${arm64RelPath}`, arm64Dest);
-            } catch (e) {}
-          }
-          if (fs.existsSync(arm64Dest) && fs.statSync(arm64Dest).size > 100) {
-            extractDllsFromZip(arm64Dest, nativesDir);
-          }
-        } else if (nativeKey && cls[nativeKey]) {
-          const nat = cls[nativeKey];
+      const cls = lib.downloads?.classifiers;
+      if (cls) {
+        const nat = cls['natives-windows-arm64'];
+        if (nat) {
           const natJar = path.join(MINECRAFT_DIR, 'libraries', nat.path);
-          if (!fs.existsSync(natJar) || fs.statSync(natJar).size < 10) {
-            await downloadFile(nat.url, natJar);
-          }
+          if (!fs.existsSync(natJar) || fs.statSync(natJar).size < 10) await downloadFile(nat.url, natJar);
           extractDllsFromZip(natJar, nativesDir);
+        } else if (lib.name?.startsWith('org.lwjgl')) {
+          const [, artifact, ver] = lib.name.split(':');
+          const rel = `org/lwjgl/${artifact}/${ver}/${artifact}-${ver}-natives-windows-arm64.jar`, dest = path.join(MINECRAFT_DIR, 'libraries', rel);
+          if (!fs.existsSync(dest) || fs.statSync(dest).size < 10) try { await downloadFile(`https://repo1.maven.org/maven2/${rel}`, dest); } catch (e) {}
+          if (fs.existsSync(dest) && fs.statSync(dest).size > 100) extractDllsFromZip(dest, nativesDir);
         }
       }
     });
+    for (const lib of activeVanillaLibs) if (lib.downloads?.artifact) addCp(path.join(MINECRAFT_DIR, 'libraries', lib.downloads.artifact.path), lib.name);
+    classpath.push(clientJar);
 
-    for (const lib of activeVanillaLibs) {
-      if (lib.downloads && lib.downloads.artifact) {
-        const libDest = path.join(MINECRAFT_DIR, 'libraries', lib.downloads.artifact.path);
-        addClasspathEntry(libDest, lib.name);
-      }
-    }
-
-    classpath.push(clientJarPath);
-
-    const assetInfo = (parentData || versionData).assetIndex || { id: 'legacy' };
-    const assetIndexDir = path.join(MINECRAFT_DIR, 'assets', 'indexes');
-    safeMkdirSync(assetIndexDir);
-    const assetIndexFile = path.join(assetIndexDir, `${assetInfo.id}.json`);
-
-    if (assetInfo.url && (!fs.existsSync(assetIndexFile) || fs.statSync(assetIndexFile).size < 50)) {
+    const assetInfo = baseDesc.assetIndex || { id: 'legacy' };
+    const assetIdxDir = path.join(MINECRAFT_DIR, 'assets', 'indexes'), assetIdxFile = path.join(assetIdxDir, `${assetInfo.id}.json`);
+    safeMkdirSync(assetIdxDir);
+    if (assetInfo.url && (!fs.existsSync(assetIdxFile) || fs.statSync(assetIdxFile).size < 50)) {
       sendStatus('Downloading game assets index...');
-      await downloadFile(assetInfo.url, assetIndexFile);
+      await downloadFile(assetInfo.url, assetIdxFile);
     }
+    await ensureAssetsDownloaded(assetIdxFile, sendStatus);
 
-    await ensureAssetsDownloaded(assetIndexFile, sendStatus);
-
-    const mainClass = versionData.mainClass || (parentData && parentData.mainClass) || 'net.minecraft.client.main.Main';
+    const mainClass = versionData.mainClass || parentData?.mainClass || 'net.minecraft.client.main.Main';
     const userJvmFlags = (prof.jvmArgs || globalCfg.jvmArgs || DEFAULT_ORYON_JVM).split(' ').filter(Boolean);
+    sendStatus('Booting instance on Snapdragon X Oryon ARM64...');
 
-    sendStatus(`Booting instance on Snapdragon X Oryon ARM64...`);
-
-    const minRam = prof.minRam || globalCfg.minRam || 2048;
-    const maxRam = prof.maxRam || globalCfg.maxRam || 4096;
-
-    const argContext = {
-      auth_player_name: account.name,
-      version_name: versionId,
-      game_directory: activeGameDir,
-      assets_root: path.join(MINECRAFT_DIR, 'assets'),
-      assets_index_name: assetInfo.id || 'legacy',
-      auth_uuid: account.id.replace(/-/g, ''),
-      auth_access_token: account.token,
-      user_type: account.token !== 'null' ? 'msa' : 'mojang',
-      version_type: 'release',
-      natives_directory: nativesDir,
-      library_directory: path.join(MINECRAFT_DIR, 'libraries'),
-      classpath_separator: ';',
-      launcher_name: 'Aetheria',
-      launcher_version: '1.0.0',
-      classpath: classpath.join(';')
+    const ctx = {
+      auth_player_name: account.name, version_name: versionId, game_directory: activeGameDir,
+      assets_root: path.join(MINECRAFT_DIR, 'assets'), assets_index_name: assetInfo.id || 'legacy',
+      auth_uuid: account.id.replace(/-/g, ''), auth_access_token: account.token,
+      user_type: account.token !== 'null' ? 'msa' : 'mojang', version_type: 'release',
+      natives_directory: nativesDir, library_directory: path.join(MINECRAFT_DIR, 'libraries'),
+      classpath_separator: ';', launcher_name: 'Aetheria', launcher_version: '1.0.0', classpath: classpath.join(';')
     };
 
     const jvmArgs = [
-      `-Xms${minRam}M`,
-      `-Xmx${maxRam}M`,
-      `-Djava.library.path=${nativesDir}`,
-      `-Dorg.lwjgl.librarypath=${nativesDir}`,
-      `-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=false`,
-      `-Dio.netty.tryReflectionSetAccessible=true`,
-      ...userJvmFlags
+      `-Xms${prof.minRam || globalCfg.minRam || 2048}M`, `-Xmx${prof.maxRam || globalCfg.maxRam || 4096}M`,
+      `-Djava.library.path=${nativesDir}`, `-Dorg.lwjgl.librarypath=${nativesDir}`,
+      '-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=false', '-Dio.netty.tryReflectionSetAccessible=true', ...userJvmFlags
     ];
 
-    const extraJvmRaw = [];
-    if (Array.isArray(parentData?.arguments?.jvm)) extraJvmRaw.push(...parentData.arguments.jvm);
-    if (Array.isArray(versionData?.arguments?.jvm)) extraJvmRaw.push(...versionData.arguments.jvm);
-
-    let hasExplicitCp = false;
-    for (let i = 0; i < extraJvmRaw.length; i++) {
-      const item = extraJvmRaw[i];
-      let vals = [];
-      if (typeof item === 'string') {
-        vals = [item];
-      } else if (typeof item === 'object' && evaluateRules(item.rules)) {
-        vals = Array.isArray(item.value) ? item.value : [item.value];
-      }
+    let hasCp = false;
+    for (const item of [...(parentData?.arguments?.jvm || []), ...(versionData?.arguments?.jvm || [])]) {
+      const vals = typeof item === 'string' ? [item] : (typeof item === 'object' && evaluateRules(item.rules) ? (Array.isArray(item.value) ? item.value : [item.value]) : []);
       for (const v of vals) {
         if (typeof v !== 'string') continue;
-        const resolved = resolveArgumentToken(v, argContext);
-        if (resolved.startsWith('-Djava.library.path=')) continue;
-        if (resolved === '-cp' || resolved === '-classpath') {
-          hasExplicitCp = true;
-        }
-        jvmArgs.push(resolved);
+        const r = resolveArgTokens(v, ctx);
+        if (r.startsWith('-Djava.library.path=')) continue;
+        if (r === '-cp' || r === '-classpath') hasCp = true;
+        jvmArgs.push(r);
       }
     }
-
-    if (!hasExplicitCp) {
-      jvmArgs.push('-cp', classpath.join(';'));
-    }
+    if (!hasCp) jvmArgs.push('-cp', ctx.classpath);
 
     let gameArgs = [];
     const rawGameArgs = versionData.arguments?.game || parentData?.arguments?.game;
-
     if (Array.isArray(rawGameArgs)) {
-      const combined = [];
-      if (Array.isArray(parentData?.arguments?.game)) combined.push(...parentData.arguments.game);
-      if (Array.isArray(versionData?.arguments?.game) && versionData !== parentData) combined.push(...versionData.arguments.game);
-
+      const combined = [...(parentData?.arguments?.game || []), ...(versionData !== parentData ? (versionData?.arguments?.game || []) : [])];
       for (const a of combined) {
-        if (typeof a === 'string') {
-          gameArgs.push(resolveArgumentToken(a, argContext));
-        } else if (typeof a === 'object' && evaluateRules(a.rules)) {
-          if (Array.isArray(a.value)) {
-            gameArgs.push(...a.value.map(val => resolveArgumentToken(val, argContext)));
-          } else if (typeof a.value === 'string') {
-            gameArgs.push(resolveArgumentToken(a.value, argContext));
-          }
+        if (typeof a === 'string') gameArgs.push(resolveArgTokens(a, ctx));
+        else if (typeof a === 'object' && evaluateRules(a.rules)) {
+          for (const v of (Array.isArray(a.value) ? a.value : [a.value])) if (typeof v === 'string') gameArgs.push(resolveArgTokens(v, ctx));
         }
       }
     } else if (typeof (versionData.minecraftArguments || parentData?.minecraftArguments) === 'string') {
-      const legacyPattern = versionData.minecraftArguments || parentData.minecraftArguments;
-      gameArgs = legacyPattern.split(' ').map(token => resolveArgumentToken(token, argContext));
+      gameArgs = (versionData.minecraftArguments || parentData.minecraftArguments).split(' ').map(t => resolveArgTokens(t, ctx));
     } else {
-      gameArgs = [
-        '--username', account.name,
-        '--version', versionId,
-        '--gameDir', activeGameDir,
-        '--assetsDir', path.join(MINECRAFT_DIR, 'assets'),
-        '--assetIndex', assetInfo.id || 'legacy',
-        '--uuid', account.id.replace(/-/g, ''),
-        '--accessToken', account.token,
-        '--userType', account.token !== 'null' ? 'msa' : 'mojang'
-      ];
+      gameArgs = ['--username', account.name, '--version', versionId, '--gameDir', activeGameDir, '--assetsDir', ctx.assets_root, '--assetIndex', ctx.assets_index_name, '--uuid', ctx.auth_uuid, '--accessToken', account.token, '--userType', ctx.user_type];
     }
 
-    const customEnv = {
-      ...parseEnvString(globalCfg.envVars || ''),
-      ...parseEnvString(prof.envVars || '')
-    };
-
-    const launchEnv = {
-      ...process.env,
-      ...customEnv
-    };
-
-    // Execute Phase B Extension onBeforeLaunch hooks
     const launchContext = {
-      prof,
-      globalCfg,
-      versionId,
-      baseGameVersion,
-      loader: profLoader,
-      activeGameDir,
-      javaBin,
-      mainClass,
-      jvmArgs,
-      gameArgs,
-      classpath,
-      env: launchEnv,
-      sendStatus,
-      appendLog
+      prof, globalCfg, versionId, baseGameVersion, loader: profLoader, activeGameDir, javaBin, mainClass, jvmArgs, gameArgs, classpath,
+      env: { ...process.env, ...parseEnvString(globalCfg.envVars || ''), ...parseEnvString(prof.envVars || '') },
+      sendStatus, appendLog
     };
-
-    for (const hook of extensionRegistry.beforeLaunchHooks) {
-      try {
-        await hook.fn(launchContext);
-      } catch (extErr) {
-        appendLog(`[Ext:${hook.extensionId}] onBeforeLaunch warning: ${extErr.message}`, 'stderr');
-      }
+    for (const h of extensionRegistry.beforeLaunchHooks) {
+      try { await h.fn(launchContext); } catch (extErr) { appendLog(`[Ext:${h.extensionId}] onBeforeLaunch warning: ${extErr.message}`, 'stderr'); }
     }
 
-    const finalJavaBin = launchContext.javaBin || javaBin;
-    const finalMainClass = launchContext.mainClass || mainClass;
-    const fullArgs = [...launchContext.jvmArgs, finalMainClass, ...launchContext.gameArgs];
+    activeGameProcess = spawn(launchContext.javaBin || javaBin, [...launchContext.jvmArgs, launchContext.mainClass || mainClass, ...launchContext.gameArgs], { cwd: activeGameDir, env: launchContext.env });
+    let spawnedPid = null, totalOutput = '';
 
-    activeGameProcess = spawn(finalJavaBin, fullArgs, { cwd: activeGameDir, env: launchContext.env });
-    let spawnedPid = null;
-    let totalOutput = '';
-
-    activeGameProcess.stdout.on('data', (d) => {
+    activeGameProcess.stdout.on('data', d => {
       const line = d.toString();
-      totalOutput += line;
+      totalOutput = (totalOutput + line).slice(-131072);
       appendLog(line, 'stdout');
-      if (line.includes('Setting user:') || line.includes('Backend library:')) {
-        sendStatus('Minecraft window active.');
-      }
+      if (line.includes('Setting user:') || line.includes('Backend library:')) sendStatus('Minecraft window active.');
     });
-
-    activeGameProcess.stderr.on('data', (d) => {
+    activeGameProcess.stderr.on('data', d => {
       const line = d.toString();
-      totalOutput += line;
+      totalOutput = (totalOutput + line).slice(-131072);
       appendLog(line, 'stderr');
     });
-
     activeGameProcess.on('spawn', () => {
       isLaunchingGame = false;
-      spawnedPid = activeGameProcess ? activeGameProcess.pid : null;
+      spawnedPid = activeGameProcess?.pid || null;
       event.reply('game-started', { pid: spawnedPid });
       sendStatus(`Minecraft running (PID: ${spawnedPid})`);
-      if (globalCfg.closeOnLaunch) setTimeout(() => mainWindow && mainWindow.hide(), 2500);
+      if (globalCfg.closeOnLaunch) setTimeout(() => mainWindow?.hide(), 2500);
     });
 
-    activeGameProcess.on('close', (code) => {
-      activeGameProcess = null;
-      isLaunchingGame = false;
-      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
-        mainWindow.show();
-      }
-      const crashed = code !== 0 && code !== null;
+    const onFinish = (code, crashed, diag) => {
+      activeGameProcess = null; isLaunchingGame = false;
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) mainWindow.show();
       runGameExitHooks({ code, crashed, pid: spawnedPid, prof, versionId, baseGameVersion });
-      if (crashed) {
-        const diag = diagnoseCrash(totalOutput);
-        event.reply('game-crashed', { code, diag });
-        sendStatus(`Game crashed (Exit Code ${code}): ${diag.title}`, true);
-      } else {
-        event.reply('game-exited', { code: 0 });
-        sendStatus('Minecraft closed normally.');
-      }
-    });
+      if (crashed && diag) { event.reply('game-crashed', { code, diag }); sendStatus(`Game crashed (Exit Code ${code}): ${diag.title}`, true); }
+      else { event.reply('game-exited', { code }); }
+    };
 
-    activeGameProcess.on('error', (err) => {
-      activeGameProcess = null;
-      isLaunchingGame = false;
-      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
-        mainWindow.show();
-      }
-      runGameExitHooks({ code: -1, crashed: true, pid: spawnedPid, prof, versionId, baseGameVersion });
-      event.reply('game-exited', { code: -1 });
+    activeGameProcess.on('close', code => {
+      const crashed = code !== 0 && code !== null;
+      onFinish(crashed ? code : 0, crashed, crashed ? diagnoseCrash(totalOutput) : null);
+      if (!crashed) sendStatus('Minecraft closed normally.');
+    });
+    activeGameProcess.on('error', err => {
+      onFinish(-1, true, null);
       sendStatus(`Execution error: ${err.message}`, true);
     });
   } catch (err) {
-    activeGameProcess = null;
-    isLaunchingGame = false;
+    activeGameProcess = null; isLaunchingGame = false;
     event.reply('game-exited', { code: -1 });
     sendStatus(`Launch failed: ${err.message}`, true);
   }
 });
 
-// -------------------------------------------------------------
-// APP LIFECYCLE
-// -------------------------------------------------------------
 app.whenReady().then(async () => {
-  initDirectories();
+  [APP_DIR, RUNTIMES_DIR, PROFILES_DIR, EXTENSIONS_USER_DIR].forEach(safeMkdirSync);
   await loadExtensions();
   createWindow();
 });
-
-app.on('before-quit', () => {
-  forceCleanExit();
-});
-
-app.on('window-all-closed', () => {
-  forceCleanExit();
-});
+app.on('before-quit', forceCleanExit);
+app.on('window-all-closed', forceCleanExit);
 
