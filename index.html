@@ -1,3 +1,6 @@
+Here is the complete, unbroken index.html with all 5 fixes and the Phase B
+Extension Loader frontend hook integrated:
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -124,7 +127,7 @@
       color: var(--text);
     }
     .brand-badge {
-      background: rgba(var(--accent-rgb), 0.08);
+      background: rgba(var(--accent-rgb), 0.10);
       border: 1px solid var(--border);
       color: var(--text-muted);
       padding: 2px 7px;
@@ -170,7 +173,7 @@
       white-space: nowrap;
     }
     .top-nav-btn:hover {
-      background: rgba(var(--accent-rgb), 0.07);
+      background: rgba(var(--accent-rgb), 0.08);
       color: var(--text);
       border-color: var(--border);
     }
@@ -190,7 +193,7 @@
       cursor: pointer; font-size: 13px;
       transition: background calc(200ms * var(--anim-scale)) var(--ease-ios), color calc(200ms * var(--anim-scale)) var(--ease-ios), transform calc(200ms * var(--anim-scale)) var(--ease-spring);
     }
-    .win-btn:hover { background: rgba(var(--accent-rgb), 0.1); color: var(--text); }
+    .win-btn:hover { background: rgba(var(--accent-rgb), 0.12); color: var(--text); }
     .win-btn:active { transform: scale(0.9); }
     .win-btn.close:hover { background: var(--danger); color: #fff; }
 
@@ -251,21 +254,23 @@
       border-radius: var(--radius);
       padding: 18px;
       margin-bottom: 14px;
+      position: relative;
       transition:
         border-color calc(240ms * var(--anim-scale)) var(--ease-ios),
         background calc(240ms * var(--anim-scale)) var(--ease-ios),
         box-shadow calc(240ms * var(--anim-scale)) var(--ease-ios);
     }
     .card:hover { border-color: var(--border-hover); }
+    .card.has-open-select { z-index: 3500; }
 
     .panel-header { margin-bottom: 18px; }
-    .panel-header h2 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; }
+    .panel-header h2 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
     .panel-header p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
 
     .btn {
       background: var(--accent);
       color: var(--accent-fg);
-      border: none;
+      border: 1px solid transparent;
       padding: 8px 16px;
       border-radius: var(--radius);
       font-size: 0.82rem;
@@ -296,7 +301,7 @@
         border-color calc(200ms * var(--anim-scale)) var(--ease-ios),
         transform calc(240ms * var(--anim-scale)) var(--ease-spring);
     }
-    .btn-secondary:hover { background: rgba(var(--accent-rgb), 0.10); border-color: var(--border-focus); transform: translateY(-1px); }
+    .btn-secondary:hover { background: rgba(var(--accent-rgb), 0.12); border-color: var(--border-focus); transform: translateY(-1px); }
     .btn-secondary:active { transform: scale(0.96); }
 
     .input-field, textarea.input-field {
@@ -316,13 +321,13 @@
       box-shadow: 0 0 0 1px var(--accent);
     }
 
-    /* CUSTOM ZERO-DEFAULT DROPDOWN COMPONENT */
+    /* CUSTOM ZERO-DEFAULT DROPDOWN COMPONENT (PORTALED TO BODY SO NO OVERLAY CAN BLOCK IT) */
     .custom-select {
       position: relative;
       width: 100%;
       z-index: 20;
     }
-    .custom-select.open { z-index: 2600; }
+    .custom-select.open { z-index: 4000; }
     .custom-select-trigger {
       width: 100%;
       display: flex;
@@ -358,25 +363,27 @@
       flex-shrink: 0;
     }
     .custom-select.open .custom-select-arrow { transform: rotate(180deg); color: var(--accent); }
+
     .custom-select-menu {
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
-      width: 100%;
-      max-height: 240px;
+      position: fixed;
+      z-index: 95000;
+      max-height: 260px;
       overflow-y: auto;
-      background: rgba(var(--card-rgb), 0.96);
+      background: rgba(var(--card-rgb), 0.97);
       border: 1px solid var(--border-hover);
       border-radius: var(--radius);
       padding: 5px;
       display: none;
       flex-direction: column;
       gap: 2px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.72);
-      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(18px);
       transform-origin: top center;
     }
-    .custom-select.open .custom-select-menu {
+    .custom-select-menu.open-up {
+      transform-origin: bottom center;
+    }
+    .custom-select-menu.open {
       display: flex;
       animation: iosPopMenu calc(260ms * var(--anim-scale)) var(--ease-spring) forwards;
     }
@@ -396,7 +403,7 @@
       cursor: pointer;
       transition: background calc(160ms * var(--anim-scale)) var(--ease-ios), color calc(160ms * var(--anim-scale)) var(--ease-ios);
     }
-    .custom-select-option:hover { background: rgba(var(--accent-rgb), 0.1); color: var(--text); }
+    .custom-select-option:hover { background: rgba(var(--accent-rgb), 0.12); color: var(--text); }
     .custom-select-option.selected {
       background: var(--accent-bg);
       color: var(--text);
@@ -451,7 +458,7 @@
     }
     .modal-box {
       width: 580px; max-height: 88vh; overflow-y: auto;
-      background: rgba(var(--card-rgb), 0.94); border: 1px solid var(--border-hover);
+      background: rgba(var(--card-rgb), 0.95); border: 1px solid var(--border-hover);
       border-radius: 14px; padding: 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.85);
       animation: iosModalIn calc(320ms * var(--anim-scale)) var(--ease-spring);
     }
@@ -464,14 +471,14 @@
       height: 480px; background: rgba(var(--card-rgb), 0.42); border: 1px solid var(--border);
       backdrop-filter: blur(8px);
       border-radius: var(--radius); padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.75rem; color: #e4e4e7; overflow-y: auto; white-space: pre-wrap; line-height: 1.45;
+      font-size: 0.75rem; color: var(--text); overflow-y: auto; white-space: pre-wrap; line-height: 1.45;
     }
     .log-time { color: var(--text-dim); margin-right: 6px; }
     .log-stderr { color: #f87171; }
-    .log-stdout { color: #e4e4e7; }
+    .log-stdout { color: var(--text); }
 
     /* ----------------------------------------------------------
-       OVERVIEW 21x21 EDGE-TO-EDGE ZERO-SCROLL GRID STAGE
+       OVERVIEW 21x21 EDGE-TO-EDGE ZERO-SCROLL WIDGET STAGE
     ---------------------------------------------------------- */
     .overview-stage-wrap {
       display: flex;
@@ -543,7 +550,7 @@
     }
     .overview-grid-overlay.active { display: grid; }
     .grid-snap-cell {
-      border: 1px dashed rgba(var(--accent-rgb), 0.11);
+      border: 1px dashed rgba(var(--accent-rgb), 0.14);
       border-radius: 4px;
       background: rgba(var(--accent-rgb), 0.015);
     }
@@ -593,7 +600,7 @@
       overflow: hidden;
       transition: box-shadow calc(240ms * var(--anim-scale)) var(--ease-ios), border-color calc(240ms * var(--anim-scale)) var(--ease-ios);
     }
-    .widget-slot:not(.edit-mode):hover {
+    .widget-slot:not(.edit-mode):not([data-no-border="true"]):hover {
       box-shadow: 0 0 0 1px var(--widget-highlight);
     }
 
@@ -628,26 +635,30 @@
 
     .widget-edit-header {
       position: absolute;
-      top: 4px;
-      left: 4px;
-      right: 4px;
+      top: 3px;
+      left: 3px;
+      right: 3px;
       z-index: 25;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 4px;
-      padding: 2px 6px;
-      background: rgba(var(--card-rgb), 0.88);
+      gap: 3px;
+      padding: 2px 5px;
+      background: rgba(var(--card-rgb), 0.90);
       border: 1px solid var(--border-hover);
-      border-radius: 6px;
-      font-size: 0.66rem;
+      border-radius: 5px;
+      font-size: 0.64rem;
       color: var(--text-muted);
       backdrop-filter: blur(8px);
+    }
+    .widget-slot.compact .widget-edit-header {
+      padding: 1px 4px;
+      font-size: 0.58rem;
     }
     .widget-edit-controls {
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 2px;
       position: relative;
       z-index: 2;
       flex-shrink: 0;
@@ -667,12 +678,15 @@
 
     .widget-size-pill {
       font-family: ui-monospace, monospace;
-      font-size: 0.62rem;
+      font-size: 0.6rem;
       color: var(--text);
       background: rgba(var(--card-rgb), 0.9);
       border: 1px solid var(--border);
       padding: 1px 4px;
       border-radius: 4px;
+    }
+    .widget-slot.compact .widget-size-pill {
+      display: none;
     }
 
     /* DRAG-TO-RESIZE HANDLES */
@@ -682,9 +696,9 @@
       touch-action: none;
     }
     .widget-resize-handle.handle-e {
-      top: 26px;
+      top: 22px;
       right: 0;
-      bottom: 12px;
+      bottom: 10px;
       width: 7px;
       cursor: ew-resize;
     }
@@ -695,15 +709,15 @@
       top: 50%;
       transform: translateY(-50%);
       width: 2px;
-      height: 20px;
+      height: 16px;
       border-radius: 2px;
-      background: rgba(var(--accent-rgb), 0.25);
+      background: rgba(var(--accent-rgb), 0.28);
     }
     .widget-resize-handle.handle-e:hover::after { background: var(--accent); }
 
     .widget-resize-handle.handle-s {
-      left: 10px;
-      right: 12px;
+      left: 8px;
+      right: 10px;
       bottom: 0;
       height: 7px;
       cursor: ns-resize;
@@ -715,17 +729,17 @@
       left: 50%;
       transform: translateX(-50%);
       height: 2px;
-      width: 20px;
+      width: 16px;
       border-radius: 2px;
-      background: rgba(var(--accent-rgb), 0.25);
+      background: rgba(var(--accent-rgb), 0.28);
     }
     .widget-resize-handle.handle-s:hover::after { background: var(--accent); }
 
     .widget-resize-handle.handle-se {
       right: 2px;
       bottom: 2px;
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       cursor: nwse-resize;
       display: flex;
       align-items: flex-end;
@@ -734,10 +748,10 @@
     }
     .widget-resize-handle.handle-se::after {
       content: '';
-      width: 7px;
-      height: 7px;
-      border-right: 2px solid rgba(var(--accent-rgb), 0.55);
-      border-bottom: 2px solid rgba(var(--accent-rgb), 0.55);
+      width: 6px;
+      height: 6px;
+      border-right: 2px solid rgba(var(--accent-rgb), 0.6);
+      border-bottom: 2px solid rgba(var(--accent-rgb), 0.6);
       border-bottom-right-radius: 2px;
     }
     .widget-resize-handle.handle-se:hover::after { border-color: var(--accent); }
@@ -745,39 +759,48 @@
     .widget-card {
       border: 1px solid var(--border);
       backdrop-filter: blur(12px);
-      padding: 12px 14px;
+      padding: 10px 12px;
       height: 100%;
       min-height: 0;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 8px;
-      overflow-y: auto;
-      overflow-x: hidden;
+      gap: 6px;
+      overflow: hidden;
       transition: border-color calc(220ms * var(--anim-scale)) var(--ease-ios), background-color calc(220ms * var(--anim-scale)) var(--ease-ios);
     }
-    .widget-card:hover { border-color: var(--border-hover); }
+    .widget-slot.compact .widget-card {
+      padding: 6px 8px;
+      gap: 4px;
+    }
+    .widget-slot:not([data-no-border="true"]) .widget-card:hover { border-color: var(--border-hover); }
 
     .widget-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-shrink: 0;
     }
     .widget-title {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .widget-slot.compact .widget-title {
+      font-size: 0.6rem;
     }
 
-    /* SCROLLABLE IN-WIDGET LISTS (ZERO ESCAPING DROPDOWNS) */
+    /* CONDITIONAL SCROLLABLE IN-WIDGET LISTS (ONLY SCROLLS IF OVERFLOWING) */
     .widget-scroll-list {
       flex: 1;
       min-height: 0;
-      overflow-y: auto;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -792,12 +815,17 @@
       background: rgba(var(--card-rgb), 0.35);
       border: 1px solid var(--border);
       color: var(--text-muted);
-      padding: 7px 10px;
+      padding: 6px 9px;
       border-radius: 7px;
-      font-size: 0.76rem;
+      font-size: 0.75rem;
       text-align: left;
       cursor: pointer;
+      flex-shrink: 0;
       transition: all calc(180ms * var(--anim-scale)) var(--ease-ios);
+    }
+    .widget-slot.compact .widget-list-row {
+      padding: 4px 6px;
+      font-size: 0.68rem;
     }
     .widget-list-row:hover {
       background: rgba(var(--accent-rgb), 0.08);
@@ -814,40 +842,52 @@
     /* HERO WIDGET */
     .hero-widget-inner {
       text-align: center;
-      padding: 10px 14px;
+      padding: 8px 12px;
       height: 100%;
       min-height: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      overflow-y: auto;
+      overflow: hidden;
       border: 1px solid var(--border);
       backdrop-filter: blur(10px);
     }
     .hero-widget-inner h1 {
-      font-size: clamp(1.4rem, 3.1vw, 2.9rem);
+      font-size: clamp(1rem, 2.8vw, 2.8rem);
       font-weight: 800;
       letter-spacing: -0.04em;
       line-height: 1.06;
       color: var(--text);
     }
+    .widget-slot.compact .hero-widget-inner h1 {
+      font-size: clamp(0.88rem, 1.8vw, 1.25rem);
+    }
     .hero-widget-inner p {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       color: var(--text-muted);
-      margin-top: 6px;
+      margin-top: 5px;
       letter-spacing: 0.02em;
+    }
+    .widget-slot.compact .hero-widget-inner p {
+      font-size: 0.66rem;
+      margin-top: 3px;
     }
 
     /* PLAY BUTTON WIDGET */
     .play-btn {
       width: 100%;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      padding: 0 20px; font-size: 0.94rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 0 12px; font-size: 0.92rem; font-weight: 700;
       letter-spacing: 0.06em; cursor: pointer; height: 100%; min-height: 0;
       box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
       transition: filter calc(200ms * var(--anim-scale)) var(--ease-ios), transform calc(220ms * var(--anim-scale)) var(--ease-spring);
       border: none;
+    }
+    .widget-slot.compact .play-btn {
+      font-size: 0.76rem;
+      padding: 0 6px;
+      gap: 5px;
     }
     .play-btn:hover { filter: brightness(1.08); }
     .play-btn:active { transform: scale(0.97); }
@@ -861,19 +901,19 @@
     .play-btn.state-error { background: #ef4444; color: #450a0a; border: 1px solid #f87171; }
     .play-btn.state-error .status-indicator { background: #450a0a; }
 
-    .status-indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .status-indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 
     .widget-mini-console {
       background: transparent;
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 8px;
+      padding: 7px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.68rem;
+      font-size: 0.67rem;
       line-height: 1.4;
       flex: 1;
-      min-height: 36px;
-      overflow-y: auto;
+      min-height: 24px;
+      overflow: hidden;
       white-space: pre-wrap;
     }
 
@@ -926,7 +966,7 @@
 
     .color-panel-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
       gap: 8px;
       margin-top: 8px;
     }
@@ -954,7 +994,7 @@
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.28);
+      border: 1px solid rgba(255,255,255,0.45);
     }
 
     .screenshot-picker-grid {
@@ -990,7 +1030,7 @@
     </div>
 
     <div class="top-right-group">
-      <nav class="top-nav">
+      <nav class="top-nav" id="main-top-nav">
         <button class="top-nav-btn active" onclick="switchTab('home', this)">Overview</button>
         <button class="top-nav-btn" onclick="switchTab('profiles', this)">Profiles</button>
         <button class="top-nav-btn" onclick="switchTab('mods', this)">Mod Hub</button>
@@ -1000,7 +1040,7 @@
         <button class="top-nav-btn" onclick="switchTab('skins', this)">Skin Studio</button>
         <button class="top-nav-btn" onclick="switchTab('vault', this)">Vault</button>
         <button class="top-nav-btn" onclick="switchTab('accounts', this)">Accounts</button>
-        <button class="top-nav-btn" onclick="switchTab('settings', this)">Settings</button>
+        <button class="top-nav-btn" id="nav-btn-settings" onclick="switchTab('settings', this)">Settings</button>
       </nav>
 
       <div class="win-controls">
@@ -1012,7 +1052,7 @@
   </header>
 
   <main class="viewport home-mode" id="main-viewport">
-    <div class="workspace-stage">
+    <div class="workspace-stage" id="workspace-stage">
 
       <!-- 1. OVERVIEW DASHBOARD (21x21 EDGE-TO-EDGE ZERO-SCROLL WIDGET STAGE) -->
       <section id="panel-home" class="panel active">
@@ -1021,11 +1061,11 @@
             <div>
               <strong style="font-size: 0.84rem; color: var(--text);">Overview 21×21 Grid Editor</strong>
               <span style="display:block; font-size: 0.71rem; color: var(--text-muted); margin-top: 1px;">
-                Drag widgets to any 21×21 cell, pull edge/corner handles to resize, or click ⚙ for widget radius &amp; opacity.
+                Drag widgets to any 21×21 cell, pull edge/corner handles to resize, or click ⚙ for radius, opacity &amp; borders.
               </span>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn-secondary" onclick="openWidgetCatalogModal()">+ Widget Catalog (<span id="catalog-active-count">3</span>/20)</button>
+              <button class="btn-secondary" onclick="openWidgetCatalogModal()">+ Widget Catalog (<span id="catalog-active-count">3</span>/<span id="catalog-total-count">20</span>)</button>
               <button class="btn-secondary" onclick="resetOverviewWidgets()">Reset Default</button>
               <button class="btn" onclick="exitWidgetEditMode()">Done</button>
             </div>
@@ -1340,7 +1380,7 @@
       <section id="panel-settings" class="panel">
         <div class="panel-header">
           <h2>Global Settings</h2>
-          <p>Overview 21×21 widgets, OLED &amp; color panels, iOS animation speed, 20+ backgrounds, and ARM64 runtimes</p>
+          <p>Overview 21×21 widgets, OLED &amp; color panels, iOS animation speed, 20+ backgrounds, extensions, and ARM64 runtimes</p>
         </div>
 
         <div class="card">
@@ -1404,6 +1444,22 @@
           </div>
         </div>
 
+        <div class="card">
+          <div style="display:flex; justify-content: space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 10px;">
+            <div>
+              <h3 style="font-size: 0.92rem; font-weight: 600;">Modular Extensions (Phase B Plugin Hook)</h3>
+              <p style="font-size: 0.76rem; color: var(--text-muted); margin-top: 3px;">
+                Auto-loads external plugins from <code>./extensions/</code> and <code>%APPDATA%\.aetheria-launcher\extensions\</code>
+              </p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-secondary" onclick="openExtensionsFolder()">Open Extensions Folder</button>
+              <button class="btn-secondary" onclick="reloadExtensionsUI()">Reload Extensions</button>
+            </div>
+          </div>
+          <div id="extensions-list-box" style="display:flex; flex-direction:column; gap:6px;"></div>
+        </div>
+
         <div class="card" id="jdk-card">
           <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 12px;">
             <div>
@@ -1459,7 +1515,7 @@
     <div class="modal-box" style="width: 780px; max-width: 92vw;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <div>
-          <h3 style="font-size:1.05rem;">Launcher Widget Catalog (20 Widgets)</h3>
+          <h3 style="font-size:1.05rem;">Launcher Widget Catalog</h3>
           <span style="font-size:0.74rem; color:var(--text-muted);">Click any widget to toggle it on your 21×21 Overview grid.</span>
         </div>
         <button class="btn" onclick="closeWidgetCatalogModal()">Done</button>
@@ -1468,7 +1524,7 @@
     </div>
   </div>
 
-  <!-- INDIVIDUAL WIDGET SETTINGS MODAL (RADIUS, OPACITY & PER-WIDGET OPTIONS) -->
+  <!-- INDIVIDUAL WIDGET SETTINGS MODAL (RADIUS, OPACITY, BORDERS & PER-WIDGET OPTIONS) -->
   <div class="modal-overlay" id="modal-widget-settings" onclick="if(event.target===this) closeWidgetSettingsModal()">
     <div class="modal-box" style="width: 460px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -1485,12 +1541,19 @@
         <input type="range" min="0" max="28" step="1" value="12" class="range-slider" id="ws-radius-slider" oninput="previewWidgetStyleLive()" />
       </div>
 
-      <div style="margin-bottom: 16px;">
+      <div style="margin-bottom: 14px;">
         <label style="font-size:0.76rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:6px;">
           <span>Background Opacity (0% = See-Through)</span>
           <strong id="ws-opacity-val" style="color:var(--text);">55%</strong>
         </label>
         <input type="range" min="0" max="100" step="2" value="55" class="range-slider" id="ws-opacity-slider" oninput="previewWidgetStyleLive()" />
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; color:var(--text); cursor:pointer;">
+          <input type="checkbox" id="ws-border-toggle" checked style="width:15px; height:15px; accent-color:var(--accent);" onchange="previewWidgetStyleLive()" />
+          Show Widget Border
+        </label>
       </div>
 
       <div id="ws-specific-options" style="margin-bottom: 18px; display:flex; flex-direction:column; gap:10px;"></div>
@@ -1930,7 +1993,6 @@
           }
         }
       } else if (currentPreset === 'mc-overworld') {
-        // 11. Overworld Biome Voxel Hills + Drifting Block Clouds + Fireflies
         mcClouds.forEach(c => {
           c.x += c.vx;
           if (c.x > width + 60) c.x = -c.w - 40;
@@ -1961,7 +2023,6 @@
           ctx.fillRect(fx, fy, 4, 4);
         }
       } else if (currentPreset === 'mc-ores') {
-        // 12. Underground Ore Strata (Coal, Iron, Gold, Redstone, Lapis, Diamond, Emerald)
         const cell = 38;
         const cols = Math.ceil(width / cell);
         const rows = Math.ceil(height / cell);
@@ -1992,7 +2053,6 @@
           }
         }
       } else if (currentPreset === 'mc-nether') {
-        // 13. Nether Cavern & Rising Embers
         const lavaGrad = ctx.createLinearGradient(0, height * 0.65, 0, height);
         lavaGrad.addColorStop(0, 'rgba(239, 68, 68, 0)');
         lavaGrad.addColorStop(1, 'rgba(234, 88, 12, 0.16)');
@@ -2008,7 +2068,6 @@
           ctx.fillRect(e.x, e.y, e.s, e.s);
         });
       } else if (currentPreset === 'mc-end') {
-        // 14. The End Void & Obsidian Pillars + Ender Particles
         const pillarCount = 7;
         for (let p = 0; p < pillarCount; p++) {
           const px = (width / (pillarCount + 1)) * (p + 1);
@@ -2028,7 +2087,6 @@
           ctx.fillRect(ex, ey, 3, 3);
         });
       } else if (currentPreset === 'mc-sculk') {
-        // 15. Deep Dark Sculk Sensor Ripples
         mcSculkNodes.forEach(n => {
           const r = ((tick * 1.1 + n.phase * 3) % 180);
           const alpha = Math.max(0, 0.35 * (1 - r / 180));
@@ -2042,7 +2100,6 @@
           ctx.fillRect((n.x % width) - 3, (n.y % height) - 3, 6, 6);
         });
       } else if (currentPreset === 'mc-redstone') {
-        // 16. Redstone Dust Traces & Signal Pulses
         const step = 64;
         ctx.lineWidth = 2;
         for (let y = step; y < height; y += step * 2) {
@@ -2071,7 +2128,6 @@
           ctx.stroke();
         }
       } else if (currentPreset === 'mc-xp') {
-        // 17. Glowing Experience Orbs
         mcXpOrbs.forEach(o => {
           o.y -= o.vy;
           if (o.y < -20) { o.y = height + 20; o.x = Math.random() * width; }
@@ -2087,7 +2143,6 @@
           ctx.fill();
         });
       } else if (currentPreset === 'mc-weather') {
-        // 18. Pixel Rain Storm & Subtle Thunder Flash
         if (tick % 320 === 0 || tick % 320 === 3) {
           ctx.fillStyle = 'rgba(255, 255, 255, 0.055)';
           ctx.fillRect(0, 0, width, height);
@@ -2104,7 +2159,6 @@
           ctx.stroke();
         });
       } else if (currentPreset === 'mc-daynight') {
-        // 19. Blocky Sun & Moon Orbital Cycle
         const angle = tick * 0.0028;
         const cx = width / 2;
         const cy = height * 0.95;
@@ -2131,7 +2185,6 @@
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
         ctx.strokeRect(moonX - 20, moonY - 20, 40, 40);
       } else if (currentPreset === 'mc-mosaic') {
-        // 20. Breathing Pixel Block Mosaic
         const size = 34;
         const cols = Math.ceil(width / size);
         const rows = Math.ceil(height / size);
@@ -2200,8 +2253,13 @@
     let widgetUpdatesCache = [];
     let widgetWorldsCache = [];
     let widgetScreensCache = [];
-    let widgetTelemetryCache = null;
     let widgetConsoleLines = [];
+    let widgetTelemetryCache = null;
+
+    // Extension Hook Registries (Phase B)
+    const extensionWidgetRenderers = {};
+    const extensionThemeListeners = [];
+    const extensionTabListeners = [];
 
     // 21x21 Overview Grid State
     const GRID_SIZE = 21;
@@ -2211,32 +2269,32 @@
 
     const DEFAULT_ORYON = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
     const DEFAULT_OVERVIEW_WIDGETS = [
-      { id: 'hero', col: 5, row: 5, colSpan: 13, rowSpan: 5, borderRadius: 12, bgOpacity: 0.25, settings: { showSubtitle: true, showConfigBtn: true } },
-      { id: 'profile', col: 5, row: 11, colSpan: 8, rowSpan: 5, borderRadius: 12, bgOpacity: 0.55, settings: {} },
-      { id: 'play', col: 13, row: 11, colSpan: 5, rowSpan: 5, borderRadius: 12, bgOpacity: 0.92, settings: {} }
+      { id: 'hero', col: 5, row: 5, colSpan: 13, rowSpan: 5, borderRadius: 12, bgOpacity: 0.25, showBorder: true, settings: { showSubtitle: true, showConfigBtn: true } },
+      { id: 'profile', col: 5, row: 11, colSpan: 8, rowSpan: 5, borderRadius: 12, bgOpacity: 0.55, showBorder: true, settings: {} },
+      { id: 'play', col: 13, row: 11, colSpan: 5, rowSpan: 5, borderRadius: 12, bgOpacity: 0.92, showBorder: true, settings: {} }
     ];
 
     const WIDGET_CATALOG = [
-      { id: 'hero', name: 'Hero Banner', defaultColSpan: 13, defaultRowSpan: 5, minColSpan: 6, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 10, desc: 'Active profile title, MC target & configure button' },
-      { id: 'profile', name: 'Profile Selector', defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12, desc: 'Scrollable inline profile switcher' },
-      { id: 'play', name: 'Play Button', defaultColSpan: 5, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8, desc: 'Emerald/Amber/Crimson launch control' },
-      { id: 'status', name: 'Pipeline Status', defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8, desc: 'Live boot status & console quick jump' },
-      { id: 'account', name: 'Active Account', defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12, desc: 'Player avatar & scrollable inline account picker' },
-      { id: 'ram', name: 'Memory Allocation', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8, desc: 'Interactive Min/Max RAM adjustment & presets' },
-      { id: 'java', name: 'Java Runtime', defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 10, desc: 'Scrollable inline ARM64 JDK selector' },
-      { id: 'quicklaunch', name: 'Quick Profiles', defaultColSpan: 10, defaultRowSpan: 4, minColSpan: 6, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 10, desc: '1-click profile buttons with direct launch' },
-      { id: 'mods', name: 'Mod Summary', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8, desc: 'Active/disabled mods count & quick toggle all' },
-      { id: 'updates', name: 'Mod Updates', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8, desc: '1-click Modrinth update check & update all' },
-      { id: 'worlds', name: 'Recent Worlds', defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12, desc: 'Saves list with 1-click world backup' },
-      { id: 'screenshots', name: 'Screenshot Strip', defaultColSpan: 10, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12, desc: 'Latest captures with click-to-preview' },
-      { id: 'console', name: 'Live Console Feed', defaultColSpan: 11, defaultRowSpan: 6, minColSpan: 6, maxColSpan: 21, minRowSpan: 4, maxRowSpan: 16, desc: 'Real-time log tail & quick clear' },
-      { id: 'telemetry', name: 'ARM64 Telemetry', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 8, desc: 'Host memory usage, CPU cores & arch readout' },
-      { id: 'folders', name: 'Quick Folders', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 8, desc: '1-click shortcuts to profile subfolders' },
-      { id: 'loader', name: 'Loader & Engine', defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 5, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8, desc: 'Active loader & 1-click Sodium+Iris installer' },
-      { id: 'jvm', name: 'Oryon JVM Flags', defaultColSpan: 10, defaultRowSpan: 3, minColSpan: 6, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8, desc: 'Active JVM flags with Copy & Reset Oryon' },
-      { id: 'skin', name: 'Skin Preview', defaultColSpan: 6, defaultRowSpan: 5, minColSpan: 4, maxColSpan: 14, minRowSpan: 4, maxRowSpan: 12, desc: 'Interactive 2D composite skin renderer' },
-      { id: 'session', name: 'Session Monitor', defaultColSpan: 7, defaultRowSpan: 3, minColSpan: 4, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 8, desc: 'Live runtime clock, PID & Stop Game button' },
-      { id: 'clock', name: 'Clock & Canvas', defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 5, maxColSpan: 21, minRowSpan: 3, maxRowSpan: 12, desc: 'Live clock & scrollable 20+ background picker' }
+      { id: 'hero', name: 'Hero Banner', defaultColSpan: 13, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 12, desc: 'Active profile title, MC target & configure button' },
+      { id: 'profile', name: 'Profile Selector', defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14, desc: 'Scrollable inline profile switcher' },
+      { id: 'play', name: 'Play Button', defaultColSpan: 5, defaultRowSpan: 5, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10, desc: 'Emerald/Amber/Crimson launch control' },
+      { id: 'status', name: 'Pipeline Status', defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10, desc: 'Live boot status & console quick jump' },
+      { id: 'account', name: 'Active Account', defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14, desc: 'Player avatar & scrollable inline account picker' },
+      { id: 'ram', name: 'Memory Allocation', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10, desc: 'Interactive Min/Max RAM adjustment & presets' },
+      { id: 'java', name: 'Java Runtime', defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 12, desc: 'Scrollable inline ARM64 JDK selector' },
+      { id: 'quicklaunch', name: 'Quick Profiles', defaultColSpan: 10, defaultRowSpan: 4, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 12, desc: '1-click profile buttons with direct launch' },
+      { id: 'mods', name: 'Mod Summary', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10, desc: 'Active/disabled mods count & quick toggle all' },
+      { id: 'updates', name: 'Mod Updates', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10, desc: '1-click Modrinth update check & update all' },
+      { id: 'worlds', name: 'Recent Worlds', defaultColSpan: 9, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14, desc: 'Saves list with 1-click world backup' },
+      { id: 'screenshots', name: 'Screenshot Strip', defaultColSpan: 10, defaultRowSpan: 5, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14, desc: 'Latest captures with click-to-preview' },
+      { id: 'console', name: 'Live Console Feed', defaultColSpan: 11, defaultRowSpan: 6, minColSpan: 3, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 18, desc: 'Real-time log tail & quick clear' },
+      { id: 'telemetry', name: 'ARM64 Telemetry', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10, desc: 'Host memory usage, CPU cores & arch readout' },
+      { id: 'folders', name: 'Quick Folders', defaultColSpan: 9, defaultRowSpan: 4, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 10, desc: '1-click shortcuts to profile subfolders' },
+      { id: 'loader', name: 'Loader & Engine', defaultColSpan: 9, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10, desc: 'Active loader & 1-click Sodium+Iris installer' },
+      { id: 'jvm', name: 'Oryon JVM Flags', defaultColSpan: 10, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10, desc: 'Active JVM flags with Copy & Reset Oryon' },
+      { id: 'skin', name: 'Skin Preview', defaultColSpan: 6, defaultRowSpan: 5, minColSpan: 2, maxColSpan: 16, minRowSpan: 2, maxRowSpan: 14, desc: 'Interactive 2D composite skin renderer' },
+      { id: 'session', name: 'Session Monitor', defaultColSpan: 7, defaultRowSpan: 3, minColSpan: 2, maxColSpan: 21, minRowSpan: 1, maxRowSpan: 10, desc: 'Live runtime clock, PID & Stop Game button' },
+      { id: 'clock', name: 'Clock & Canvas', defaultColSpan: 8, defaultRowSpan: 5, minColSpan: 2, maxColSpan: 21, minRowSpan: 2, maxRowSpan: 14, desc: 'Live clock & scrollable 20+ background picker' }
     ];
 
     const BG_PRESET_OPTIONS = [
@@ -2269,135 +2327,175 @@
         name: 'Standard Obsidian Zinc',
         bg: '#09090b',
         cardRgb: '18, 18, 21',
+        text: '#f4f4f5',
+        textMuted: '#a1a1aa',
+        textDim: '#71717a',
         border: '#27272a',
         borderHover: '#3f3f46',
         borderFocus: '#52525b',
         accent: '#ffffff',
         accentRgb: '255, 255, 255',
         accentFg: '#09090b',
+        accentBgAlpha: '0.12',
         highlight: 'rgba(255, 255, 255, 0.22)'
       },
       {
         id: 'oled-pure',
-        name: 'OLED True Black',
+        name: 'OLED Black & Pure White',
         bg: '#000000',
-        cardRgb: '10, 10, 12',
-        border: '#18181b',
-        borderHover: '#27272a',
+        cardRgb: '8, 8, 10',
+        text: '#ffffff',
+        textMuted: '#e4e4e7',
+        textDim: '#a1a1aa',
+        border: 'rgba(255, 255, 255, 0.38)',
+        borderHover: 'rgba(255, 255, 255, 0.78)',
         borderFocus: '#ffffff',
         accent: '#ffffff',
         accentRgb: '255, 255, 255',
         accentFg: '#000000',
-        highlight: 'rgba(255, 255, 255, 0.30)'
+        accentBgAlpha: '0.24',
+        highlight: 'rgba(255, 255, 255, 0.65)'
       },
       {
         id: 'oled-cyan',
         name: 'OLED Ice Cyan',
         bg: '#000000',
         cardRgb: '8, 16, 20',
+        text: '#ffffff',
+        textMuted: '#bae6fd',
+        textDim: '#67e8f9',
         border: '#164e63',
         borderHover: '#0891b2',
         borderFocus: '#22d3ee',
         accent: '#22d3ee',
         accentRgb: '34, 211, 238',
         accentFg: '#042f2e',
-        highlight: 'rgba(34, 211, 238, 0.45)'
+        accentBgAlpha: '0.18',
+        highlight: 'rgba(34, 211, 238, 0.5)'
       },
       {
         id: 'oled-emerald',
         name: 'OLED Emerald',
         bg: '#000000',
         cardRgb: '6, 18, 14',
+        text: '#ffffff',
+        textMuted: '#a7f3d0',
+        textDim: '#6ee7b7',
         border: '#064e3b',
         borderHover: '#059669',
         borderFocus: '#10b981',
         accent: '#10b981',
         accentRgb: '16, 185, 129',
         accentFg: '#022c22',
-        highlight: 'rgba(16, 185, 129, 0.45)'
+        accentBgAlpha: '0.18',
+        highlight: 'rgba(16, 185, 129, 0.5)'
       },
       {
         id: 'oled-amethyst',
         name: 'OLED Amethyst',
         bg: '#000000',
         cardRgb: '17, 10, 24',
+        text: '#ffffff',
+        textMuted: '#e9d5ff',
+        textDim: '#c084fc',
         border: '#4c1d95',
         borderHover: '#7c3aed',
         borderFocus: '#a855f7',
         accent: '#a855f7',
         accentRgb: '168, 85, 247',
         accentFg: '#1e0536',
-        highlight: 'rgba(168, 85, 247, 0.45)'
+        accentBgAlpha: '0.18',
+        highlight: 'rgba(168, 85, 247, 0.5)'
       },
       {
         id: 'oled-crimson',
         name: 'OLED Crimson',
         bg: '#000000',
         cardRgb: '22, 8, 12',
+        text: '#ffffff',
+        textMuted: '#fecdd3',
+        textDim: '#fb7185',
         border: '#7f1d1d',
         borderHover: '#e11d48',
         borderFocus: '#f43f5e',
         accent: '#f43f5e',
         accentRgb: '244, 63, 94',
         accentFg: '#2a050b',
-        highlight: 'rgba(244, 63, 94, 0.45)'
+        accentBgAlpha: '0.18',
+        highlight: 'rgba(244, 63, 94, 0.5)'
       },
       {
         id: 'oled-amber',
         name: 'OLED Amber Gold',
         bg: '#000000',
         cardRgb: '20, 15, 6',
+        text: '#ffffff',
+        textMuted: '#fde68a',
+        textDim: '#fbbf24',
         border: '#78350f',
         borderHover: '#d97706',
         borderFocus: '#f59e0b',
         accent: '#f59e0b',
         accentRgb: '245, 158, 11',
         accentFg: '#291502',
-        highlight: 'rgba(245, 158, 11, 0.45)'
+        accentBgAlpha: '0.18',
+        highlight: 'rgba(245, 158, 11, 0.5)'
       },
       {
         id: 'midnight-cobalt',
         name: 'Midnight Cobalt',
         bg: '#030712',
         cardRgb: '12, 18, 34',
+        text: '#f8fafc',
+        textMuted: '#bfdbfe',
+        textDim: '#93c5fd',
         border: '#1e3a8a',
         borderHover: '#2563eb',
         borderFocus: '#60a5fa',
         accent: '#60a5fa',
         accentRgb: '96, 165, 250',
         accentFg: '#081838',
-        highlight: 'rgba(96, 165, 250, 0.42)'
+        accentBgAlpha: '0.16',
+        highlight: 'rgba(96, 165, 250, 0.45)'
       },
       {
         id: 'obsidian-rose',
         name: 'Obsidian Rose',
         bg: '#09090b',
         cardRgb: '24, 15, 20',
+        text: '#fff1f2',
+        textMuted: '#fecdd3',
+        textDim: '#fda4af',
         border: '#4c0519',
         borderHover: '#be123c',
         borderFocus: '#fb7185',
         accent: '#fb7185',
         accentRgb: '251, 113, 133',
         accentFg: '#29040d',
-        highlight: 'rgba(251, 113, 133, 0.42)'
+        accentBgAlpha: '0.16',
+        highlight: 'rgba(251, 113, 133, 0.45)'
       },
       {
         id: 'oled-lime',
         name: 'OLED Moss Lime',
         bg: '#000000',
         cardRgb: '12, 18, 8',
+        text: '#ffffff',
+        textMuted: '#d9f99d',
+        textDim: '#a3e635',
         border: '#365314',
         borderHover: '#65a30d',
         borderFocus: '#84cc16',
         accent: '#84cc16',
         accentRgb: '132, 204, 22',
         accentFg: '#142204',
-        highlight: 'rgba(132, 204, 22, 0.45)'
+        accentBgAlpha: '0.18',
+        highlight: 'rgba(132, 204, 22, 0.5)'
       }
     ];
 
     // -------------------------------------------------------------
-    // CUSTOM ZERO-DEFAULT DROPDOWN ENGINE
+    // CUSTOM ZERO-DEFAULT DROPDOWN ENGINE (PORTALED TO BODY)
     // -------------------------------------------------------------
     const customSelectRegistry = {};
 
@@ -2410,19 +2508,25 @@
           <span class="custom-select-label">Select...</span>
           <span class="custom-select-arrow">▾</span>
         </button>
-        <div class="custom-select-menu"></div>
       `;
+
+      const menu = document.createElement('div');
+      menu.className = 'custom-select-menu';
+      menu.dataset.ownerSelect = id;
+      document.body.appendChild(menu);
 
       const trigger = container.querySelector('.custom-select-trigger');
       trigger.onclick = (e) => {
         e.stopPropagation();
         const wasOpen = container.classList.contains('open');
         closeAllCustomSelects();
-        if (!wasOpen) container.classList.add('open');
+        if (!wasOpen) openCustomSelect(id);
       };
 
       customSelectRegistry[id] = {
         container,
+        trigger,
+        menu,
         options: [],
         value: initialValue,
         onChange
@@ -2431,21 +2535,61 @@
       setCustomSelectOptions(id, options, initialValue);
     }
 
+    function openCustomSelect(id) {
+      const entry = customSelectRegistry[id];
+      if (!entry) return;
+      const { container, trigger, menu } = entry;
+      const rect = trigger.getBoundingClientRect();
+
+      container.classList.add('open');
+      const hostCard = container.closest('.card');
+      if (hostCard) hostCard.classList.add('has-open-select');
+
+      const spaceBelow = window.innerHeight - rect.bottom - 12;
+      const spaceAbove = rect.top - 12;
+      const openUp = spaceBelow < 200 && spaceAbove > spaceBelow;
+
+      menu.style.width = `${rect.width}px`;
+      menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8))}px`;
+
+      if (openUp) {
+        menu.classList.add('open-up');
+        menu.style.top = 'auto';
+        menu.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+        menu.style.maxHeight = `${Math.min(260, Math.max(110, spaceAbove - 6))}px`;
+      } else {
+        menu.classList.remove('open-up');
+        menu.style.bottom = 'auto';
+        menu.style.top = `${rect.bottom + 6}px`;
+        menu.style.maxHeight = `${Math.min(260, Math.max(110, spaceBelow - 6))}px`;
+      }
+
+      menu.classList.add('open');
+    }
+
     function closeAllCustomSelects() {
       document.querySelectorAll('.custom-select.open').forEach(el => el.classList.remove('open'));
+      document.querySelectorAll('.card.has-open-select').forEach(el => el.classList.remove('has-open-select'));
+      document.querySelectorAll('.custom-select-menu.open').forEach(el => el.classList.remove('open'));
     }
 
     window.addEventListener('click', (e) => {
-      if (!e.target.closest('.custom-select')) {
+      if (!e.target.closest('.custom-select') && !e.target.closest('.custom-select-menu')) {
         closeAllCustomSelects();
       }
     });
+
+    window.addEventListener('resize', closeAllCustomSelects);
+    window.addEventListener('scroll', (e) => {
+      if (e.target && e.target.closest && e.target.closest('.custom-select-menu')) return;
+      closeAllCustomSelects();
+    }, true);
 
     function setCustomSelectOptions(id, options = [], preferredValue = undefined) {
       const entry = customSelectRegistry[id];
       if (!entry) return;
       entry.options = options.map(o => typeof o === 'string' ? { value: o, label: o } : o);
-      const menu = entry.container.querySelector('.custom-select-menu');
+      const menu = entry.menu;
       menu.innerHTML = '';
 
       if (preferredValue !== undefined) {
@@ -2480,7 +2624,7 @@
       const labelEl = entry.container.querySelector('.custom-select-label');
       const found = entry.options.find(o => o.value === entry.value);
       if (labelEl) labelEl.innerText = found ? found.label : (entry.value || 'Select...');
-      entry.container.querySelectorAll('.custom-select-option').forEach((btn, idx) => {
+      entry.menu.querySelectorAll('.custom-select-option').forEach((btn, idx) => {
         const opt = entry.options[idx];
         btn.classList.toggle('selected', opt && opt.value === entry.value);
       });
@@ -2501,18 +2645,25 @@
     // -------------------------------------------------------------
     // COLOR PANELS & iOS ANIMATION SPEED
     // -------------------------------------------------------------
+    function getActiveColorPanelObject() {
+      return COLOR_PANELS.find(p => p.id === (currentConfig.colorPanel || 'standard')) || COLOR_PANELS[0];
+    }
+
     function applyColorPanelVisual(panelId) {
       const panel = COLOR_PANELS.find(p => p.id === panelId) || COLOR_PANELS[0];
       const root = document.documentElement;
       root.style.setProperty('--bg', panel.bg);
       root.style.setProperty('--card-rgb', panel.cardRgb);
+      root.style.setProperty('--text', panel.text || '#f4f4f5');
+      root.style.setProperty('--text-muted', panel.textMuted || '#a1a1aa');
+      root.style.setProperty('--text-dim', panel.textDim || '#71717a');
       root.style.setProperty('--border', panel.border);
       root.style.setProperty('--border-hover', panel.borderHover);
       root.style.setProperty('--border-focus', panel.borderFocus);
       root.style.setProperty('--accent', panel.accent);
       root.style.setProperty('--accent-rgb', panel.accentRgb);
       root.style.setProperty('--accent-fg', panel.accentFg);
-      root.style.setProperty('--accent-bg', `rgba(${panel.accentRgb}, 0.14)`);
+      root.style.setProperty('--accent-bg', `rgba(${panel.accentRgb}, ${panel.accentBgAlpha || '0.14'})`);
       root.style.setProperty('--widget-highlight', panel.highlight);
 
       themeBgHex = panel.bg;
@@ -2520,6 +2671,10 @@
 
       renderColorPanelGrid();
       if (currentPreset === 'none') applyBgPresetVisual('none');
+
+      extensionThemeListeners.forEach(fn => {
+        try { fn(panel); } catch (e) {}
+      });
     }
 
     async function selectColorPanel(panelId) {
@@ -2711,6 +2866,7 @@
     }
 
     function switchTab(name, clickedBtn = null) {
+      closeAllCustomSelects();
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.top-nav-btn').forEach(b => b.classList.remove('active'));
 
@@ -2725,7 +2881,7 @@
       } else {
         const found = Array.from(document.querySelectorAll('.top-nav-btn')).find(b => {
           const onclickAttr = b.getAttribute('onclick') || '';
-          return onclickAttr.includes(`'${name}'`);
+          return onclickAttr.includes(`'${name}'`) || b.dataset.tabId === name;
         });
         if (found) found.classList.add('active');
       }
@@ -2746,8 +2902,13 @@
       if (name === 'settings') {
         updateSettingsWidgetSummary();
         renderColorPanelGrid();
+        renderExtensionsSettingsList();
         if (currentConfig.bgPreset === 'screenshot') loadBackgroundScreenshotPicker();
       }
+
+      extensionTabListeners.forEach(fn => {
+        try { fn(name); } catch (e) {}
+      });
     }
 
     function minWin() { ipcRenderer.send('window-min'); }
@@ -2774,6 +2935,174 @@
         statusEl.innerText = message;
         statusEl.style.color = isError ? '#f87171' : 'var(--text-dim)';
       }
+    }
+
+    // -------------------------------------------------------------
+    // PHASE B ONE-TIME EXTENSION LOADER HOOK (FRONTEND)
+    // -------------------------------------------------------------
+    window.AetheriaExtensions = {
+      ipcRenderer,
+      getConfig: () => currentConfig,
+      saveConfig: async (cfg) => {
+        currentConfig = cfg;
+        return ipcRenderer.invoke('save-config', cfg);
+      },
+      getActiveProfile: () => getActiveProfile(),
+      getActiveColorPanel: () => getActiveColorPanelObject(),
+      toast,
+      switchTab,
+      showAlertModal,
+      showConfirmModal,
+      escapeHtml,
+      onThemeChange: (fn) => { if (typeof fn === 'function') extensionThemeListeners.push(fn); },
+      onTabChange: (fn) => { if (typeof fn === 'function') extensionTabListeners.push(fn); },
+      registerTab: (tab) => injectExtensionTab(tab),
+      registerWidget: (wDef) => registerExtensionWidget(wDef)
+    };
+
+    function injectExtensionTab(tab) {
+      if (!tab || !tab.id) return;
+      const panelId = `ext-${tab.id}`;
+      const nav = document.getElementById('main-top-nav');
+      const settingsBtn = document.getElementById('nav-btn-settings');
+      const stage = document.getElementById('workspace-stage');
+
+      if (tab.css) {
+        let styleEl = document.getElementById(`ext-style-${tab.id}`);
+        if (!styleEl) {
+          styleEl = document.createElement('style');
+          styleEl.id = `ext-style-${tab.id}`;
+          document.head.appendChild(styleEl);
+        }
+        styleEl.textContent = tab.css;
+      }
+
+      if (nav && !nav.querySelector(`[data-tab-id="${panelId}"]`)) {
+        const btn = document.createElement('button');
+        btn.className = 'top-nav-btn';
+        btn.dataset.tabId = panelId;
+        btn.innerText = tab.label || tab.id;
+        btn.onclick = () => switchTab(panelId, btn);
+        if (settingsBtn) nav.insertBefore(btn, settingsBtn);
+        else nav.appendChild(btn);
+      }
+
+      if (stage && !document.getElementById(`panel-${panelId}`)) {
+        const sec = document.createElement('section');
+        sec.id = `panel-${panelId}`;
+        sec.className = 'panel';
+        sec.innerHTML = tab.html || '';
+        stage.appendChild(sec);
+
+        if (tab.script) {
+          try {
+            const runner = new Function('Aetheria', 'panelEl', tab.script);
+            runner(window.AetheriaExtensions, sec);
+          } catch (err) {
+            console.error(`[Extension Tab ${tab.id}] script error:`, err);
+          }
+        }
+      }
+    }
+
+    function registerExtensionWidget(wDef) {
+      if (!wDef || !wDef.id) return;
+      const existing = WIDGET_CATALOG.findIndex(w => w.id === wDef.id);
+      const catalogItem = {
+        id: wDef.id,
+        name: wDef.name || wDef.id,
+        defaultColSpan: wDef.defaultColSpan || 6,
+        defaultRowSpan: wDef.defaultRowSpan || 4,
+        minColSpan: wDef.minColSpan || 2,
+        maxColSpan: wDef.maxColSpan || 21,
+        minRowSpan: wDef.minRowSpan || 1,
+        maxRowSpan: wDef.maxRowSpan || 16,
+        desc: wDef.desc || 'Extension widget'
+      };
+      if (existing !== -1) WIDGET_CATALOG[existing] = catalogItem;
+      else WIDGET_CATALOG.push(catalogItem);
+
+      if (typeof wDef.render === 'function') {
+        extensionWidgetRenderers[wDef.id] = wDef.render;
+      } else if (typeof wDef.renderJs === 'string' && wDef.renderJs.trim()) {
+        try {
+          const factory = new Function('Aetheria', `return (${wDef.renderJs});`);
+          const fn = factory(window.AetheriaExtensions);
+          if (typeof fn === 'function') extensionWidgetRenderers[wDef.id] = fn;
+        } catch (err) {
+          extensionWidgetRenderers[wDef.id] = (wConf, container) => {
+            try {
+              const run = new Function('Aetheria', 'wConf', 'container', wDef.renderJs);
+              run(window.AetheriaExtensions, wConf, container);
+            } catch (e2) {
+              container.innerHTML = `<div class="widget-card"><span class="widget-title">${escapeHtml(wDef.name || wDef.id)}</span><span style="font-size:0.72rem; color:var(--danger);">${escapeHtml(e2.message)}</span></div>`;
+            }
+          };
+        }
+      }
+      updateSettingsWidgetSummary();
+    }
+
+    let cachedLoadedExtensions = [];
+
+    async function loadAndMountExtensions() {
+      try {
+        const extData = await ipcRenderer.invoke('get-loaded-extensions');
+        cachedLoadedExtensions = extData.extensions || [];
+
+        (extData.widgets || []).forEach(w => registerExtensionWidget(w));
+        (extData.tabs || []).forEach(t => injectExtensionTab(t));
+        (extData.extensions || []).forEach(ext => {
+          if (ext.status === 'active' && ext.rendererScript) {
+            try {
+              const fn = new Function('Aetheria', ext.rendererScript);
+              fn(window.AetheriaExtensions);
+            } catch (err) {
+              console.error(`[Extension ${ext.id}] rendererScript error:`, err);
+            }
+          }
+        });
+
+        renderExtensionsSettingsList();
+      } catch (e) {}
+    }
+
+    function renderExtensionsSettingsList() {
+      const box = document.getElementById('extensions-list-box');
+      if (!box) return;
+      box.innerHTML = '';
+
+      if (!cachedLoadedExtensions.length) {
+        box.innerHTML = '<span style="font-size:0.76rem; color:var(--text-muted);">No extensions installed yet. Drop Phase B extension folders into your extensions directory.</span>';
+        return;
+      }
+
+      cachedLoadedExtensions.forEach(ext => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:rgba(var(--card-rgb),0.45);';
+        row.innerHTML = `
+          <div>
+            <strong style="font-size:0.8rem; color:var(--text);">${escapeHtml(ext.name)} <span style="color:var(--text-dim); font-weight:400;">v${escapeHtml(ext.version)}</span></strong>
+            <span style="display:block; font-size:0.7rem; color:${ext.status === 'error' ? 'var(--danger)' : 'var(--text-muted)'};">${escapeHtml(ext.status === 'error' ? ext.error : (ext.description || ext.dir))}</span>
+          </div>
+          <span class="brand-badge" style="${ext.status === 'active' ? 'background:var(--accent); color:var(--accent-fg);' : 'border-color:var(--danger); color:var(--danger);'}">
+            ${ext.status === 'active' ? 'ACTIVE' : 'ERROR'}
+          </span>
+        `;
+        box.appendChild(row);
+      });
+    }
+
+    async function openExtensionsFolder() {
+      await ipcRenderer.invoke('open-extensions-dir');
+    }
+
+    async function reloadExtensionsUI() {
+      toast('Reloading extensions...');
+      await ipcRenderer.invoke('reload-extensions');
+      await loadAndMountExtensions();
+      renderOverviewWidgets();
+      toast('Extensions reloaded.');
     }
 
     function initAllCustomDropdowns() {
@@ -2826,6 +3155,8 @@
 
     window.addEventListener('DOMContentLoaded', async () => {
       initAllCustomDropdowns();
+
+      await loadAndMountExtensions();
 
       currentConfig = await ipcRenderer.invoke('get-config');
       currentConfig.overviewWidgets = normalizeOverviewWidgetsClient(currentConfig.overviewWidgets);
@@ -2892,6 +3223,7 @@
       loadAccountSkinAuto(activeUser);
 
       setInterval(tickOverviewTimers, 1000);
+      window.addEventListener('resize', () => syncWidgetScrollability());
     });
 
     function getActiveProfile() {
@@ -2906,12 +3238,12 @@
       return WIDGET_CATALOG.find(m => m.id === widgetId) || {
         id: widgetId,
         name: widgetId,
-        defaultColSpan: 8,
+        defaultColSpan: 6,
         defaultRowSpan: 4,
-        minColSpan: 4,
+        minColSpan: 2,
         maxColSpan: 21,
-        minRowSpan: 2,
-        maxRowSpan: 12
+        minRowSpan: 1,
+        maxRowSpan: 14
       };
     }
 
@@ -3009,6 +3341,7 @@
         const borderRadius = clampInt(Number.isFinite(raw.borderRadius) ? raw.borderRadius : 12, 0, 28);
         const defaultOpacity = raw.id === 'hero' ? 0.25 : (raw.id === 'play' ? 0.92 : 0.55);
         const bgOpacity = clampFloat(Number.isFinite(raw.bgOpacity) ? raw.bgOpacity : defaultOpacity, 0, 1);
+        const showBorder = typeof raw.showBorder === 'boolean' ? raw.showBorder : true;
         const settings = (raw.settings && typeof raw.settings === 'object') ? { ...raw.settings } : {};
 
         if (
@@ -3021,7 +3354,7 @@
           const rowSpan = clampInt(raw.rowSpan, meta.minRowSpan, meta.maxRowSpan);
           const col = clampInt(raw.col, 1, GRID_SIZE - colSpan + 1);
           const row = clampInt(raw.row, 1, GRID_SIZE - rowSpan + 1);
-          placed.push({ id: raw.id, col, row, colSpan, rowSpan, borderRadius, bgOpacity, settings });
+          placed.push({ id: raw.id, col, row, colSpan, rowSpan, borderRadius, bgOpacity, showBorder, settings });
         } else {
           const spot = findFirstAvailableSlot(placed, meta.defaultColSpan, meta.defaultRowSpan);
           placed.push({
@@ -3032,6 +3365,7 @@
             rowSpan: meta.defaultRowSpan,
             borderRadius,
             bgOpacity,
+            showBorder,
             settings
           });
         }
@@ -3041,6 +3375,22 @@
         placed = resolveCollisionsPushDown(placed, placed[i].id);
       }
       return placed;
+    }
+
+    // ONLY ENABLE SCROLLING ON WIDGETS IF THEIR CONTENT GENUINELY OVERFLOWS
+    function syncWidgetScrollability() {
+      requestAnimationFrame(() => {
+        const targets = document.querySelectorAll('#overview-grid .widget-card, #overview-grid .hero-widget-inner, #overview-grid .widget-scroll-list, #overview-grid #w-ss-grid, #overview-grid .widget-mini-console');
+        targets.forEach(el => {
+          const hasInnerList = el.classList.contains('widget-card') && !!el.querySelector('.widget-scroll-list, .widget-mini-console, #w-ss-grid');
+          if (hasInnerList) {
+            el.style.overflowY = 'hidden';
+            return;
+          }
+          const needsScroll = el.scrollHeight > el.clientHeight + 2;
+          el.style.overflowY = needsScroll ? 'auto' : 'hidden';
+        });
+      });
     }
 
     function syncGridOverlay21x21() {
@@ -3121,6 +3471,7 @@
             if (!slotEl) return;
             slotEl.style.gridColumn = `${item.col} / span ${item.colSpan}`;
             slotEl.style.gridRow = `${item.row} / span ${item.rowSpan}`;
+            slotEl.classList.toggle('compact', item.colSpan <= 4 || item.rowSpan <= 2);
             const sizePill = slotEl.querySelector('.widget-size-pill');
             if (sizePill) sizePill.innerText = `${item.colSpan}×${item.rowSpan}`;
           });
@@ -3154,10 +3505,13 @@
 
     function updateSettingsWidgetSummary() {
       const activeCount = getOverviewWidgets().length;
+      const totalCount = WIDGET_CATALOG.length;
       const summary = document.getElementById('settings-widget-summary');
-      if (summary) summary.innerText = `${activeCount} of ${WIDGET_CATALOG.length} widgets active on Overview`;
+      if (summary) summary.innerText = `${activeCount} of ${totalCount} widgets active on Overview`;
       const catCount = document.getElementById('catalog-active-count');
       if (catCount) catCount.innerText = String(activeCount);
+      const catTotal = document.getElementById('catalog-total-count');
+      if (catTotal) catTotal.innerText = String(totalCount);
     }
 
     async function persistOverviewWidgets() {
@@ -3213,6 +3567,7 @@
           rowSpan: meta.defaultRowSpan,
           borderRadius: 12,
           bgOpacity: defaultOpacity,
+          showBorder: true,
           settings: {}
         });
       }
@@ -3258,7 +3613,7 @@
     }
 
     // -------------------------------------------------------------
-    // INDIVIDUAL WIDGET SETTINGS (RADIUS, OPACITY & WIDGET OPTIONS)
+    // INDIVIDUAL WIDGET SETTINGS (RADIUS, OPACITY, BORDER & OPTIONS)
     // -------------------------------------------------------------
     let widgetSettingsBackup = null;
 
@@ -3269,6 +3624,7 @@
       widgetSettingsBackup = {
         borderRadius: wConf.borderRadius,
         bgOpacity: wConf.bgOpacity,
+        showBorder: wConf.showBorder !== false,
         settings: { ...(wConf.settings || {}) }
       };
 
@@ -3283,6 +3639,7 @@
       document.getElementById('ws-radius-val').innerText = `${radius}px`;
       document.getElementById('ws-opacity-slider').value = opPct;
       document.getElementById('ws-opacity-val').innerText = `${opPct}%`;
+      document.getElementById('ws-border-toggle').checked = wConf.showBorder !== false;
 
       const specBox = document.getElementById('ws-specific-options');
       specBox.innerHTML = '';
@@ -3336,6 +3693,7 @@
       const widgetId = document.getElementById('ws-widget-id').value;
       const radius = parseInt(document.getElementById('ws-radius-slider').value, 10) || 0;
       const opPct = parseInt(document.getElementById('ws-opacity-slider').value, 10) || 0;
+      const showBorder = !!document.getElementById('ws-border-toggle').checked;
 
       document.getElementById('ws-radius-val').innerText = `${radius}px`;
       document.getElementById('ws-opacity-val').innerText = `${opPct}%`;
@@ -3344,6 +3702,7 @@
       if (wConf) {
         wConf.borderRadius = radius;
         wConf.bgOpacity = opPct / 100;
+        wConf.showBorder = showBorder;
         applyWidgetVisualStyle(widgetId, wConf);
       }
     }
@@ -3353,18 +3712,33 @@
       if (!slot) return;
       const radius = Number.isFinite(wConf.borderRadius) ? wConf.borderRadius : 12;
       const opacity = Number.isFinite(wConf.bgOpacity) ? wConf.bgOpacity : 0.55;
+      const hasBorder = wConf.showBorder !== false;
+
       slot.style.borderRadius = `${radius}px`;
+      if (hasBorder) {
+        delete slot.dataset.noBorder;
+      } else {
+        slot.dataset.noBorder = 'true';
+      }
 
       const card = slot.querySelector('.widget-card, .hero-widget-inner');
       if (card) {
         card.style.borderRadius = `${radius}px`;
         card.style.backgroundColor = `rgba(var(--card-rgb), ${opacity})`;
         card.style.backdropFilter = opacity > 0.02 ? 'blur(12px)' : 'none';
+        card.style.borderWidth = hasBorder ? '1px' : '0px';
+        card.style.borderColor = hasBorder ? 'var(--border)' : 'transparent';
       }
+
       const playBtn = slot.querySelector('.play-btn');
       if (playBtn) {
         playBtn.style.borderRadius = `${radius}px`;
         playBtn.style.opacity = String(Math.max(0.2, opacity));
+        if (!hasBorder) {
+          playBtn.style.border = 'none';
+        } else {
+          playBtn.style.border = '';
+        }
       }
     }
 
@@ -3375,6 +3749,7 @@
         if (wConf) {
           wConf.borderRadius = widgetSettingsBackup.borderRadius;
           wConf.bgOpacity = widgetSettingsBackup.bgOpacity;
+          wConf.showBorder = widgetSettingsBackup.showBorder;
           wConf.settings = widgetSettingsBackup.settings;
           applyWidgetVisualStyle(widgetId, wConf);
         }
@@ -3388,6 +3763,7 @@
       const defOpacity = widgetId === 'hero' ? 0.25 : (widgetId === 'play' ? 0.92 : 0.55);
       document.getElementById('ws-radius-slider').value = 12;
       document.getElementById('ws-opacity-slider').value = Math.round(defOpacity * 100);
+      document.getElementById('ws-border-toggle').checked = true;
       previewWidgetStyleLive();
     }
 
@@ -3398,6 +3774,7 @@
 
       wConf.borderRadius = parseInt(document.getElementById('ws-radius-slider').value, 10) || 0;
       wConf.bgOpacity = (parseInt(document.getElementById('ws-opacity-slider').value, 10) || 0) / 100;
+      wConf.showBorder = !!document.getElementById('ws-border-toggle').checked;
       wConf.settings = wConf.settings || {};
 
       if (widgetId === 'hero') {
@@ -3496,7 +3873,8 @@
       widgets.forEach((wConf) => {
         const meta = getWidgetMeta(wConf.id);
         const slot = document.createElement('div');
-        slot.className = `widget-slot${isWidgetEditMode ? ' edit-mode' : ''}`;
+        const isCompact = wConf.colSpan <= 4 || wConf.rowSpan <= 2;
+        slot.className = `widget-slot${isWidgetEditMode ? ' edit-mode' : ''}${isCompact ? ' compact' : ''}`;
         slot.dataset.widgetId = wConf.id;
         slot.style.gridColumn = `${wConf.col} / span ${wConf.colSpan}`;
         slot.style.gridRow = `${wConf.row} / span ${wConf.rowSpan}`;
@@ -3514,7 +3892,7 @@
             <span style="font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">⋮⋮ ${escapeHtml(meta.name)}</span>
             <div class="widget-edit-controls">
               <span class="widget-size-pill" title="Columns × Rows">${wConf.colSpan}×${wConf.rowSpan}</span>
-              <button class="widget-mini-btn" data-act="ws" title="Widget Settings (Radius & Opacity)">⚙</button>
+              <button class="widget-mini-btn" data-act="ws" title="Widget Settings (Radius, Opacity & Border)">⚙</button>
               <button class="widget-mini-btn danger" data-act="rm" title="Remove Widget">✕</button>
             </div>
           `;
@@ -3556,10 +3934,21 @@
       setPlayButtonState(launcherPlayState, launcherPlayText);
       updatePipelineStatusText(lastPipelineStatus, launcherPlayState === 'error');
       tickOverviewTimers();
+      syncWidgetScrollability();
     }
 
     function renderSingleWidgetContent(wConf, container) {
       const id = wConf.id;
+
+      if (typeof extensionWidgetRenderers[id] === 'function') {
+        try {
+          extensionWidgetRenderers[id](wConf, container);
+        } catch (err) {
+          container.innerHTML = `<div class="widget-card"><span class="widget-title">${escapeHtml(id)}</span><span style="font-size:0.72rem; color:var(--danger);">${escapeHtml(err.message)}</span></div>`;
+        }
+        return;
+      }
+
       const wSet = wConf.settings || {};
       const prof = getActiveProfile() || { id: 'default', name: 'Default Profile', version: '1.20.4', loader: 'vanilla', minRam: 2048, maxRam: 4096, javaRuntime: 'auto', jvmArgs: DEFAULT_ORYON };
       const acc = currentConfig.activeAccount;
@@ -3571,8 +3960,8 @@
             <h1 id="hero-title">${escapeHtml(prof.name || 'Ready.')}</h1>
             ${wSet.showSubtitle !== false ? `<p id="hero-sub">Target: Minecraft ${escapeHtml(prof.version || '1.20.4')} (${safeUpper(prof.loader)}) • Snapdragon ARM64</p>` : ''}
             ${wSet.showConfigBtn !== false ? `
-              <div style="margin-top:10px;">
-                <button class="btn-secondary" style="font-size:0.7rem; padding:4px 10px;" id="hero-config-btn">Configure Environment</button>
+              <div style="margin-top:8px;">
+                <button class="btn-secondary" style="font-size:0.68rem; padding:3px 9px;" id="hero-config-btn">Configure Environment</button>
               </div>
             ` : ''}
           </div>
@@ -3589,8 +3978,8 @@
             <div class="widget-head">
               <span class="widget-title">Profiles</span>
               <div style="display:flex; gap:4px;">
-                <button class="btn-secondary" style="padding:2px 7px; font-size:0.68rem;" onclick="openNewProfileModal()">+ New</button>
-                <button class="btn-secondary" style="padding:2px 7px; font-size:0.68rem;" onclick="switchTab('profiles')">Manage</button>
+                <button class="btn-secondary" style="padding:2px 6px; font-size:0.65rem;" onclick="openNewProfileModal()">+ New</button>
+                <button class="btn-secondary" style="padding:2px 6px; font-size:0.65rem;" onclick="switchTab('profiles')">Manage</button>
               </div>
             </div>
             <div class="widget-scroll-list" id="w-prof-scroll-list"></div>
@@ -3603,7 +3992,7 @@
           row.className = `widget-list-row ${isAct ? 'active' : ''}`;
           row.innerHTML = `
             <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.name)}</span>
-            <span style="font-size:0.66rem; color:var(--text-dim); flex-shrink:0;">${escapeHtml(p.version)} • ${safeUpper(p.loader)}</span>
+            <span style="font-size:0.64rem; color:var(--text-dim); flex-shrink:0;">${escapeHtml(p.version)} • ${safeUpper(p.loader)}</span>
           `;
           row.onclick = () => selectProfile(p.id);
           list.appendChild(row);
@@ -3626,9 +4015,9 @@
           <div class="widget-card">
             <div class="widget-head">
               <span class="widget-title">Pipeline Status</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="switchTab('console')">Console</button>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="switchTab('console')">Console</button>
             </div>
-            <div id="home-status-line" style="font-size:0.76rem; color:var(--text-dim); font-family:ui-monospace, monospace; line-height:1.4;">${escapeHtml(lastPipelineStatus)}</div>
+            <div id="home-status-line" style="font-size:0.74rem; color:var(--text-dim); font-family:ui-monospace, monospace; line-height:1.35; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(lastPipelineStatus)}</div>
           </div>
         `;
         return;
@@ -3640,7 +4029,7 @@
           <div class="widget-card">
             <div class="widget-head">
               <span class="widget-title">Accounts (${escapeHtml(playerName)})</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="switchTab('accounts')">Manage</button>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="switchTab('accounts')">Manage</button>
             </div>
             <div class="widget-scroll-list" id="w-acc-scroll-list"></div>
           </div>
@@ -3649,7 +4038,7 @@
 
         const offRow = document.createElement('button');
         offRow.className = `widget-list-row ${!acc ? 'active' : ''}`;
-        offRow.innerHTML = `<span>Offline (${escapeHtml(currentConfig.offlineUsername || 'Player')})</span><span style="font-size:0.66rem; color:var(--text-dim);">OFFLINE</span>`;
+        offRow.innerHTML = `<span>Offline (${escapeHtml(currentConfig.offlineUsername || 'Player')})</span><span style="font-size:0.64rem; color:var(--text-dim);">OFFLINE</span>`;
         offRow.onclick = async () => {
           currentConfig.activeAccount = null;
           await ipcRenderer.invoke('save-config', currentConfig);
@@ -3665,10 +4054,10 @@
           row.className = `widget-list-row ${isAct ? 'active' : ''}`;
           row.innerHTML = `
             <span style="display:flex; align-items:center; gap:7px; overflow:hidden;">
-              <img style="width:18px; height:18px; border-radius:4px; image-rendering:pixelated;" src="https://mc-heads.net/avatar/${encodeURIComponent(a.name)}/32" onerror="this.style.display='none'" />
+              <img style="width:16px; height:16px; border-radius:4px; image-rendering:pixelated;" src="https://mc-heads.net/avatar/${encodeURIComponent(a.name)}/32" onerror="this.style.display='none'" />
               <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(a.name)}</span>
             </span>
-            <span style="font-size:0.66rem; color:var(--text-dim);">MSA</span>
+            <span style="font-size:0.64rem; color:var(--text-dim);">MSA</span>
           `;
           row.onclick = async () => {
             currentConfig.activeAccount = a;
@@ -3689,16 +4078,16 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <span class="widget-title">Memory Allocation</span>
-              <span class="brand-badge" id="widget-ram-badge">${minRam} / ${maxRam} MB</span>
+              <span class="widget-title">Memory</span>
+              <span class="brand-badge" id="widget-ram-badge">${minRam}/${maxRam}M</span>
             </div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" id="w-ram-dec">-512</button>
-              <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" id="w-ram-inc">+512</button>
-              <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" data-ram="2048">2G</button>
-              <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" data-ram="4096">4G</button>
-              <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" data-ram="6144">6G</button>
-              <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" data-ram="8192">8G</button>
+            <div style="display:flex; gap:5px; flex-wrap:wrap;">
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" id="w-ram-dec">-512</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" id="w-ram-inc">+512</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" data-ram="2048">2G</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" data-ram="4096">4G</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" data-ram="6144">6G</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" data-ram="8192">8G</button>
             </div>
           </div>
         `;
@@ -3721,7 +4110,7 @@
       if (id === 'java') {
         const curRuntime = prof.javaRuntime || 'auto';
         const runtimes = [
-          { val: 'auto', label: 'Auto-Detect for Version' },
+          { val: 'auto', label: 'Auto-Detect' },
           { val: '8', label: 'Managed Java 8 (< 1.17)' },
           { val: '17', label: 'Managed Java 17 ARM64' },
           { val: '21', label: 'Managed Java 21 ARM64' },
@@ -3732,7 +4121,7 @@
           <div class="widget-card">
             <div class="widget-head">
               <span class="widget-title">Java Runtime</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="switchTab('settings')">Runtimes</button>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="switchTab('settings')">Runtimes</button>
             </div>
             <div class="widget-scroll-list" id="w-java-scroll-list"></div>
           </div>
@@ -3741,7 +4130,7 @@
         runtimes.forEach(rt => {
           const row = document.createElement('button');
           row.className = `widget-list-row ${curRuntime === rt.val ? 'active' : ''}`;
-          row.innerHTML = `<span>${rt.label}</span><span style="font-size:0.64rem; color:var(--text-dim);">${curRuntime === rt.val ? 'ACTIVE' : ''}</span>`;
+          row.innerHTML = `<span>${rt.label}</span><span style="font-size:0.62rem; color:var(--text-dim);">${curRuntime === rt.val ? 'ACTIVE' : ''}</span>`;
           row.onclick = async () => {
             prof.javaRuntime = rt.val;
             await ipcRenderer.invoke('update-profile', prof);
@@ -3760,7 +4149,7 @@
           <div class="widget-card">
             <div class="widget-head">
               <span class="widget-title">Quick Profiles</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="switchTab('profiles')">All</button>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="switchTab('profiles')">All</button>
             </div>
             <div id="w-quicklaunch-list" class="widget-scroll-list" style="flex-direction:row; flex-wrap:wrap; align-content:flex-start;"></div>
           </div>
@@ -3769,9 +4158,9 @@
         profiles.forEach(p => {
           const isAct = p.id === prof.id;
           const pill = document.createElement('div');
-          pill.style.cssText = 'display:flex; align-items:center; gap:4px; background:rgba(var(--card-rgb),0.5); border:1px solid ' + (isAct ? 'var(--accent)' : 'var(--border)') + '; border-radius:6px; padding:4px 8px;';
+          pill.style.cssText = 'display:flex; align-items:center; gap:4px; background:rgba(var(--card-rgb),0.5); border:1px solid ' + (isAct ? 'var(--accent)' : 'var(--border)') + '; border-radius:6px; padding:3px 7px;';
           const selBtn = document.createElement('button');
-          selBtn.style.cssText = 'background:transparent; border:none; color:var(--text); font-size:0.72rem; cursor:pointer; font-weight:' + (isAct ? '700' : '500') + ';';
+          selBtn.style.cssText = 'background:transparent; border:none; color:var(--text); font-size:0.7rem; cursor:pointer; font-weight:' + (isAct ? '700' : '500') + ';';
           selBtn.innerText = p.name;
           selBtn.onclick = () => selectProfile(p.id);
           const goBtn = document.createElement('button');
@@ -3792,16 +4181,16 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <span class="widget-title">Mod Summary</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="switchTab('manager')">Content</button>
+              <span class="widget-title">Mods</span>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="switchTab('manager')">Content</button>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-              <span id="w-mods-summary" style="font-size:0.78rem; color:var(--text);">
-                <strong>${widgetModCounts.active}</strong> active • <span style="color:var(--text-muted);">${widgetModCounts.disabled} disabled</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span id="w-mods-summary" style="font-size:0.75rem; color:var(--text);">
+                <strong>${widgetModCounts.active}</strong> active • <span style="color:var(--text-muted);">${widgetModCounts.disabled} off</span>
               </span>
-              <div style="display:flex; gap:6px;">
-                <button class="btn-secondary" style="padding:3px 8px; font-size:0.68rem;" id="w-mods-on">Enable All</button>
-                <button class="btn-secondary" style="padding:3px 8px; font-size:0.68rem;" id="w-mods-off">Disable All</button>
+              <div style="display:flex; gap:5px;">
+                <button class="btn-secondary" style="padding:2px 7px; font-size:0.66rem;" id="w-mods-on">On</button>
+                <button class="btn-secondary" style="padding:2px 7px; font-size:0.66rem;" id="w-mods-off">Off</button>
               </div>
             </div>
           </div>
@@ -3823,19 +4212,19 @@
           <div class="widget-card">
             <div class="widget-head">
               <span class="widget-title">Mod Updates</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" id="w-check-upd-btn">Check</button>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" id="w-check-upd-btn">Check</button>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-              <span id="w-upd-status" style="font-size:0.76rem; color:var(--text-muted);">
-                ${upCount ? `${upCount} Modrinth update(s) ready` : 'Click Check to scan mods'}
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+              <span id="w-upd-status" style="font-size:0.74rem; color:var(--text-muted);">
+                ${upCount ? `${upCount} update(s) ready` : 'Scan mods'}
               </span>
-              ${upCount ? '<button class="btn" style="padding:4px 10px; font-size:0.7rem;" id="w-apply-upd-btn">Update All</button>' : ''}
+              ${upCount ? '<button class="btn" style="padding:3px 9px; font-size:0.68rem;" id="w-apply-upd-btn">Update</button>' : ''}
             </div>
           </div>
         `;
         container.querySelector('#w-check-upd-btn').onclick = async () => {
           const st = container.querySelector('#w-upd-status');
-          if (st) st.innerText = 'Scanning Modrinth hashes...';
+          if (st) st.innerText = 'Scanning...';
           widgetUpdatesCache = await ipcRenderer.invoke('check-mod-updates');
           pendingUpdates = [...widgetUpdatesCache];
           renderOverviewWidgets();
@@ -3862,14 +4251,14 @@
           <div class="widget-card">
             <div class="widget-head">
               <span class="widget-title">Recent Worlds</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="switchTab('vault')">Vault</button>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="switchTab('vault')">Vault</button>
             </div>
             <div id="w-worlds-list" class="widget-scroll-list"></div>
           </div>
         `;
         const wList = container.querySelector('#w-worlds-list');
         if (!widgetWorldsCache.length) {
-          wList.innerHTML = '<span style="font-size:0.74rem; color:var(--text-muted);">No local worlds in active profile.</span>';
+          wList.innerHTML = '<span style="font-size:0.72rem; color:var(--text-muted);">No local worlds.</span>';
         } else {
           widgetWorldsCache.forEach(w => {
             const row = document.createElement('div');
@@ -3880,7 +4269,7 @@
             nameSpan.innerHTML = `<strong style="color:var(--text);">${escapeHtml(w.name)}</strong> <span style="color:var(--text-dim);">(${escapeHtml(w.sizeMb)} MB)</span>`;
             const bkBtn = document.createElement('button');
             bkBtn.className = 'btn-secondary';
-            bkBtn.style.cssText = 'padding:2px 7px; font-size:0.66rem; flex-shrink:0;';
+            bkBtn.style.cssText = 'padding:2px 6px; font-size:0.64rem; flex-shrink:0;';
             bkBtn.innerText = 'Backup';
             bkBtn.onclick = () => backupWorld(w.folder);
             row.appendChild(nameSpan);
@@ -3895,21 +4284,21 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <span class="widget-title">Screenshot Strip</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="openDir('screenshots')">Folder</button>
+              <span class="widget-title">Screenshots</span>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="openDir('screenshots')">Folder</button>
             </div>
-            <div id="w-ss-grid" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; overflow-y:auto;"></div>
+            <div id="w-ss-grid" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:5px; overflow:hidden;"></div>
           </div>
         `;
         const ssGrid = container.querySelector('#w-ss-grid');
         if (!widgetScreensCache.length) {
-          ssGrid.innerHTML = '<span style="grid-column:span 4; font-size:0.74rem; color:var(--text-muted);">No screenshots captured yet.</span>';
+          ssGrid.innerHTML = '<span style="grid-column:span 4; font-size:0.72rem; color:var(--text-muted);">No screenshots yet.</span>';
         } else {
           widgetScreensCache.slice(0, 12).forEach(s => {
             const img = document.createElement('img');
             img.src = s.url;
             img.title = s.fileName;
-            img.style.cssText = 'width:100%; height:48px; object-fit:cover; border-radius:4px; border:1px solid var(--border); cursor:pointer;';
+            img.style.cssText = 'width:100%; height:44px; object-fit:cover; border-radius:4px; border:1px solid var(--border); cursor:pointer;';
             img.onclick = () => openScreenshotPreviewModal(s.fileName, s.url, s.path || '');
             ssGrid.appendChild(img);
           });
@@ -3921,10 +4310,10 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <span class="widget-title">Live Console Feed</span>
+              <span class="widget-title">Console Feed</span>
               <div style="display:flex; gap:4px;">
-                <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="clearConsole()">Clear</button>
-                <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="switchTab('console')">Expand</button>
+                <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="clearConsole()">Clear</button>
+                <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="switchTab('console')">Expand</button>
               </div>
             </div>
             <div class="widget-mini-console" id="w-mini-console-box"></div>
@@ -3941,21 +4330,21 @@
           <div class="widget-card">
             <div class="widget-head">
               <span class="widget-title">ARM64 Telemetry</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" id="w-tel-refresh">Refresh</button>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" id="w-tel-refresh">Refresh</button>
             </div>
-            <div id="w-tel-body" style="font-size:0.74rem; color:var(--text-muted);">
+            <div id="w-tel-body" style="font-size:0.72rem; color:var(--text-muted);">
               ${tel ? `
                 <div style="display:flex; justify-content:space-between; margin-bottom:4px; gap:6px; flex-wrap:wrap;">
-                  <span>RAM: <strong style="color:var(--text);">${(tel.usedMemMb / 1024).toFixed(1)} / ${(tel.totalMemMb / 1024).toFixed(1)} GB</strong> (${pct}%)</span>
-                  <span class="brand-badge">${escapeHtml(tel.arch.toUpperCase())} • ${tel.cpuCores} CORES</span>
+                  <span>RAM: <strong style="color:var(--text);">${(tel.usedMemMb / 1024).toFixed(1)} / ${(tel.totalMemMb / 1024).toFixed(1)}G</strong> (${pct}%)</span>
+                  <span class="brand-badge">${escapeHtml(tel.arch.toUpperCase())} • ${tel.cpuCores}C</span>
                 </div>
                 ${wSet.showBar !== false ? `
-                  <div style="height:4px; background:var(--border); border-radius:2px; overflow:hidden; margin-bottom:6px;">
+                  <div style="height:4px; background:var(--border); border-radius:2px; overflow:hidden; margin-bottom:4px;">
                     <div style="height:100%; width:${pct}%; background:var(--accent);"></div>
                   </div>
                 ` : ''}
-                <span style="font-size:0.68rem; color:var(--text-dim); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(tel.cpuModel)}</span>
-              ` : 'Reading system telemetry...'}
+                <span style="font-size:0.66rem; color:var(--text-dim); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(tel.cpuModel)}</span>
+              ` : 'Reading telemetry...'}
             </div>
           </div>
         `;
@@ -3970,16 +4359,16 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <span class="widget-title">Quick Folders</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="openDir('')">Root</button>
+              <span class="widget-title">Folders</span>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="openDir('')">Root</button>
             </div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button class="btn-secondary" style="padding:4px 9px; font-size:0.7rem;" onclick="openDir('mods')">Mods</button>
-              <button class="btn-secondary" style="padding:4px 9px; font-size:0.7rem;" onclick="openDir('resourcepacks')">Resource Packs</button>
-              <button class="btn-secondary" style="padding:4px 9px; font-size:0.7rem;" onclick="openDir('shaderpacks')">Shaders</button>
-              <button class="btn-secondary" style="padding:4px 9px; font-size:0.7rem;" onclick="openDir('saves')">Saves</button>
-              <button class="btn-secondary" style="padding:4px 9px; font-size:0.7rem;" onclick="openDir('screenshots')">Screenshots</button>
-              <button class="btn-secondary" style="padding:4px 9px; font-size:0.7rem;" onclick="openDir('config')">Config</button>
+            <div style="display:flex; gap:5px; flex-wrap:wrap;">
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" onclick="openDir('mods')">Mods</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" onclick="openDir('resourcepacks')">Packs</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" onclick="openDir('shaderpacks')">Shaders</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" onclick="openDir('saves')">Saves</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" onclick="openDir('screenshots')">Shots</button>
+              <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" onclick="openDir('config')">Config</button>
             </div>
           </div>
         `;
@@ -3990,12 +4379,12 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <span class="widget-title">Loader &amp; Engine</span>
+              <span class="widget-title">Loader</span>
               <span class="brand-badge">${safeUpper(prof.loader)}</span>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-              <button class="btn-secondary" style="padding:4px 9px; font-size:0.7rem;" onclick="installShaderEngine()">1-Click Sodium + Iris</button>
-              <button class="btn-secondary" style="padding:4px 9px; font-size:0.7rem;" onclick="switchTab('loaders')">Engines</button>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.68rem;" onclick="installShaderEngine()">Sodium + Iris</button>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.68rem;" onclick="switchTab('loaders')">Engines</button>
             </div>
           </div>
         `;
@@ -4007,13 +4396,13 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <span class="widget-title">Oryon JVM Flags</span>
+              <span class="widget-title">Oryon JVM</span>
               <div style="display:flex; gap:4px;">
-                <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" id="w-jvm-copy">Copy</button>
-                <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" id="w-jvm-reset">Reset</button>
+                <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" id="w-jvm-copy">Copy</button>
+                <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" id="w-jvm-reset">Reset</button>
               </div>
             </div>
-            <div style="font-family:ui-monospace, monospace; font-size:0.68rem; color:var(--text-muted); border:1px solid var(--border); border-radius:6px; padding:6px 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(flags)}</div>
+            <div style="font-family:ui-monospace, monospace; font-size:0.66rem; color:var(--text-muted); border:1px solid var(--border); border-radius:6px; padding:4px 7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(flags)}</div>
           </div>
         `;
         container.querySelector('#w-jvm-copy').onclick = () => {
@@ -4034,16 +4423,16 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <span class="widget-title">Skin Preview</span>
-              <button class="btn-secondary" style="padding:2px 8px; font-size:0.68rem;" onclick="switchTab('skins')">Studio</button>
+              <span class="widget-title">Skin</span>
+              <button class="btn-secondary" style="padding:2px 7px; font-size:0.65rem;" onclick="switchTab('skins')">Studio</button>
             </div>
-            <div style="display:flex; align-items:center; gap:10px; min-height:0;">
-              <canvas id="widget-skin-canvas" width="64" height="128" style="width:44px; height:88px; image-rendering:pixelated; background:transparent; border:1px solid var(--border); border-radius:6px; flex-shrink:0;"></canvas>
-              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px;">
-                <span style="font-size:0.74rem; color:var(--text); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(activeSkinCache.username || playerName)}</span>
+            <div style="display:flex; align-items:center; gap:8px; min-height:0;">
+              <canvas id="widget-skin-canvas" width="64" height="128" style="width:40px; height:80px; image-rendering:pixelated; background:transparent; border:1px solid var(--border); border-radius:6px; flex-shrink:0;"></canvas>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;">
+                <span style="font-size:0.72rem; color:var(--text); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(activeSkinCache.username || playerName)}</span>
                 <div style="display:flex; gap:4px;">
-                  <input type="text" id="w-skin-input" class="input-field" style="padding:4px 8px; font-size:0.72rem;" placeholder="Lookup user..." />
-                  <button class="btn-secondary" style="padding:4px 8px; font-size:0.7rem;" id="w-skin-go">Go</button>
+                  <input type="text" id="w-skin-input" class="input-field" style="padding:3px 6px; font-size:0.7rem;" placeholder="User..." />
+                  <button class="btn-secondary" style="padding:3px 7px; font-size:0.68rem;" id="w-skin-go">Go</button>
                 </div>
               </div>
             </div>
@@ -4075,12 +4464,12 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <span class="widget-title">Session Monitor</span>
+              <span class="widget-title">Session</span>
               <span class="brand-badge" id="w-session-pid">${running ? `PID ${activeGamePid}` : 'IDLE'}</span>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-              <strong id="widget-session-timer" style="font-size:1.1rem; font-family:ui-monospace, monospace; color:var(--text);">00:00:00</strong>
-              <button class="btn-secondary" style="padding:4px 10px; font-size:0.7rem; ${running ? 'color:var(--danger);' : 'opacity:0.45;'}" id="w-stop-game-btn" ${running ? '' : 'disabled'}>Stop Game</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+              <strong id="widget-session-timer" style="font-size:0.96rem; font-family:ui-monospace, monospace; color:var(--text);">00:00:00</strong>
+              <button class="btn-secondary" style="padding:3px 8px; font-size:0.68rem; ${running ? 'color:var(--danger);' : 'opacity:0.45;'}" id="w-stop-game-btn" ${running ? '' : 'disabled'}>Stop</button>
             </div>
           </div>
         `;
@@ -4102,8 +4491,8 @@
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
-              <strong id="widget-clock-time" style="font-size:1.15rem; font-family:ui-monospace, monospace; color:var(--text);">00:00:00</strong>
-              <span id="widget-clock-date" style="font-size:0.68rem; color:var(--text-dim);">—</span>
+              <strong id="widget-clock-time" style="font-size:1.05rem; font-family:ui-monospace, monospace; color:var(--text);">00:00:00</strong>
+              <span id="widget-clock-date" style="font-size:0.66rem; color:var(--text-dim);">—</span>
             </div>
             <div class="widget-scroll-list" id="w-bg-scroll-list"></div>
           </div>
@@ -4165,7 +4554,8 @@
             disabled: items.filter(i => !i.isEnabled).length
           };
           const el = document.getElementById('w-mods-summary');
-          if (el) el.innerHTML = `<strong>${widgetModCounts.active}</strong> active • <span style="color:var(--text-muted);">${widgetModCounts.disabled} disabled</span>`;
+          if (el) el.innerHTML = `<strong>${widgetModCounts.active}</strong> active • <span style="color:var(--text-muted);">${widgetModCounts.disabled} off</span>`;
+          syncWidgetScrollability();
         }).catch(() => {}));
       }
 
@@ -4184,6 +4574,7 @@
             const slot = document.querySelector('.widget-slot[data-widget-id="screenshots"] .widget-inner-body');
             if (slot && wConf) { renderSingleWidgetContent(wConf, slot); applyWidgetVisualStyle('screenshots', wConf); }
           }
+          syncWidgetScrollability();
         }).catch(() => {}));
       }
 
@@ -4194,6 +4585,7 @@
           const wConf = activeWidgets.find(w => w.id === 'telemetry');
           const slot = document.querySelector('.widget-slot[data-widget-id="telemetry"] .widget-inner-body');
           if (slot && wConf) { renderSingleWidgetContent(wConf, slot); applyWidgetVisualStyle('telemetry', wConf); }
+          syncWidgetScrollability();
         }).catch(() => {}));
       }
 
@@ -4211,6 +4603,7 @@
         box.appendChild(div);
       });
       box.scrollTop = box.scrollHeight;
+      syncWidgetScrollability();
     }
 
     function syncModHubFilters() {
@@ -4303,7 +4696,8 @@
         card.style.display = 'flex';
         card.style.flexDirection = 'column';
         card.style.justifyContent = 'space-between';
-        card.style.gap = '14px';
+        card
+card.style.gap = '14px';
 
         card.innerHTML = `
           <div>
@@ -4383,6 +4777,7 @@
     }
 
     function closeNewProfileModal() {
+      closeAllCustomSelects();
       document.getElementById('modal-new-profile').style.display = 'none';
     }
 
@@ -4440,6 +4835,7 @@
     }
 
     function closeProfileSettingsModal() {
+      closeAllCustomSelects();
       document.getElementById('modal-prof-settings').style.display = 'none';
     }
 
@@ -4496,11 +4892,11 @@
     }
 
     function closeTransformModal() {
+      closeAllCustomSelects();
       document.getElementById('modal-transform-instance').style.display = 'none';
     }
 
-
-     async function submitTransformInstance() {
+    async function submitTransformInstance() {
       const sourcePath = document.getElementById('trans-source-path').value;
       const clientType = document.getElementById('trans-source-type').value;
       const loaderVersion = document.getElementById('trans-loader-ver').value;
@@ -5152,7 +5548,6 @@
         });
       }
 
-      // Initialize blank Steve-like template until a skin is loaded
       skinBufferCtx.clearRect(0, 0, 64, 64);
       skinBufferCtx.fillStyle = '#e2b591';
       skinBufferCtx.fillRect(8, 8, 8, 8);
@@ -5199,10 +5594,8 @@
     }
 
     function getMirroredSkinX(px, py) {
-      // Head front (8..15, 8..15), Hat front (40..47, 8..15)
       if (py >= 8 && py <= 15 && px >= 8 && px <= 15) return 8 + (15 - px);
       if (py >= 8 && py <= 15 && px >= 40 && px <= 47) return 40 + (47 - px);
-      // Torso front (20..27, 20..31), Jacket front (20..27, 36..47)
       if (((py >= 20 && py <= 31) || (py >= 36 && py <= 47)) && px >= 20 && px <= 27) return 20 + (27 - px);
       return 63 - px;
     }
