@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,6 +24,8 @@
       --status-error: #ef4444;
       --ease: cubic-bezier(0.16, 1, 0.3, 1);
       --radius: 8px;
+      --grid-row-height: 76px;
+      --grid-gap: 12px;
     }
 
     * {
@@ -297,7 +298,7 @@
     .log-stdout { color: #e4e4e7; }
 
     /* ----------------------------------------------------------
-       OVERVIEW WIDGET GRID & POINTER EDIT MODE
+       OVERVIEW 2D SNAP-TO-GRID WIDGET STAGE & DRAG-RESIZE
     ---------------------------------------------------------- */
     .overview-stage-wrap {
       display: flex;
@@ -357,16 +358,71 @@
     .catalog-item:hover { border-color: var(--border-hover); background: #18181b; }
     .catalog-item.enabled { border-color: #ffffff; background: #1c1c21; }
 
+    .overview-grid-stage {
+      position: relative;
+      width: 100%;
+    }
+
+    .overview-grid-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      grid-auto-rows: var(--grid-row-height);
+      gap: var(--grid-gap);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .overview-grid-overlay.active {
+      display: grid;
+    }
+    .grid-snap-cell {
+      border: 1px dashed rgba(255, 255, 255, 0.085);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.012);
+    }
+
     .overview-grid {
       display: grid;
       grid-template-columns: repeat(12, minmax(0, 1fr));
-      gap: 14px;
+      grid-auto-rows: var(--grid-row-height);
+      gap: var(--grid-gap);
       width: 100%;
       align-items: stretch;
+      position: relative;
+      z-index: 1;
     }
     .overview-grid.compact-default {
       max-width: 620px;
       margin: 0 auto;
+      grid-auto-rows: auto;
+      gap: 14px;
+    }
+
+    .overview-snap-ghost {
+      display: none;
+      border: 2px dashed #ffffff;
+      background: rgba(255, 255, 255, 0.09);
+      border-radius: var(--radius);
+      pointer-events: none;
+      z-index: 40;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 6px;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+    }
+    .overview-snap-ghost.active {
+      display: flex;
+    }
+    .snap-ghost-badge {
+      background: #ffffff;
+      color: #09090b;
+      font-size: 0.66rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: ui-monospace, monospace;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     }
 
     .widget-slot {
@@ -374,56 +430,62 @@
       display: flex;
       flex-direction: column;
       min-width: 0;
-      transition: transform 0.14s var(--ease), border-color 0.14s var(--ease);
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
     }
-    .widget-slot.span-4 { grid-column: span 4; }
-    .widget-slot.span-5 { grid-column: span 5; }
-    .widget-slot.span-6 { grid-column: span 6; }
-    .widget-slot.span-7 { grid-column: span 7; }
-    .widget-slot.span-8 { grid-column: span 8; }
-    .widget-slot.span-12 { grid-column: span 12; }
+    .widget-slot[data-widget-id="profile"]:not(.edit-mode) {
+      overflow: visible;
+      z-index: 30;
+    }
 
-    @media (max-width: 1120px) {
-      .widget-slot.span-4 { grid-column: span 6; }
+    .widget-inner-body {
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     .widget-slot.edit-mode {
       border: 1px dashed var(--border-hover);
       border-radius: var(--radius);
-      padding: 8px;
       background: rgba(18, 18, 21, 0.55);
       cursor: grab;
       touch-action: none;
+      z-index: 10;
     }
     .widget-slot.edit-mode:hover {
       border-color: #ffffff;
+      z-index: 15;
     }
-    /* Prevent inner widget buttons/inputs from swallowing drag pointerdown in Edit Mode */
     .widget-slot.edit-mode .widget-inner-body {
       pointer-events: none;
-      opacity: 0.88;
-    }
-    .widget-slot.drag-over {
-      border: 2px solid #ffffff !important;
-      background: rgba(255, 255, 255, 0.08) !important;
-      transform: scale(0.985);
+      opacity: 0.85;
     }
     .widget-slot.dragging {
       opacity: 0.42;
       cursor: grabbing;
       border-color: #ffffff;
+      z-index: 35;
     }
 
     .widget-edit-header {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      right: 4px;
+      z-index: 25;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 6px;
-      padding: 4px 6px 8px 6px;
-      margin-bottom: 4px;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.7rem;
+      padding: 3px 6px;
+      background: rgba(9, 9, 11, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.68rem;
       color: var(--text-muted);
+      backdrop-filter: blur(4px);
     }
     .widget-edit-controls {
       display: flex;
@@ -437,24 +499,113 @@
       border: 1px solid var(--border);
       color: var(--text);
       border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 0.66rem;
+      padding: 1px 6px;
+      font-size: 0.64rem;
       font-weight: 600;
       cursor: pointer;
     }
     .widget-mini-btn:hover { border-color: #ffffff; }
     .widget-mini-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
 
+    .widget-size-pill {
+      font-family: ui-monospace, monospace;
+      font-size: 0.64rem;
+      color: var(--text);
+      background: #18181b;
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    /* DRAG-TO-RESIZE HANDLES */
+    .widget-resize-handle {
+      position: absolute;
+      z-index: 32;
+      touch-action: none;
+    }
+    .widget-resize-handle.handle-e {
+      top: 28px;
+      right: 0;
+      bottom: 14px;
+      width: 7px;
+      cursor: ew-resize;
+    }
+    .widget-resize-handle.handle-e::after {
+      content: '';
+      position: absolute;
+      right: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 2px;
+      height: 22px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.18);
+      transition: background 0.14s ease;
+    }
+    .widget-resize-handle.handle-e:hover::after {
+      background: #ffffff;
+    }
+
+    .widget-resize-handle.handle-s {
+      left: 12px;
+      right: 14px;
+      bottom: 0;
+      height: 7px;
+      cursor: ns-resize;
+    }
+    .widget-resize-handle.handle-s::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      height: 2px;
+      width: 22px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.18);
+      transition: background 0.14s ease;
+    }
+    .widget-resize-handle.handle-s:hover::after {
+      background: #ffffff;
+    }
+
+    .widget-resize-handle.handle-se {
+      right: 2px;
+      bottom: 2px;
+      width: 14px;
+      height: 14px;
+      cursor: nwse-resize;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 2px;
+    }
+    .widget-resize-handle.handle-se::after {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid rgba(255, 255, 255, 0.5);
+      border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+      border-bottom-right-radius: 2px;
+      transition: border-color 0.14s ease;
+    }
+    .widget-resize-handle.handle-se:hover::after {
+      border-color: #ffffff;
+    }
+
     .widget-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 16px;
+      padding: 14px 16px;
       height: 100%;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 10px;
+      gap: 8px;
+      overflow-y: auto;
+      overflow-x: hidden;
       transition: border-color 0.16s var(--ease);
     }
     .widget-card:hover { border-color: var(--border-hover); }
@@ -464,6 +615,7 @@
       justify-content: space-between;
       align-items: center;
       gap: 8px;
+      flex-shrink: 0;
     }
     .widget-title {
       font-size: 0.72rem;
@@ -476,19 +628,26 @@
     /* HERO WIDGET */
     .hero-widget-inner {
       text-align: center;
-      padding: 10px 6px 14px 6px;
+      padding: 8px 6px 10px 6px;
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
     }
     .hero-widget-inner h1 {
-      font-size: 3.1rem;
+      font-size: clamp(1.7rem, 3.3vw, 3.05rem);
       font-weight: 800;
       letter-spacing: -0.04em;
       line-height: 1.06;
       color: #ffffff;
     }
     .hero-widget-inner p {
-      font-size: 0.88rem;
+      font-size: 0.86rem;
       color: var(--text-muted);
-      margin-top: 8px;
+      margin-top: 6px;
       letter-spacing: 0.02em;
     }
 
@@ -497,12 +656,14 @@
       width: 100%;
       position: relative;
       height: 100%;
+      min-height: 0;
       display: flex;
       align-items: stretch;
     }
 
     .deck-profile-btn {
       width: 100%;
+      height: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -526,10 +687,10 @@
       font-size: 0.88rem; font-weight: 700; color: var(--text);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .deck-profile-meta { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+    .deck-profile-meta { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .deck-profile-menu {
-      position: absolute; top: calc(100% + 8px); left: 0; width: 100%;
+      position: absolute; top: calc(100% + 8px); left: 0; width: 100%; min-width: 240px;
       background: rgba(18, 18, 21, 0.98);
       border: 1px solid var(--border-hover); border-radius: var(--radius); padding: 8px;
       display: none; flex-direction: column; gap: 4px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
@@ -576,7 +737,8 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.68rem;
       line-height: 1.4;
-      height: 118px;
+      flex: 1;
+      min-height: 54px;
       overflow-y: auto;
       white-space: pre-wrap;
     }
@@ -617,14 +779,14 @@
   <main class="viewport">
     <div class="workspace-stage">
 
-      <!-- 1. OVERVIEW DASHBOARD (100% SNAP-TO-GRID WIDGET STAGE) -->
+      <!-- 1. OVERVIEW DASHBOARD (2D SNAP-TO-GRID WIDGET STAGE) -->
       <section id="panel-home" class="panel active">
         <div class="overview-stage-wrap centered-default" id="overview-stage-wrap">
           <div class="overview-edit-bar" id="overview-edit-bar">
             <div>
-              <strong style="font-size: 0.86rem; color: #fff;">Overview Widget Editor</strong>
+              <strong style="font-size: 0.86rem; color: #fff;">Overview 2D Grid Editor</strong>
               <span style="display:block; font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
-                Drag any widget card onto another to reorder, resize column span, or add/remove from 20 launcher widgets.
+                Drag widgets to any grid cell, pull edge/corner handles to resize, or toggle from 20 launcher widgets.
               </span>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -642,7 +804,10 @@
             <div class="catalog-grid" id="overview-catalog-grid"></div>
           </div>
 
-          <div class="overview-grid compact-default" id="overview-grid"></div>
+          <div class="overview-grid-stage" id="overview-grid-stage">
+            <div class="overview-grid-overlay" id="overview-grid-overlay"></div>
+            <div class="overview-grid compact-default" id="overview-grid"></div>
+          </div>
         </div>
       </section>
 
@@ -1424,42 +1589,43 @@
     let widgetTelemetryCache = null;
     let widgetConsoleLines = [];
 
-    // Overview Widget System State
+    // Overview 2D Grid System State
+    const GRID_COLS = 12;
+    const GRID_ROW_HEIGHT = 76;
+    const GRID_GAP = 12;
     let isWidgetEditMode = false;
     let isCatalogDrawerOpen = false;
     let pointerDragState = null;
 
     const DEFAULT_ORYON = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
     const DEFAULT_OVERVIEW_WIDGETS = [
-      { id: 'hero', span: 12 },
-      { id: 'profile', span: 7 },
-      { id: 'play', span: 5 }
+      { id: 'hero', col: 3, row: 1, colSpan: 8, rowSpan: 2 },
+      { id: 'profile', col: 3, row: 3, colSpan: 5, rowSpan: 1 },
+      { id: 'play', col: 8, row: 3, colSpan: 3, rowSpan: 1 }
     ];
 
     const WIDGET_CATALOG = [
-      { id: 'hero', name: 'Hero Banner', defaultSpan: 12, desc: 'Active profile title, MC target & quick configure' },
-      { id: 'profile', name: 'Profile Selector', defaultSpan: 7, desc: 'Switch active profile or create new environment' },
-      { id: 'play', name: 'Play Button', defaultSpan: 5, desc: 'Emerald/Amber/Crimson launch control' },
-      { id: 'status', name: 'Pipeline Status', defaultSpan: 6, desc: 'Live boot status & console quick jump' },
-      { id: 'account', name: 'Active Account', defaultSpan: 6, desc: 'Player avatar & instant account switcher' },
-      { id: 'ram', name: 'Memory Allocation', defaultSpan: 6, desc: 'Interactive Min/Max RAM adjustment & presets' },
-      { id: 'java', name: 'Java Runtime', defaultSpan: 6, desc: 'Inline ARM64 JDK selector for active profile' },
-      { id: 'quicklaunch', name: 'Quick Profiles', defaultSpan: 6, desc: '1-click profile buttons with direct launch' },
-      { id: 'mods', name: 'Mod Summary', defaultSpan: 6, desc: 'Active/disabled mods count & quick toggle all' },
-      { id: 'updates', name: 'Mod Updates', defaultSpan: 6, desc: '1-click Modrinth update check & update all' },
-      { id: 'worlds', name: 'Recent Worlds', defaultSpan: 6, desc: 'Saves list with 1-click world backup' },
-      { id: 'screenshots', name: 'Screenshot Strip', defaultSpan: 6, desc: 'Latest captures with click-to-preview' },
-      { id: 'console', name: 'Live Console Feed', defaultSpan: 6, desc: 'Real-time log tail & quick clear' },
-      { id: 'telemetry', name: 'ARM64 Telemetry', defaultSpan: 6, desc: 'Host memory usage, CPU cores & arch readout' },
-      { id: 'folders', name: 'Quick Folders', defaultSpan: 6, desc: '1-click shortcuts to profile subfolders' },
-      { id: 'loader', name: 'Loader & Engine', defaultSpan: 6, desc: 'Active loader & 1-click Sodium+Iris installer' },
-      { id: 'jvm', name: 'Oryon JVM Flags', defaultSpan: 6, desc: 'Active JVM flags with Copy & Reset Oryon' },
-      { id: 'skin', name: 'Skin Preview', defaultSpan: 4, desc: 'Interactive 2D composite skin renderer' },
-      { id: 'session', name: 'Session Monitor', defaultSpan: 4, desc: 'Live runtime clock, PID & Stop Game button' },
-      { id: 'clock', name: 'Clock & Canvas', defaultSpan: 4, desc: 'Live clock & monochrome background switcher' }
+      { id: 'hero', name: 'Hero Banner', defaultColSpan: 8, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4, desc: 'Active profile title, MC target & quick configure' },
+      { id: 'profile', name: 'Profile Selector', defaultColSpan: 5, defaultRowSpan: 1, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 2, desc: 'Switch active profile or create new environment' },
+      { id: 'play', name: 'Play Button', defaultColSpan: 3, defaultRowSpan: 1, minColSpan: 2, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3, desc: 'Emerald/Amber/Crimson launch control' },
+      { id: 'status', name: 'Pipeline Status', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 4, desc: 'Live boot status & console quick jump' },
+      { id: 'account', name: 'Active Account', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3, desc: 'Player avatar & instant account switcher' },
+      { id: 'ram', name: 'Memory Allocation', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3, desc: 'Interactive Min/Max RAM adjustment & presets' },
+      { id: 'java', name: 'Java Runtime', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3, desc: 'Inline ARM64 JDK selector for active profile' },
+      { id: 'quicklaunch', name: 'Quick Profiles', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 5, desc: '1-click profile buttons with direct launch' },
+      { id: 'mods', name: 'Mod Summary', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3, desc: 'Active/disabled mods count & quick toggle all' },
+      { id: 'updates', name: 'Mod Updates', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3, desc: '1-click Modrinth update check & update all' },
+      { id: 'worlds', name: 'Recent Worlds', defaultColSpan: 6, defaultRowSpan: 3, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 6, desc: 'Saves list with 1-click world backup' },
+      { id: 'screenshots', name: 'Screenshot Strip', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 5, desc: 'Latest captures with click-to-preview' },
+      { id: 'console', name: 'Live Console Feed', defaultColSpan: 6, defaultRowSpan: 3, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 7, desc: 'Real-time log tail & quick clear' },
+      { id: 'telemetry', name: 'ARM64 Telemetry', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4, desc: 'Host memory usage, CPU cores & arch readout' },
+      { id: 'folders', name: 'Quick Folders', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4, desc: '1-click shortcuts to profile subfolders' },
+      { id: 'loader', name: 'Loader & Engine', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3, desc: 'Active loader & 1-click Sodium+Iris installer' },
+      { id: 'jvm', name: 'Oryon JVM Flags', defaultColSpan: 6, defaultRowSpan: 2, minColSpan: 4, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 4, desc: 'Active JVM flags with Copy & Reset Oryon' },
+      { id: 'skin', name: 'Skin Preview', defaultColSpan: 4, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 8, minRowSpan: 2, maxRowSpan: 4, desc: 'Interactive 2D composite skin renderer' },
+      { id: 'session', name: 'Session Monitor', defaultColSpan: 4, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 1, maxRowSpan: 3, desc: 'Live runtime clock, PID & Stop Game button' },
+      { id: 'clock', name: 'Clock & Canvas', defaultColSpan: 4, defaultRowSpan: 2, minColSpan: 3, maxColSpan: 12, minRowSpan: 2, maxRowSpan: 4, desc: 'Live clock & monochrome background switcher' }
     ];
-
-    const VALID_SPANS = [4, 5, 6, 7, 8, 12];
 
     // -------------------------------------------------------------
     // NON-BLOCKING IN-APP MODALS (ZERO NATIVE ALERT/CONFIRM FREEZES)
@@ -1589,9 +1755,7 @@
 
     window.addEventListener('DOMContentLoaded', async () => {
       currentConfig = await ipcRenderer.invoke('get-config');
-      if (!Array.isArray(currentConfig.overviewWidgets)) {
-        currentConfig.overviewWidgets = DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
-      }
+      currentConfig.overviewWidgets = normalizeOverviewWidgetsClient(currentConfig.overviewWidgets);
 
       document.getElementById('cfg-min-ram').value = currentConfig.minRam || 2048;
       document.getElementById('cfg-max-ram').value = currentConfig.maxRam || 4096;
@@ -1604,9 +1768,8 @@
       applyBgPresetVisual(currentConfig.bgPreset || 'waves');
       initGlobalJdkProgressListener();
       initConsoleStream();
-      initWidgetPointerDrag();
+      initWidgetPointerInteraction();
 
-      // Seed existing logs & active game state
       const [existingLogs, gameState] = await Promise.all([
         ipcRenderer.invoke('get-console-logs'),
         ipcRenderer.invoke('get-active-game-state')
@@ -1641,63 +1804,266 @@
     }
 
     // -------------------------------------------------------------
-    // POINTER-BASED WIDGET DRAG-AND-DROP (100% RELIABLE IN ELECTRON)
+    // 2D SNAP-TO-GRID ENGINE, COLLISION CASCADE & POINTER INTERACTION
     // -------------------------------------------------------------
-    function initWidgetPointerDrag() {
+    function getWidgetMeta(widgetId) {
+      return WIDGET_CATALOG.find(m => m.id === widgetId) || {
+        id: widgetId,
+        name: widgetId,
+        defaultColSpan: 6,
+        defaultRowSpan: 2,
+        minColSpan: 3,
+        maxColSpan: 12,
+        minRowSpan: 1,
+        maxRowSpan: 6
+      };
+    }
+
+    function clampInt(val, min, max) {
+      return Math.max(min, Math.min(max, Math.round(val)));
+    }
+
+    function rectsOverlap(a, b) {
+      return (
+        a.col < b.col + b.colSpan &&
+        a.col + a.colSpan > b.col &&
+        a.row < b.row + b.rowSpan &&
+        a.row + a.rowSpan > b.row
+      );
+    }
+
+    function findFirstAvailableSlot(existingItems, colSpan, rowSpan) {
+      const spanC = clampInt(colSpan, 1, GRID_COLS);
+      const spanR = Math.max(1, rowSpan);
+      const maxRowScan = Math.max(1, existingItems.reduce((m, w) => Math.max(m, w.row + w.rowSpan), 1)) + 8;
+
+      for (let r = 1; r <= maxRowScan; r++) {
+        for (let c = 1; c <= GRID_COLS - spanC + 1; c++) {
+          const cand = { col: c, row: r, colSpan: spanC, rowSpan: spanR };
+          if (!existingItems.some(other => rectsOverlap(cand, other))) {
+            return { col: c, row: r };
+          }
+        }
+      }
+      return { col: 1, row: maxRowScan };
+    }
+
+    function resolveCollisionsPushDown(items, anchorId, overrideAnchorRect = null) {
+      const clone = items.map(w => ({ ...w }));
+      const anchor = clone.find(w => w.id === anchorId);
+      if (!anchor) return clone;
+
+      if (overrideAnchorRect) {
+        anchor.col = overrideAnchorRect.col;
+        anchor.row = overrideAnchorRect.row;
+        anchor.colSpan = overrideAnchorRect.colSpan;
+        anchor.rowSpan = overrideAnchorRect.rowSpan;
+      }
+
+      const queue = [anchorId];
+      const maxIterations = clone.length * clone.length + 32;
+      let iter = 0;
+
+      while (queue.length && iter < maxIterations) {
+        iter++;
+        const moverId = queue.shift();
+        const mover = clone.find(w => w.id === moverId);
+        if (!mover) continue;
+
+        const others = clone
+          .filter(w => w.id !== moverId)
+          .sort((a, b) => a.row - b.row || a.col - b.col);
+
+        for (const other of others) {
+          if (rectsOverlap(mover, other)) {
+            other.row = mover.row + mover.rowSpan;
+            queue.push(other.id);
+          }
+        }
+      }
+      return clone;
+    }
+
+    function normalizeOverviewWidgetsClient(rawList) {
+      if (!Array.isArray(rawList)) {
+        return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
+      }
+
+      const isLegacyDefault =
+        rawList.length === 3 &&
+        rawList[0]?.id === 'hero' && rawList[0]?.col === undefined &&
+        rawList[1]?.id === 'profile' && rawList[1]?.col === undefined &&
+        rawList[2]?.id === 'play' && rawList[2]?.col === undefined;
+
+      if (isLegacyDefault) {
+        return DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
+      }
+
+      const seen = new Set();
+      const placed = [];
+
+      for (const raw of rawList) {
+        if (!raw || !raw.id || seen.has(raw.id)) continue;
+        seen.add(raw.id);
+        const meta = getWidgetMeta(raw.id);
+
+        const hasFullCoords =
+          Number.isFinite(raw.col) &&
+          Number.isFinite(raw.row) &&
+          Number.isFinite(raw.colSpan) &&
+          Number.isFinite(raw.rowSpan);
+
+        if (hasFullCoords) {
+          const colSpan = clampInt(raw.colSpan, meta.minColSpan, meta.maxColSpan);
+          const rowSpan = clampInt(raw.rowSpan, meta.minRowSpan, meta.maxRowSpan);
+          const col = clampInt(raw.col, 1, GRID_COLS - colSpan + 1);
+          const row = Math.max(1, Math.round(raw.row));
+          placed.push({ id: raw.id, col, row, colSpan, rowSpan });
+        } else {
+          const legacySpan = Number.isFinite(raw.span) ? raw.span : meta.defaultColSpan;
+          const colSpan = clampInt(legacySpan, meta.minColSpan, meta.maxColSpan);
+          const rowSpan = meta.defaultRowSpan;
+          const spot = findFirstAvailableSlot(placed, colSpan, rowSpan);
+          placed.push({ id: raw.id, col: spot.col, row: spot.row, colSpan, rowSpan });
+        }
+      }
+
+      // Resolve any accidental overlaps deterministically
+      for (const item of placed) {
+        const resolved = resolveCollisionsPushDown(placed, item.id);
+        for (let i = 0; i < placed.length; i++) {
+          placed[i] = resolved[i];
+        }
+      }
+      return placed;
+    }
+
+    function isDefaultOverviewLayout(widgets) {
+      if (!Array.isArray(widgets) || widgets.length !== DEFAULT_OVERVIEW_WIDGETS.length) return false;
+      for (let i = 0; i < DEFAULT_OVERVIEW_WIDGETS.length; i++) {
+        const d = DEFAULT_OVERVIEW_WIDGETS[i];
+        const w = widgets.find(x => x.id === d.id);
+        if (!w) return false;
+        if (w.col !== d.col || w.row !== d.row || w.colSpan !== d.colSpan || w.rowSpan !== d.rowSpan) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function getMaxOccupiedRow(widgets) {
+      if (!widgets || !widgets.length) return 4;
+      return widgets.reduce((maxR, w) => Math.max(maxR, (w.row || 1) + (w.rowSpan || 1) - 1), 1);
+    }
+
+    function syncGridOverlayRows(totalRows) {
+      const overlay = document.getElementById('overview-grid-overlay');
+      if (!overlay) return;
+      if (!isWidgetEditMode) {
+        overlay.classList.remove('active');
+        overlay.innerHTML = '';
+        return;
+      }
+
+      overlay.classList.add('active');
+      const neededCells = totalRows * GRID_COLS;
+      if (overlay.childElementCount === neededCells) return;
+
+      const frag = document.createDocumentFragment();
+      overlay.innerHTML = '';
+      for (let i = 0; i < neededCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-snap-cell';
+        frag.appendChild(cell);
+      }
+      overlay.appendChild(frag);
+    }
+
+    function initWidgetPointerInteraction() {
       document.addEventListener('pointermove', (ev) => {
         if (!pointerDragState) return;
-        const dx = Math.abs(ev.clientX - pointerDragState.startX);
-        const dy = Math.abs(ev.clientY - pointerDragState.startY);
-        if (!pointerDragState.active && (dx > 5 || dy > 5)) {
+        const dx = ev.clientX - pointerDragState.startX;
+        const dy = ev.clientY - pointerDragState.startY;
+
+        if (!pointerDragState.active && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
           pointerDragState.active = true;
           pointerDragState.sourceSlot.classList.add('dragging');
         }
         if (!pointerDragState.active) return;
 
-        document.querySelectorAll('.widget-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
-        const elems = document.elementsFromPoint(ev.clientX, ev.clientY);
-        const targetSlot = elems.find(el => el.classList && el.classList.contains('widget-slot') && el.classList.contains('edit-mode'));
-        if (targetSlot && parseInt(targetSlot.dataset.index, 10) !== pointerDragState.sourceIndex) {
-          targetSlot.classList.add('drag-over');
-          pointerDragState.targetIndex = parseInt(targetSlot.dataset.index, 10);
+        const { mode, orig, meta, stepX, stepY, baseWidgets, sourceSlot, ghostEl, ghostBadge } = pointerDragState;
+
+        let nextCol = orig.col;
+        let nextRow = orig.row;
+        let nextColSpan = orig.colSpan;
+        let nextRowSpan = orig.rowSpan;
+
+        if (mode === 'move') {
+          nextCol = clampInt(orig.col + dx / stepX, 1, GRID_COLS - orig.colSpan + 1);
+          nextRow = Math.max(1, Math.round(orig.row + dy / stepY));
         } else {
-          pointerDragState.targetIndex = null;
+          if (mode === 'resize-e' || mode === 'resize-se') {
+            const maxAllowedColSpan = Math.min(meta.maxColSpan, GRID_COLS - orig.col + 1);
+            nextColSpan = clampInt(orig.colSpan + dx / stepX, meta.minColSpan, maxAllowedColSpan);
+          }
+          if (mode === 'resize-s' || mode === 'resize-se') {
+            nextRowSpan = clampInt(orig.rowSpan + dy / stepY, meta.minRowSpan, meta.maxRowSpan);
+          }
+        }
+
+        const candidate = { col: nextCol, row: nextRow, colSpan: nextColSpan, rowSpan: nextRowSpan };
+        const previewLayout = resolveCollisionsPushDown(baseWidgets, orig.id, candidate);
+        pointerDragState.previewLayout = previewLayout;
+
+        const previewMaxRow = getMaxOccupiedRow(previewLayout);
+        syncGridOverlayRows(Math.max(previewMaxRow + 4, pointerDragState.minGridRows));
+
+        if (ghostEl) {
+          ghostEl.classList.add('active');
+          ghostEl.style.gridColumn = `${candidate.col} / span ${candidate.colSpan}`;
+          ghostEl.style.gridRow = `${candidate.row} / span ${candidate.rowSpan}`;
+          if (ghostBadge) {
+            ghostBadge.innerText = mode === 'move'
+              ? `Col ${candidate.col}, Row ${candidate.row} • ${candidate.colSpan}×${candidate.rowSpan}`
+              : `${candidate.colSpan}×${candidate.rowSpan} (Bounds ${meta.minColSpan}×${meta.minRowSpan}–${meta.maxColSpan}×${meta.maxRowSpan})`;
+          }
+        }
+
+        const grid = document.getElementById('overview-grid');
+        if (grid) {
+          previewLayout.forEach(item => {
+            const slotEl = grid.querySelector(`.widget-slot[data-widget-id="${item.id}"]`);
+            if (!slotEl) return;
+            slotEl.style.gridColumn = `${item.col} / span ${item.colSpan}`;
+            slotEl.style.gridRow = `${item.row} / span ${item.rowSpan}`;
+            const sizePill = slotEl.querySelector('.widget-size-pill');
+            if (sizePill) sizePill.innerText = `${item.colSpan}×${item.rowSpan}`;
+          });
         }
       });
 
-      document.addEventListener('pointerup', async () => {
+      const finishInteraction = async () => {
         if (!pointerDragState) return;
         const state = pointerDragState;
         pointerDragState = null;
 
-        document.querySelectorAll('.widget-slot.dragging').forEach(el => el.classList.remove('dragging'));
-        document.querySelectorAll('.widget-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
+        if (state.sourceSlot) state.sourceSlot.classList.remove('dragging');
+        if (state.ghostEl) state.ghostEl.classList.remove('active');
 
-        if (state.active && state.targetIndex !== null && state.targetIndex !== state.sourceIndex) {
-          const list = getOverviewWidgets();
-          const [moved] = list.splice(state.sourceIndex, 1);
-          list.splice(state.targetIndex, 0, moved);
+        if (state.active && state.previewLayout) {
+          currentConfig.overviewWidgets = state.previewLayout;
           await persistOverviewWidgets();
           renderOverviewWidgets();
           refreshWidgetLiveData();
         }
-      });
+      };
 
-      document.addEventListener('pointercancel', () => {
-        if (!pointerDragState) return;
-        pointerDragState = null;
-        document.querySelectorAll('.widget-slot.dragging').forEach(el => el.classList.remove('dragging'));
-        document.querySelectorAll('.widget-slot.drag-over').forEach(el => el.classList.remove('drag-over'));
-      });
+      document.addEventListener('pointerup', finishInteraction);
+      document.addEventListener('pointercancel', finishInteraction);
     }
 
-    // -------------------------------------------------------------
-    // OVERVIEW SNAP-TO-GRID WIDGET ENGINE (20 INTERACTIVE WIDGETS)
-    // -------------------------------------------------------------
     function getOverviewWidgets() {
-      if (!Array.isArray(currentConfig.overviewWidgets)) {
-        currentConfig.overviewWidgets = DEFAULT_OVERVIEW_WIDGETS.map(w => ({ ...w }));
-      }
+      currentConfig.overviewWidgets = normalizeOverviewWidgetsClient(currentConfig.overviewWidgets);
       return currentConfig.overviewWidgets;
     }
 
@@ -1725,7 +2091,7 @@
       isCatalogDrawerOpen = false;
       renderOverviewWidgets();
       refreshWidgetLiveData();
-      toast('Overview widget layout saved.');
+      toast('Overview 2D layout saved.');
     }
 
     function toggleWidgetCatalogDrawer() {
@@ -1750,8 +2116,15 @@
       if (idx !== -1) {
         list.splice(idx, 1);
       } else {
-        const meta = WIDGET_CATALOG.find(m => m.id === widgetId);
-        list.push({ id: widgetId, span: meta ? meta.defaultSpan : 6 });
+        const meta = getWidgetMeta(widgetId);
+        const spot = findFirstAvailableSlot(list, meta.defaultColSpan, meta.defaultRowSpan);
+        list.push({
+          id: widgetId,
+          col: spot.col,
+          row: spot.row,
+          colSpan: meta.defaultColSpan,
+          rowSpan: meta.defaultRowSpan
+        });
       }
       await persistOverviewWidgets();
       renderOverviewWidgets();
@@ -1759,31 +2132,11 @@
       refreshWidgetLiveData();
     }
 
-    async function cycleWidgetSpan(index) {
+    async function removeWidgetById(widgetId) {
       const list = getOverviewWidgets();
-      const item = list[index];
-      if (!item) return;
-      const curPos = VALID_SPANS.indexOf(item.span);
-      item.span = VALID_SPANS[(curPos + 1) % VALID_SPANS.length];
-      await persistOverviewWidgets();
-      renderOverviewWidgets();
-      refreshWidgetLiveData();
-    }
-
-    async function moveWidgetStep(index, delta) {
-      const list = getOverviewWidgets();
-      const targetIdx = index + delta;
-      if (targetIdx < 0 || targetIdx >= list.length) return;
-      const [moved] = list.splice(index, 1);
-      list.splice(targetIdx, 0, moved);
-      await persistOverviewWidgets();
-      renderOverviewWidgets();
-      refreshWidgetLiveData();
-    }
-
-    async function removeWidgetAt(index) {
-      const list = getOverviewWidgets();
-      list.splice(index, 1);
+      const idx = list.findIndex(w => w.id === widgetId);
+      if (idx === -1) return;
+      list.splice(idx, 1);
       await persistOverviewWidgets();
       renderOverviewWidgets();
       renderWidgetCatalog();
@@ -1814,6 +2167,40 @@
       });
     }
 
+    function beginWidgetPointerDrag(ev, mode, wConf, slot) {
+      if (ev.button !== 0) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const grid = document.getElementById('overview-grid');
+      const ghostEl = document.getElementById('overview-snap-ghost');
+      const ghostBadge = ghostEl ? ghostEl.querySelector('.snap-ghost-badge') : null;
+      if (!grid) return;
+
+      const gridRect = grid.getBoundingClientRect();
+      const colWidth = (gridRect.width - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
+      const stepX = colWidth + GRID_GAP;
+      const stepY = GRID_ROW_HEIGHT + GRID_GAP;
+      const baseWidgets = getOverviewWidgets().map(w => ({ ...w }));
+
+      pointerDragState = {
+        mode,
+        orig: { ...wConf },
+        meta: getWidgetMeta(wConf.id),
+        sourceSlot: slot,
+        ghostEl,
+        ghostBadge,
+        stepX,
+        stepY,
+        baseWidgets,
+        previewLayout: null,
+        minGridRows: Math.max(getMaxOccupiedRow(baseWidgets) + 4, 6),
+        startX: ev.clientX,
+        startY: ev.clientY,
+        active: false
+      };
+    }
+
     function renderOverviewWidgets() {
       const wrap = document.getElementById('overview-stage-wrap');
       const editBar = document.getElementById('overview-edit-bar');
@@ -1822,25 +2209,33 @@
       if (!grid) return;
 
       const widgets = getOverviewWidgets();
-      const isCompactDefault = !isWidgetEditMode &&
-        widgets.length === 3 &&
-        widgets[0].id === 'hero' &&
-        widgets[1].id === 'profile' &&
-        widgets[2].id === 'play';
+      const isUntouchedDefault = !isWidgetEditMode && isDefaultOverviewLayout(widgets);
 
-      wrap.classList.toggle('centered-default', isCompactDefault || widgets.length === 0);
-      grid.classList.toggle('compact-default', isCompactDefault);
+      wrap.classList.toggle('centered-default', isUntouchedDefault || widgets.length === 0);
+      grid.classList.toggle('compact-default', isUntouchedDefault);
       editBar.classList.toggle('active', isWidgetEditMode);
       drawer.classList.toggle('open', isWidgetEditMode && isCatalogDrawerOpen);
       updateSettingsWidgetSummary();
       if (isWidgetEditMode && isCatalogDrawerOpen) renderWidgetCatalog();
 
+      const totalGridRows = Math.max(getMaxOccupiedRow(widgets) + 4, 6);
+      syncGridOverlayRows(totalGridRows);
+
       grid.innerHTML = '';
+
+      if (isWidgetEditMode) {
+        const ghost = document.createElement('div');
+        ghost.id = 'overview-snap-ghost';
+        ghost.className = 'overview-snap-ghost';
+        ghost.innerHTML = '<span class="snap-ghost-badge"></span>';
+        grid.appendChild(ghost);
+      }
 
       if (!widgets.length) {
         const empty = document.createElement('div');
         empty.className = 'card';
-        empty.style.gridColumn = 'span 12';
+        empty.style.gridColumn = '1 / span 12';
+        empty.style.gridRow = '1 / span 2';
         empty.style.textAlign = 'center';
         empty.innerHTML = `
           <p style="font-size:0.86rem; color:var(--text-muted); margin-bottom:12px;">No widgets active on Overview.</p>
@@ -1850,52 +2245,72 @@
         return;
       }
 
-      widgets.forEach((wConf, index) => {
-        const meta = WIDGET_CATALOG.find(m => m.id === wConf.id) || { id: wConf.id, name: wConf.id };
-        const span = VALID_SPANS.includes(wConf.span) ? wConf.span : 6;
-
+      widgets.forEach((wConf) => {
+        const meta = getWidgetMeta(wConf.id);
         const slot = document.createElement('div');
-        slot.className = `widget-slot span-${span}${isWidgetEditMode ? ' edit-mode' : ''}`;
+        slot.className = `widget-slot${isWidgetEditMode ? ' edit-mode' : ''}`;
         slot.dataset.widgetId = wConf.id;
-        slot.dataset.index = String(index);
+
+        if (isUntouchedDefault) {
+          if (wConf.id === 'hero') {
+            slot.style.gridColumn = '1 / span 12';
+            slot.style.gridRow = '1';
+          } else if (wConf.id === 'profile') {
+            slot.style.gridColumn = '1 / span 7';
+            slot.style.gridRow = '2';
+          } else if (wConf.id === 'play') {
+            slot.style.gridColumn = '8 / span 5';
+            slot.style.gridRow = '2';
+          }
+        } else {
+          slot.style.gridColumn = `${wConf.col} / span ${wConf.colSpan}`;
+          slot.style.gridRow = `${wConf.row} / span ${wConf.rowSpan}`;
+        }
 
         if (isWidgetEditMode) {
           slot.addEventListener('pointerdown', (ev) => {
-            if (ev.button !== 0) return;
-            if (ev.target.closest('.widget-edit-controls')) return;
-            ev.preventDefault();
-            pointerDragState = {
-              sourceIndex: index,
-              sourceSlot: slot,
-              targetIndex: null,
-              startX: ev.clientX,
-              startY: ev.clientY,
-              active: false
-            };
+            if (ev.target.closest('.widget-edit-controls') || ev.target.closest('.widget-resize-handle')) return;
+            beginWidgetPointerDrag(ev, 'move', wConf, slot);
           });
 
           const header = document.createElement('div');
           header.className = 'widget-edit-header';
           header.innerHTML = `
-            <span style="font-weight:700; color:#fff;">⋮⋮ ${escapeHtml(meta.name)}</span>
+            <span style="font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">⋮⋮ ${escapeHtml(meta.name)}</span>
             <div class="widget-edit-controls">
-              <button class="widget-mini-btn" title="Move Left">←</button>
-              <button class="widget-mini-btn" title="Move Right">→</button>
-              <button class="widget-mini-btn" title="Cycle Grid Width">${span}/12</button>
+              <span class="widget-size-pill" title="Columns × Rows">${wConf.colSpan}×${wConf.rowSpan}</span>
               <button class="widget-mini-btn danger" title="Remove Widget">✕</button>
             </div>
           `;
-          const btns = header.querySelectorAll('button');
-          btns[0].onclick = (e) => { e.stopPropagation(); moveWidgetStep(index, -1); };
-          btns[1].onclick = (e) => { e.stopPropagation(); moveWidgetStep(index, 1); };
-          btns[2].onclick = (e) => { e.stopPropagation(); cycleWidgetSpan(index); };
-          btns[3].onclick = (e) => { e.stopPropagation(); removeWidgetAt(index); };
+          header.querySelector('button').onclick = (e) => {
+            e.stopPropagation();
+            removeWidgetById(wConf.id);
+          };
           slot.appendChild(header);
+
+          // Edge & Corner Drag-to-Resize Handles
+          const handleE = document.createElement('div');
+          handleE.className = 'widget-resize-handle handle-e';
+          handleE.title = 'Drag to resize width';
+          handleE.addEventListener('pointerdown', (ev) => beginWidgetPointerDrag(ev, 'resize-e', wConf, slot));
+
+          const handleS = document.createElement('div');
+          handleS.className = 'widget-resize-handle handle-s';
+          handleS.title = 'Drag to resize height';
+          handleS.addEventListener('pointerdown', (ev) => beginWidgetPointerDrag(ev, 'resize-s', wConf, slot));
+
+          const handleSE = document.createElement('div');
+          handleSE.className = 'widget-resize-handle handle-se';
+          handleSE.title = 'Drag corner to resize width & height';
+          handleSE.addEventListener('pointerdown', (ev) => beginWidgetPointerDrag(ev, 'resize-se', wConf, slot));
+
+          slot.appendChild(handleE);
+          slot.appendChild(handleS);
+          slot.appendChild(handleSE);
         }
 
         const body = document.createElement('div');
         body.className = 'widget-inner-body';
-        body.style.height = '100%';
         renderSingleWidgetContent(wConf.id, body);
         slot.appendChild(body);
         grid.appendChild(slot);
@@ -2086,7 +2501,7 @@
       }
 
       if (id === 'quicklaunch') {
-        const profiles = (currentConfig.profiles || []).slice(0, 6);
+        const profiles = (currentConfig.profiles || []).slice(0, 8);
         container.innerHTML = `
           <div class="widget-card">
             <div class="widget-head">
@@ -2203,7 +2618,7 @@
         if (!widgetWorldsCache.length) {
           wList.innerHTML = '<span style="font-size:0.74rem; color:var(--text-muted);">No local worlds in active profile.</span>';
         } else {
-          widgetWorldsCache.slice(0, 3).forEach(w => {
+          widgetWorldsCache.slice(0, 6).forEach(w => {
             const row = document.createElement('div');
             row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:0.76rem;';
             const nameSpan = document.createElement('span');
@@ -2236,7 +2651,7 @@
         if (!widgetScreensCache.length) {
           ssGrid.innerHTML = '<span style="grid-column:span 4; font-size:0.74rem; color:var(--text-muted);">No screenshots captured yet.</span>';
         } else {
-          widgetScreensCache.slice(0, 4).forEach(s => {
+          widgetScreensCache.slice(0, 8).forEach(s => {
             const img = document.createElement('img');
             img.src = s.url;
             img.title = s.fileName;
@@ -2280,7 +2695,7 @@
             </div>
             <div id="w-tel-body" style="font-size:0.75rem; color:var(--text-muted);">
               ${tel ? `
-                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px; gap:6px; flex-wrap:wrap;">
                   <span>RAM: <strong style="color:#fff;">${(tel.usedMemMb / 1024).toFixed(1)} / ${(tel.totalMemMb / 1024).toFixed(1)} GB</strong> (${pct}%)</span>
                   <span class="brand-badge">${escapeHtml(tel.arch.toUpperCase())} • ${tel.cpuCores} CORES</span>
                 </div>
@@ -2371,7 +2786,7 @@
               <button class="btn-secondary" style="padding:3px 8px; font-size:0.7rem;" onclick="switchTab('skins')">Studio</button>
             </div>
             <div style="display:flex; align-items:center; gap:12px;">
-              <canvas id="widget-skin-canvas" width="64" height="128" style="width:48px; height:96px; image-rendering:pixelated; background:#09090b; border:1px solid var(--border); border-radius:6px;"></canvas>
+              <canvas id="widget-skin-canvas" width="64" height="128" style="width:44px; height:88px; image-rendering:pixelated; background:#09090b; border:1px solid var(--border); border-radius:6px; flex-shrink:0;"></canvas>
               <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px;">
                 <span style="font-size:0.74rem; color:#fff; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(activeSkinCache.username || playerName)}</span>
                 <div style="display:flex; gap:4px;">
@@ -2437,7 +2852,7 @@
               <span class="widget-title">Clock &amp; Canvas</span>
               <span id="widget-clock-date" style="font-size:0.7rem; color:var(--text-dim);">—</span>
             </div>
-            <strong id="widget-clock-time" style="font-size:1.3rem; font-family:ui-monospace, monospace; letter-spacing:0.04em; color:#fff;">00:00:00</strong>
+            <strong id="widget-clock-time" style="font-size:1.25rem; font-family:ui-monospace, monospace; letter-spacing:0.04em; color:#fff;">00:00:00</strong>
             <select id="widget-bg-preset" class="select-field" style="padding:6px 28px 6px 10px; font-size:0.74rem;" onchange="setBgPreset(this.value)">
               <option value="waves">1. Obsidian Waves</option>
               <option value="starfield">2. Starfield Warp</option>
@@ -3740,4 +4155,3 @@
   </script>
 </body>
 </html>
-
