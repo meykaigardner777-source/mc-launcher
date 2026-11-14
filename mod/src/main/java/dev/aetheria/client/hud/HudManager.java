@@ -5,7 +5,7 @@ import dev.aetheria.client.config.ClientConfig;
 import dev.aetheria.client.gui.HudEditorScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -30,7 +30,7 @@ public class HudManager {
     private static final DateTimeFormatter CLOCK_FMT = DateTimeFormatter.ofPattern("hh:mm a");
 
     public static void pollClicks(Minecraft mc) {
-        if (AetheriaClientMod.windowHandle == 0L || mc.screen != null) return;
+        if (AetheriaClientMod.windowHandle == 0L || mc.gui.screen() != null) return;
         long now = System.currentTimeMillis();
         boolean lmb = GLFW.glfwGetMouseButton(AetheriaClientMod.windowHandle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         boolean rmb = GLFW.glfwGetMouseButton(AetheriaClientMod.windowHandle, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
@@ -45,12 +45,12 @@ public class HudManager {
     public static int getLeftCps() { return LEFT_CLICKS.size(); }
     public static int getRightCps() { return RIGHT_CLICKS.size(); }
 
-    public static void renderInGame(GuiGraphics g) {
+    public static void renderInGame(GuiGraphicsExtractor g) {
         Minecraft mc = Minecraft.getInstance();
         AetheriaClientMod.captureWindow();
         pollClicks(mc);
         if (mc.player == null || mc.options.hideGui) return;
-        if (mc.screen instanceof HudEditorScreen) return;
+        if (mc.gui.screen() instanceof HudEditorScreen) return;
 
         renderCrosshair(g, mc);
 
@@ -82,7 +82,7 @@ public class HudManager {
         return new int[]{px, py, (int) Math.round(w * m.scale), (int) Math.round(h * m.scale)};
     }
 
-    public static void renderModule(GuiGraphics g, Minecraft mc, ClientConfig.HudModule m, int sw, int sh, boolean shadow, boolean editorPreview) {
+    public static void renderModule(GuiGraphicsExtractor g, Minecraft mc, ClientConfig.HudModule m, int sw, int sh, boolean shadow, boolean editorPreview) {
         int px = (int) Math.round(m.x * sw);
         int py = (int) Math.round(m.y * sh);
         float scale = (float) Math.max(0.5, Math.min(2.5, m.scale));
@@ -109,13 +109,13 @@ public class HudManager {
                 drawBorder(g, 0, 0, boxW, boxH, editorPreview && !m.enabled ? 0x88FFAA44 : 0x55FFFFFF);
             }
             for (int i = 0; i < lines.length; i++) {
-                g.drawString(mc.font, lines[i], 5, 4 + i * 11, textColor, shadow);
+                g.text(mc.font, lines[i], 5, 4 + i * 11, textColor, shadow);
             }
         }
         g.pose().popMatrix();
     }
 
-    private static void renderKeystrokes(GuiGraphics g, Minecraft mc, ClientConfig.HudModule m, int textColor, boolean shadow) {
+    private static void renderKeystrokes(GuiGraphicsExtractor g, Minecraft mc, ClientConfig.HudModule m, int textColor, boolean shadow) {
         long h = AetheriaClientMod.windowHandle;
         boolean w = h != 0 && GLFW.glfwGetKey(h, GLFW.GLFW_KEY_W) == GLFW.GLFW_PRESS;
         boolean a = h != 0 && GLFW.glfwGetKey(h, GLFW.GLFW_KEY_A) == GLFW.GLFW_PRESS;
@@ -134,13 +134,13 @@ public class HudManager {
         drawKeyBox(g, mc.font, 0, 60, 76, 12, "SPACE", sp, m, textColor, shadow);
     }
 
-    private static void drawKeyBox(GuiGraphics g, Font f, int x, int y, int w, int h, String txt, boolean down, ClientConfig.HudModule m, int col, boolean shadow) {
+    private static void drawKeyBox(GuiGraphicsExtractor g, Font f, int x, int y, int w, int h, String txt, boolean down, ClientConfig.HudModule m, int col, boolean shadow) {
         int bgCol = down ? 0xCCFFFFFF : (((int) (m.opacity * 170) << 24) | 0x0B0E14);
         int fgCol = down ? 0xFF101318 : col;
         if (m.bg || down) g.fill(x, y, x + w, y + h, bgCol);
         if (m.border) drawBorder(g, x, y, w, h, 0x55FFFFFF);
         int tw = f.width(txt);
-        g.drawString(f, txt, x + (w - tw) / 2, y + (h - 8) / 2, fgCol, shadow && !down);
+        g.text(f, txt, x + (w - tw) / 2, y + (h - 8) / 2, fgCol, shadow && !down);
     }
 
     private static String[] getModuleLines(Minecraft mc, ClientConfig.HudModule m) {
@@ -197,7 +197,7 @@ public class HudManager {
             case "server_ip":
                 return new String[]{mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"};
             case "day_count":
-                return new String[]{"Day " + (mc.level.getDayTime() / 24000L)};
+                return new String[]{"Day " + (mc.level.getOverworldClockTime() / 24000L)};
             case "durability": {
                 ItemStack hand = mc.player.getMainHandItem();
                 if (!hand.isEmpty() && hand.isDamageableItem()) {
@@ -226,7 +226,7 @@ public class HudManager {
         }
     }
 
-    private static void renderCrosshair(GuiGraphics g, Minecraft mc) {
+    private static void renderCrosshair(GuiGraphicsExtractor g, Minecraft mc) {
         ClientConfig cfg = ClientConfig.get();
         String style = cfg.getString("pvp_xhair_style", "classic");
         if ("vanilla".equalsIgnoreCase(style)) return;
@@ -261,10 +261,10 @@ public class HudManager {
         }
     }
 
-    public static void drawBorder(GuiGraphics g, int x, int y, int w, int h, int col) {
+    public static void drawBorder(GuiGraphicsExtractor g, int x, int y, int w, int h, int col) {
         g.fill(x, y, x + w, y + 1, col);
         g.fill(x, y + h - 1, x + w, y + h, col);
-        g.fill(x, y, x + 1, y + h, col);
+        g.fill(x, y + 1, x + 1, y + h, col);
         g.fill(x + w - 1, y, x + w, y + h, col);
     }
 
