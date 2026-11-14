@@ -1,0 +1,49 @@
+name: Build Aetheria Client Mod
+
+on:
+  push:
+    paths:
+      - 'mod/**'
+      - '.github/workflows/build-client-mod.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mod
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Resolve latest Fabric Loader for 26.2
+        id: fabric_meta
+        run: |
+          MC_VER=$(grep '^minecraft_version=' gradle.properties | cut -d'=' -f2 | tr -d '\r')
+          LOADER=$(curl -fsSL "https://meta.fabricmc.net/v2/versions/loader/${MC_VER}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['loader']['version'] if d else '')" || true)
+          if [ -n "$LOADER" ]; then
+            echo "Using Fabric Loader $LOADER for MC $MC_VER"
+            sed -i "s/^loader_version=.*/loader_version=${LOADER}/" gradle.properties
+          fi
+
+      - name: Build Mod JAR
+        run: gradle build --no-daemon
+
+      - name: Upload aetheria-client-mod.jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: aetheria-client-mod
+          path: mod/build/libs/aetheria-client-mod.jar
