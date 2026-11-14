@@ -25,7 +25,9 @@ const JDK_DIR = path.join(RUNTIMES_DIR, 'ms-jdk-21-arm64');
 const MINECRAFT_DIR = path.join(app.getPath('appData'), '.minecraft');
 const PROFILES_DIR = path.join(APP_DIR, 'profiles');
 const EXTENSIONS_USER_DIR = path.join(APP_DIR, 'extensions');
-const EXTENSIONS_BUNDLED_DIR = path.join(__dirname, 'extensions');
+const _rawExtDir = path.join(__dirname, 'extensions');
+const _unpackedExtDir = _rawExtDir.replace(/app\.asar([\\/])/i, 'app.asar.unpacked$1');
+const EXTENSIONS_BUNDLED_DIR = fs.existsSync(_unpackedExtDir) ? _unpackedExtDir : _rawExtDir;
 
 const CF_API_KEY = '$2a$10$bL4bIL5pUWqfcO7KQtnMRehkWyMmRKon46u.85/QV/MQTgC70O80C';
 const DEFAULT_ORYON_JVM = '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=20 -XX:+UnlockExperimentalVMOptions -XX:+AlwaysPreTouch -XX:G1NewSizePercent=25';
@@ -711,7 +713,6 @@ ipcMain.handle('get-system-telemetry', () => {
 });
 ipcMain.handle('get-active-game-state', () => ({ running: !!activeGameProcess, pid: activeGameProcess?.pid || null }));
 ipcMain.handle('kill-active-game', () => { const had = !!activeGameProcess; killActiveGameProcessSync(); return { stopped: had }; });
-
 // -------------------------------------------------------------
 // ARM64 RUNTIMES
 // -------------------------------------------------------------
@@ -1153,9 +1154,15 @@ ipcMain.handle('get-mc-versions', async () => {
   }
 });
 
+function getFabricMetaHost(cleanVer) {
+  const [maj = 1, min = 0] = String(cleanVer).split('.').map(n => parseInt(n, 10) || 0);
+  return (maj === 1 && min < 14) ? 'https://meta.legacyfabric.net' : 'https://meta.fabricmc.net';
+}
+
 async function getFabricLoadersForMc(gameVersion) {
   try {
-    const list = JSON.parse(await httpGetText(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(extractMcVersion(gameVersion))}`));
+    const clean = extractMcVersion(gameVersion);
+    const list = JSON.parse(await httpGetText(`${getFabricMetaHost(clean)}/v2/versions/loader/${encodeURIComponent(clean)}`));
     return Array.isArray(list) ? list.map(i => ({ version: i.loader.version, stable: !!i.loader.stable })) : [];
   } catch (e) { return []; }
 }
@@ -1168,7 +1175,7 @@ async function installFabricProfileInternal(gameVersion, loaderVersion) {
     chosen = (list.find(l => l.stable) || list[0])?.version;
     if (!chosen) throw new Error(`No Fabric loader found for Minecraft ${cleanVer}`);
   }
-  const profile = JSON.parse(await httpGetText(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(cleanVer)}/${encodeURIComponent(chosen)}/profile/json`));
+  const profile = JSON.parse(await httpGetText(`${getFabricMetaHost(cleanVer)}/v2/versions/loader/${encodeURIComponent(cleanVer)}/${encodeURIComponent(chosen)}/profile/json`));
   const id = profile.id || `fabric-loader-${chosen}-${cleanVer}`, dir = path.join(MINECRAFT_DIR, 'versions', id);
   safeMkdirSync(dir);
   fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(profile, null, 2));
@@ -1305,7 +1312,6 @@ async function findSystemArmJavaAsync() {
   return out.includes('aarch64') ? { found: true, path: 'java', source: 'PATH (ARM64 Native)' } : { found: false, path: null, source: null };
 }
 ipcMain.handle('detect-arm-java', findSystemArmJavaAsync);
-
 // -------------------------------------------------------------
 // MICROSOFT OAUTH & SKIN STUDIO
 // -------------------------------------------------------------
@@ -1866,4 +1872,3 @@ app.whenReady().then(async () => {
 });
 app.on('before-quit', forceCleanExit);
 app.on('window-all-closed', forceCleanExit);
-
