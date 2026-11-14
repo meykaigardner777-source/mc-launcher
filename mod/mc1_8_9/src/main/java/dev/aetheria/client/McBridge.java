@@ -1,20 +1,58 @@
 package dev.aetheria.client;
-import com.mojang.blaze3d.platform.GlStateManager;
 import dev.aetheria.client.common.*;
 import dev.aetheria.client.gui.HudEditorScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.client.options.GameOptions;
+import net.minecraft.client.options.KeyBinding;
 import net.minecraft.client.util.Window;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.BlockPos;
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.opengl.GL11;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.*;
 
 public final class McBridge {
     private static int framesThisSecond = 0, measuredFps = 0;
     private static long lastFpsMs = System.currentTimeMillis();
+    private static final Map<String, Integer> KEY_CACHE = new HashMap<String, Integer>();
+
+    public static int getKeyCode(GameOptions opts, String transKey, int fallback) {
+        if (opts == null) return fallback;
+        try {
+            for (Field f : opts.getClass().getFields()) {
+                Object val = f.get(opts);
+                if (val instanceof KeyBinding) {
+                    KeyBinding kb = (KeyBinding) val;
+                    if (transKey.equals(kb.getTranslationKey())) {
+                        int code = kb.getCode();
+                        KEY_CACHE.put(transKey, code);
+                        return code;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+        Integer cached = KEY_CACHE.get(transKey);
+        return cached != null ? cached : fallback;
+    }
+
+    private static String itemName(ItemStack h) {
+        for (String m : new String[]{"getCustomName", "getDisplayName", "getName", "getTranslationKey"}) {
+            try {
+                Method fn = h.getClass().getMethod(m);
+                Object res = fn.invoke(h);
+                if (res != null) {
+                    String s = String.valueOf(res);
+                    if (!s.isEmpty()) return s;
+                }
+            } catch (Throwable ignored) {}
+        }
+        return "Tool";
+    }
 
     public static void renderInGame() {
         framesThisSecond++;
@@ -33,8 +71,8 @@ public final class McBridge {
                 if (shadow) mc.textRenderer.drawWithShadow(txt, x, y, argb); else mc.textRenderer.draw(txt, x, y, argb);
             }
             @Override public int textWidth(String txt) { return mc.textRenderer.getStringWidth(txt); }
-            @Override public void pushTransform(float tx, float ty, float scale) { GlStateManager.pushMatrix(); GlStateManager.translatef(tx, ty, 0.0F); GlStateManager.scalef(scale, scale, 1.0F); }
-            @Override public void popTransform() { GlStateManager.popMatrix(); }
+            @Override public void pushTransform(float tx, float ty, float scale) { GL11.glPushMatrix(); GL11.glTranslatef(tx, ty, 0.0F); GL11.glScalef(scale, scale, 1.0F); }
+            @Override public void popTransform() { GL11.glPopMatrix(); }
         };
     }
 
@@ -67,7 +105,7 @@ public final class McBridge {
             @Override public long dayCount() { return mc.world.getTimeOfDay() / 24000L; }
             @Override public String heldToolDurability() {
                 ItemStack h = mc.player.inventory.getMainHandStack();
-                return (h != null && h.isDamageable()) ? h.getName() + ": " + (h.getMaxDamage() - h.getDamage()) + "/" + h.getMaxDamage() : "Tool: --";
+                return (h != null && h.isDamageable()) ? itemName(h) + ": " + (h.getMaxDamage() - h.getDamage()) + "/" + h.getMaxDamage() : "Tool: --";
             }
             @Override public String armorStatus() {
                 String[] names = {"F", "L", "C", "H"}; List<String> list = new ArrayList<String>();
@@ -77,11 +115,11 @@ public final class McBridge {
                 }
                 return list.isEmpty() ? "Armor: None" : String.join(" | ", list);
             }
-            @Override public boolean isMoveW() { return Keyboard.isKeyDown(mc.options.keyForward.getCode()); }
-            @Override public boolean isMoveA() { return Keyboard.isKeyDown(mc.options.keyLeft.getCode()); }
-            @Override public boolean isMoveS() { return Keyboard.isKeyDown(mc.options.keyBack.getCode()); }
-            @Override public boolean isMoveD() { return Keyboard.isKeyDown(mc.options.keyRight.getCode()); }
-            @Override public boolean isJumpDown() { return Keyboard.isKeyDown(mc.options.keyJump.getCode()); }
+            @Override public boolean isMoveW() { return Keyboard.isKeyDown(getKeyCode(mc.options, "key.forward", Keyboard.KEY_W)); }
+            @Override public boolean isMoveA() { return Keyboard.isKeyDown(getKeyCode(mc.options, "key.left", Keyboard.KEY_A)); }
+            @Override public boolean isMoveS() { return Keyboard.isKeyDown(getKeyCode(mc.options, "key.back", Keyboard.KEY_S)); }
+            @Override public boolean isMoveD() { return Keyboard.isKeyDown(getKeyCode(mc.options, "key.right", Keyboard.KEY_D)); }
+            @Override public boolean isJumpDown() { return Keyboard.isKeyDown(getKeyCode(mc.options, "key.jump", Keyboard.KEY_SPACE)); }
         };
     }
 }
