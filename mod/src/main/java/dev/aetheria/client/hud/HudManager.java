@@ -49,7 +49,7 @@ public class HudManager {
         Minecraft mc = Minecraft.getInstance();
         AetheriaClientMod.captureWindow();
         pollClicks(mc);
-        if (mc.player == null || mc.options.hideGui) return;
+        if (mc.player == null || (mc.gui != null && mc.gui.hud != null && mc.gui.hud.isHidden())) return;
         if (mc.gui.screen() instanceof HudEditorScreen) return;
 
         renderCrosshair(g, mc);
@@ -264,8 +264,8 @@ public class HudManager {
     public static void drawBorder(GuiGraphicsExtractor g, int x, int y, int w, int h, int col) {
         g.fill(x, y, x + w, y + 1, col);
         g.fill(x, y + h - 1, x + w, y + h, col);
-        g.fill(x, y + 1, x + 1, y + h, col);
-        g.fill(x + w - 1, y, x + w, y + h, col);
+        g.fill(x, y + 1, x + 1, y + h - 1, col);
+        g.fill(x + w - 1, y, x + w, y + h - 1, col);
     }
 
     private static String titleCase(String s) {
