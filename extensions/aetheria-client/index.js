@@ -5,9 +5,11 @@ const net = require('net');
 
 // Optional: put your GitHub Raw URL to index.js here (or paste it inside the Client tab)
 const DEFAULT_GITHUB_RAW_URL = '';
+// Optional: put your GitHub Release direct .jar URL here (or drop aetheria-client-mod.jar into extensions/aetheria-client/)
+const DEFAULT_MOD_JAR_URL = '';
 
 const CLIENT_VERSIONS = [
-  '26.1.3', '26.1.2', '26.1.1', '26.1',
+  '26.2', '26.1.3', '26.1.2', '26.1.1', '26.1',
   '1.21.5', '1.21.4', '1.21.3', '1.21.1', '1.21',
   '1.20.6', '1.20.4', '1.20.1', '1.19.4', '1.19.2',
   '1.18.2', '1.17.1', '1.16.5', '1.12.2', '1.8.9'
@@ -29,6 +31,27 @@ const DEFAULT_SERVERS = [
   { name: '2b2t', ip: '2b2t.org', note: 'Anarchy Survival' },
   { name: 'DonutSMP', ip: 'donutsmp.net', note: 'Hardcore SMP' }
 ];
+
+const DEFAULT_HUD_LAYOUT = {
+  fps:          { label: 'FPS Counter',     optId: 'hud_fps',          sample: '185 FPS',          x: 0.015, y: 0.025, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#ffffff', anchor: 'top-left' },
+  coords:       { label: 'Coordinates',     optId: 'hud_coords',       sample: 'XYZ: 142 / 64 / -88\nFacing: North', x: 0.015, y: 0.085, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#ffffff', anchor: 'top-left' },
+  biome:        { label: 'Biome',           optId: 'hud_biome',        sample: 'Cherry Grove',     x: 0.015, y: 0.175, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#a5f3fc', anchor: 'top-left' },
+  ping:         { label: 'Live Ping',       optId: 'pvp_ping_hud',     sample: '24 ms',            x: 0.015, y: 0.230, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#86efac', anchor: 'top-left' },
+  cps:          { label: 'CPS Counter',     optId: 'pvp_cps',          sample: '12 | 9 CPS',       x: 0.015, y: 0.285, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#ffffff', anchor: 'top-left' },
+  keystrokes:   { label: 'Keystrokes',      optId: 'pvp_keystrokes',   sample: 'W\nA S D\n[SPACE]', x: 0.015, y: 0.345, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#ffffff', anchor: 'top-left' },
+  togglesprint: { label: 'ToggleSprint',    optId: 'pvp_togglesprint', sample: '[Sprinting (Toggled)]', x: 0.015, y: 0.545, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#fde68a', anchor: 'top-left' },
+  potions:      { label: 'Potion Effects',  optId: 'pvp_potion_hud',   sample: 'Speed II 1:42\nStrength 0:58', x: 0.015, y: 0.615, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#c4b5fd', anchor: 'top-left' },
+  compass:      { label: 'Compass Strip',   optId: 'hud_compass',      sample: 'W --- NW --- N --- NE --- E', x: 0.340, y: 0.020, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#ffffff', anchor: 'top-center' },
+  clock:        { label: 'System Clock',    optId: 'hud_clock',        sample: '10:42 PM',         x: 0.855, y: 0.025, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#ffffff', anchor: 'top-right' },
+  session:      { label: 'Session Timer',   optId: 'hud_session',      sample: 'Session: 00:41:18', x: 0.835, y: 0.080, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#ffffff', anchor: 'top-right' },
+  server_ip:    { label: 'Server IP',       optId: 'hud_srv_ip',       sample: 'mc.hypixel.net',   x: 0.840, y: 0.135, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#93c5fd', anchor: 'top-right' },
+  day_count:    { label: 'Day Counter',     optId: 'hud_day_count',    sample: 'Day 42',           x: 0.875, y: 0.190, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#fde047', anchor: 'top-right' },
+  scoreboard:   { label: 'Scoreboard',      optId: 'hud_sb_nums',      sample: 'AETHERIA\nKills: 14\nStreak: 5', x: 0.840, y: 0.320, scale: 1.0, opacity: 0.80, bg: true, border: false, chroma: false, color: '#ffffff', anchor: 'middle-right' },
+  durability:   { label: 'Tool Durability', optId: 'hud_durability',   sample: 'Sword: 1492/1561', x: 0.825, y: 0.650, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#ffffff', anchor: 'bottom-right' },
+  armor:        { label: 'Armor Status',    optId: 'pvp_armor_hud',    sample: '[Helm 96%] [Chest 91%]\n[Legs 94%] [Boots 98%]', x: 0.790, y: 0.720, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#ffffff', anchor: 'bottom-right' },
+  combo:        { label: 'Combo Counter',   optId: 'pvp_combo_hud',    sample: '4 Hit Combo',      x: 0.435, y: 0.600, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#fca5a5', anchor: 'center' },
+  reach:        { label: 'Reach Display',   optId: 'pvp_reach_hud',    sample: '2.84 blocks',      x: 0.435, y: 0.660, scale: 1.0, opacity: 0.85, bg: true, border: true,  chroma: false, color: '#fca5a5', anchor: 'center' }
+};
 
 const CLIENT_PRESETS = {
   pvp: {
@@ -240,7 +263,7 @@ const RAW_CATS = [
     ['ctl_drop_guard', 'Safe Tool Drop Guard', 'b', true, 0, 'Double-tap protection for gear'],
     ['ctl_drag_stack', 'Drag-Stack Helper', 'b', true, 0, 'Smooth inventory drag splitting'],
     ['ctl_mid_sort', 'Middle-Click Sort', 'b', true, 0, '1-click chest sorting hint'],
-    ['ctl_menu_key', 'Client Overlay Key', 's', 'RSHIFT', ['RSHIFT', 'M', 'H', 'INSERT'], 'In-game Lunar menu key'],
+    ['ctl_menu_key', 'Client Overlay Key', 's', 'RSHIFT', ['RSHIFT', 'M', 'H', 'INSERT'], 'In-game Axolotl/Lunar menu key'],
     ['ctl_clip_ss', 'Copy F2 to Clipboard', 'b', true, 0, 'Auto-copy screenshots'],
     ['ctl_fast_alt', 'Instant Alt-Tab', 'b', true, 0, 'Borderless flicker prevention'],
     ['ctl_gamepad', 'ARM64 Gamepad Poll', 'b', false, 0, 'Controller pass-through support']
@@ -316,13 +339,13 @@ const RAW_CATS = [
     ['cos_auto_reconn', 'Auto-Reconnect Hint', 'b', false, 0, 'Retries dropped connections'],
     ['cos_hide_launch', 'Minimize on Launch', 'b', false, 0, 'Hides launcher while playing'],
     ['cos_backup_worlds', 'Pre-Launch Options Bak', 'b', true, 0, 'Backs up options.txt on boot'],
-    ['cos_hybrid_mods', 'Hybrid Profile JARs', 'b', true, 0, 'Runs local /mods alongside client'],
+    ['cos_hybrid_mods', 'Auto-Deploy Homemade JAR', 'b', true, 0, 'Copies homemade mod JAR to /mods'],
     ['cos_arm64_gpu', 'Force High-Perf GPU', 'b', true, 0, 'Requests max Adreno GPU perf'],
     ['cos_log_prune', 'Auto-Prune Old Logs', 'b', true, 0, 'Keeps profile logs clean'],
     ['cos_auto_ping', 'Auto-Ping Servers', 'b', true, 0, 'Refreshes server status on open'],
     ['cos_friend_heads', 'Load Friend Avatars', 'b', true, 0, 'Fetches skin heads in roster'],
     ['cos_compact_w', 'Compact Widget Text', 'b', false, 0, 'Streamlines Overview widget'],
-    ['cos_sync_ver', 'Carry Options Across Ver', 'b', true, 0, 'Keeps 250 options across 1.8.9-26.1.3'],
+    ['cos_sync_ver', 'Carry Options Across Ver', 'b', true, 0, 'Keeps 250 options across 1.8.9-26.2'],
     ['cos_confirm_stop', 'Confirm Force-Stop', 'b', true, 0, 'Ask before killing game PID'],
     ['cos_dev_overlay', 'Log Synced Args to Console', 'b', false, 0, 'Prints launch sync summary']
   ]]
@@ -337,17 +360,21 @@ for (const [cat, items] of RAW_CATS) {
   }
 }
 
+const cloneDefaultHud = () => JSON.parse(JSON.stringify(DEFAULT_HUD_LAYOUT));
 const getStateFile = api => path.join(api.paths.appDir, 'aetheria-client-state.json');
 
 function loadState(api) {
   const fp = getStateFile(api);
   const base = {
-    selectedMcVersion: '1.21.4',
+    selectedMcVersion: '26.2',
     selectedLoader: 'fabric',
     activePreset: 'pvp',
     pendingQuickJoin: '',
     githubRawUrl: DEFAULT_GITHUB_RAW_URL,
+    modJarUrl: DEFAULT_MOD_JAR_URL,
+    updatedAt: 0,
     options: { ...DEFAULT_OPTIONS_MAP },
+    hudLayout: cloneDefaultHud(),
     servers: DEFAULT_SERVERS.map(s => ({ ...s })),
     friends: [
       { name: 'Notch', note: 'Classic Builder' },
@@ -358,9 +385,16 @@ function loadState(api) {
   if (fs.existsSync(fp)) {
     try {
       const p = JSON.parse(fs.readFileSync(fp, 'utf8'));
+      const mergedHud = cloneDefaultHud();
+      if (p.hudLayout && typeof p.hudLayout === 'object') {
+        for (const k of Object.keys(mergedHud)) {
+          if (p.hudLayout[k]) mergedHud[k] = { ...mergedHud[k], ...p.hudLayout[k] };
+        }
+      }
       return {
         ...base, ...p,
         options: { ...DEFAULT_OPTIONS_MAP, ...(p.options || {}) },
+        hudLayout: mergedHud,
         servers: Array.isArray(p.servers) ? p.servers : base.servers,
         friends: Array.isArray(p.friends) ? p.friends : base.friends,
         playtime: { ...base.playtime, ...(p.playtime || {}) }
@@ -372,6 +406,7 @@ function loadState(api) {
 
 function saveState(api, st) {
   api.utils.safeMkdirSync(api.paths.appDir);
+  st.updatedAt = Date.now();
   fs.writeFileSync(getStateFile(api), JSON.stringify(st, null, 2));
 }
 
@@ -430,6 +465,108 @@ function pingServer(addr, timeoutMs = 3500) {
   });
 }
 
+function buildModConfigPayload(st) {
+  const hudModules = {};
+  for (const [k, m] of Object.entries(st.hudLayout || {})) {
+    const enabled = m.optId ? !!st.options[m.optId] : true;
+    hudModules[k] = {
+      label: m.label,
+      optId: m.optId || null,
+      enabled,
+      x: Number(m.x ?? 0.02),
+      y: Number(m.y ?? 0.02),
+      scale: Number(m.scale ?? 1.0),
+      opacity: Number(m.opacity ?? 0.85),
+      bg: m.bg !== false,
+      border: m.border !== false,
+      chroma: !!m.chroma,
+      color: m.color || '#ffffff',
+      anchor: m.anchor || 'top-left'
+    };
+  }
+  return {
+    schemaVersion: 1,
+    updatedAt: st.updatedAt || Date.now(),
+    mcVersion: st.selectedMcVersion,
+    menuKey: st.options.ctl_menu_key || 'RSHIFT',
+    hudModules,
+    options: st.options
+  };
+}
+
+function pullInGameConfigIfNewer(api, st, profileDir) {
+  const cfgPath = path.join(profileDir, 'config', 'aetheria-client.json');
+  if (!fs.existsSync(cfgPath)) return false;
+  try {
+    const disk = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    if (!disk || typeof disk !== 'object') return false;
+    if (Number(disk.updatedAt || 0) <= Number(st.updatedAt || 0)) return false;
+    if (disk.options && typeof disk.options === 'object') {
+      st.options = { ...st.options, ...disk.options };
+    }
+    if (disk.hudModules && typeof disk.hudModules === 'object') {
+      for (const [k, m] of Object.entries(disk.hudModules)) {
+        if (!st.hudLayout[k]) continue;
+        st.hudLayout[k] = {
+          ...st.hudLayout[k],
+          x: typeof m.x === 'number' ? m.x : st.hudLayout[k].x,
+          y: typeof m.y === 'number' ? m.y : st.hudLayout[k].y,
+          scale: typeof m.scale === 'number' ? m.scale : st.hudLayout[k].scale,
+          opacity: typeof m.opacity === 'number' ? m.opacity : st.hudLayout[k].opacity,
+          bg: typeof m.bg === 'boolean' ? m.bg : st.hudLayout[k].bg,
+          border: typeof m.border === 'boolean' ? m.border : st.hudLayout[k].border,
+          chroma: typeof m.chroma === 'boolean' ? m.chroma : st.hudLayout[k].chroma,
+          color: m.color || st.hudLayout[k].color,
+          anchor: m.anchor || st.hudLayout[k].anchor
+        };
+        if (st.hudLayout[k].optId && typeof m.enabled === 'boolean') {
+          st.options[st.hudLayout[k].optId] = m.enabled;
+        }
+      }
+    }
+    st.updatedAt = Number(disk.updatedAt);
+    saveState(api, st);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function findBundledModJar(api) {
+  if (!fs.existsSync(api.extensionDir)) return null;
+  try {
+    const files = fs.readdirSync(api.extensionDir).filter(f => /^aetheria-client-mod.*\.jar$/i.test(f));
+    if (!files.length) return null;
+    files.sort();
+    return path.join(api.extensionDir, files[files.length - 1]);
+  } catch (e) { return null; }
+}
+
+function deployHomemadeModJar(api, st, profileDir) {
+  const mDir = path.join(profileDir, 'mods');
+  api.utils.safeMkdirSync(mDir);
+  const srcJar = findBundledModJar(api);
+  if (!srcJar) return { deployed: false, reason: 'No aetheria-client-mod.jar found in extension folder yet.' };
+  const destName = 'aetheria-client-mod.jar';
+  const destActive = path.join(mDir, destName);
+  const destDisabled = path.join(mDir, destName + '.disabled');
+
+  if (st.selectedLoader !== 'fabric' || !st.options.cos_hybrid_mods) {
+    if (fs.existsSync(destActive)) {
+      try { fs.renameSync(destActive, destDisabled); } catch (e) {}
+    }
+    return { deployed: false, disabled: true };
+  }
+
+  if (fs.existsSync(destDisabled) && !fs.existsSync(destActive)) {
+    try { fs.unlinkSync(destDisabled); } catch (e) {}
+  }
+  const sStat = fs.statSync(srcJar);
+  const needsCopy = !fs.existsSync(destActive) || fs.statSync(destActive).size !== sStat.size || fs.statSync(destActive).mtimeMs < sStat.mtimeMs;
+  if (needsCopy) fs.copyFileSync(srcJar, destActive);
+  return { deployed: true, path: destActive, fileName: path.basename(srcJar) };
+}
+
 function syncOptionsToDisk(api, st, profileDir) {
   const optPath = path.join(profileDir, 'options.txt');
   if (st.options.cos_backup_worlds && fs.existsSync(optPath)) {
@@ -460,6 +597,12 @@ function syncOptionsToDisk(api, st, profileDir) {
 
   const cfgDir = path.join(profileDir, 'config');
   api.utils.safeMkdirSync(cfgDir);
+
+  // Shared config for the homemade in-game Aetheria Client mod
+  try {
+    fs.writeFileSync(path.join(cfgDir, 'aetheria-client.json'), JSON.stringify(buildModConfigPayload(st), null, 2));
+  } catch (e) {}
+
   const sPath = path.join(cfgDir, 'sodium-options.json');
   let sodium = {};
   if (fs.existsSync(sPath)) try { sodium = JSON.parse(fs.readFileSync(sPath, 'utf8')); } catch (e) {}
@@ -492,10 +635,11 @@ const TAB_HTML = `<div class="ac-root">
       <div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <h2 style="font-size:1.2rem;font-weight:800;">Aetheria Client</h2>
-          <span class="brand-badge" id="ac-ver-badge">MC 1.21.4 • FABRIC</span>
+          <span class="brand-badge" id="ac-ver-badge">MC 26.2 • FABRIC</span>
           <span class="brand-badge" id="ac-opt-badge">250 OPTIONS</span>
+          <span class="brand-badge" id="ac-jar-badge">MOD JAR: CHECKING</span>
         </div>
-        <p style="font-size:0.75rem;color:var(--text-muted);margin-top:3px;">Homemade 250-option Lunar engine • Zero mod bloat • 1.8.9–26.1.3</p>
+        <p style="font-size:0.75rem;color:var(--text-muted);margin-top:3px;">Homemade Axolotl-style engine • Zero 3rd-party dependencies • 1.8.9–26.2</p>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -505,7 +649,8 @@ const TAB_HTML = `<div class="ac-root">
   </div>
   <div class="chip-group" id="ac-subnav" style="margin-bottom:0;">
     <button class="chip-btn active" data-sub="mods">Mod Menu (250)</button>
-    <button class="chip-btn" data-sub="presets">Versions &amp; Hybrid</button>
+    <button class="chip-btn" data-sub="hud">HUD Positions &amp; Style</button>
+    <button class="chip-btn" data-sub="presets">Versions &amp; Mod JAR</button>
     <button class="chip-btn" data-sub="config">options.txt</button>
     <button class="chip-btn" data-sub="servers">Servers</button>
     <button class="chip-btn" data-sub="social">Friends &amp; Cosmetics</button>
@@ -519,19 +664,58 @@ const TAB_HTML = `<div class="ac-root">
     <div class="chip-group" id="ac-cats" style="margin-bottom:0;"></div>
     <div class="ac-grid" id="ac-opts-grid"></div>
   </div>
+  <div class="ac-sub" id="ac-sub-hud">
+    <div class="card flex-between" style="padding:12px;margin-bottom:0;flex-wrap:wrap;">
+      <div>
+        <strong style="font-size:0.9rem;">Interactive HUD Position &amp; Style Editor</strong>
+        <span style="display:block;font-size:0.73rem;color:var(--text-muted);">Drag any module on the screen below. Syncs with <code>config/aetheria-client.json</code> &amp; your in-game RSHIFT menu.</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-secondary" id="ac-hud-pull">Pull In-Game Edits</button>
+        <button class="btn-secondary" id="ac-hud-reset">Reset Positions</button>
+        <button class="btn" id="ac-hud-save">Sync HUD Now</button>
+      </div>
+    </div>
+    <div class="ac-hud-wrap">
+      <div class="card" style="padding:12px;margin-bottom:0;">
+        <div class="ac-stage" id="ac-hud-stage">
+          <div class="ac-stage-grid"></div>
+          <div class="ac-xhair-preview" id="ac-xhair-preview"></div>
+          <div class="ac-hotbar-mock"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></div>
+        </div>
+      </div>
+      <div class="card" style="padding:14px;margin-bottom:0;display:flex;flex-direction:column;gap:10px;" id="ac-hud-inspector">
+        <strong style="font-size:0.86rem;">Select a HUD module</strong>
+        <span style="font-size:0.74rem;color:var(--text-muted);">Click or drag any HUD box on the preview screen to adjust its X/Y coordinates, scale, opacity, background, border, and colors.</span>
+      </div>
+    </div>
+  </div>
   <div class="ac-sub" id="ac-sub-presets">
     <div class="card" style="margin-bottom:0;">
       <div class="flex-between" style="margin-bottom:10px;flex-wrap:wrap;">
-        <div><strong style="font-size:0.9rem;">Version Selector (1.8.9 – 26.1.3)</strong><span style="display:block;font-size:0.73rem;color:var(--text-muted);">Syncs active Aetheria profile while preserving all 250 options</span></div>
+        <div><strong style="font-size:0.9rem;">Version Selector (1.8.9 – 26.2)</strong><span style="display:block;font-size:0.73rem;color:var(--text-muted);">Syncs active Aetheria profile while preserving all 250 options &amp; HUD positions</span></div>
         <div style="display:flex;gap:6px;"><button class="chip-btn" id="ac-ld-fabric">Fabric</button><button class="chip-btn" id="ac-ld-vanilla">Vanilla</button></div>
       </div>
       <div id="ac-all-vers" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     </div>
+    <div class="card" style="margin-bottom:0;">
+      <div class="flex-between" style="margin-bottom:8px;flex-wrap:wrap;">
+        <div>
+          <strong style="font-size:0.9rem;">Plug-and-Play Homemade In-Game Mod (.jar)</strong>
+          <span id="ac-jar-status" style="display:block;font-size:0.73rem;color:var(--text-muted);">Checking local extension folder...</span>
+        </div>
+        <button class="btn-secondary" id="ac-deploy-jar">Deploy JAR to /mods</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="text" id="ac-mod-url" class="input-field" placeholder="https://github.com/USER/REPO/releases/latest/download/aetheria-client-mod.jar" style="flex:1;min-width:240px;" />
+        <button class="btn" id="ac-dl-jar">Download Release JAR</button>
+      </div>
+    </div>
     <div class="card" style="margin-bottom:0;"><strong style="font-size:0.9rem;display:block;margin-bottom:10px;">1-Click Client Presets</strong><div class="ac-pgrid" id="ac-presets-grid"></div></div>
     <div class="card" style="margin-bottom:0;">
       <div class="flex-between" style="margin-bottom:10px;flex-wrap:wrap;">
-        <div><strong style="font-size:0.9rem;">Hybrid Engine: Optional 6-Mod ARM64 Core + Local JARs</strong><span style="display:block;font-size:0.73rem;color:var(--text-muted);">Keep zero bloat or install the lean 6-mod Sodium/Lithium/Iris pack</span></div>
-        <button class="btn" id="ac-install-core">Install 6-Mod Core</button>
+        <div><strong style="font-size:0.9rem;">Optional Performance Pack (Sodium/Lithium/Iris) + Local JARs</strong><span style="display:block;font-size:0.73rem;color:var(--text-muted);">Optional FPS booster mods — not required for your standalone homemade client mod</span></div>
+        <button class="btn-secondary" id="ac-install-core">Install Optional 6-Mod Pack</button>
       </div>
       <div id="ac-core-preview" class="ac-cgrid"></div>
       <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
@@ -585,7 +769,7 @@ const TAB_HTML = `<div class="ac-root">
     <div class="card" style="margin-bottom:0;">
       <strong style="font-size:0.9rem;display:block;margin-bottom:6px;">GitHub Extension Self-Updater</strong>
       <p style="font-size:0.73rem;color:var(--text-muted);margin-bottom:8px;">Paste your raw GitHub URL for <code>index.js</code> to pull updates straight from your repo.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;"><input type="text" id="ac-gh-url" class="input-field" placeholder="https://raw.githubusercontent.com/USER/REPO/main/index.js" style="flex:1;min-width:240px;" /><button class="btn" id="ac-gh-update">Update from GitHub</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><input type="text" id="ac-gh-url" class="input-field" placeholder="https://raw.githubusercontent.com/USER/REPO/main/extensions/aetheria-client/index.js" style="flex:1;min-width:240px;" /><button class="btn" id="ac-gh-update">Update from GitHub</button></div>
     </div>
   </div>
 </div>`;
@@ -593,7 +777,7 @@ const TAB_HTML = `<div class="ac-root">
 const TAB_CSS = `.ac-root{display:flex;flex-direction:column;gap:12px;padding-bottom:24px;}
 .ac-hero{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:0;background:linear-gradient(135deg,rgba(var(--accent-rgb),0.08),rgba(var(--card-rgb),0.65));}
 .ac-hero-left{display:flex;align-items:center;gap:12px;}
-.ac-emblem{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.35rem;background:var(--accent);color:var(--accent-fg);font-weight:800;flex-shrink:0;}
+.ac-emblem{width:44px;height:44px;border-radius:11px;display:flex;justify-content:center;align-items:center;font-size:1.35rem;background:var(--accent);color:var(--accent-fg);font-weight:800;flex-shrink:0;}
 .ac-sub{display:none;flex-direction:column;gap:12px;} .ac-sub.active{display:flex;}
 .ac-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px;}
 .ac-ocard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:11px 13px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;backdrop-filter:blur(16px) saturate(145%);-webkit-backdrop-filter:blur(16px) saturate(145%);}
@@ -605,13 +789,26 @@ const TAB_CSS = `.ac-root{display:flex;flex-direction:column;gap:12px;padding-bo
 .ac-pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;}
 .ac-cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;}
 .ac-pcard{padding:11px;border-radius:var(--radius);border:1px solid var(--border);background:rgba(var(--card-rgb),0.45);cursor:pointer;text-align:left;color:var(--text);}
-.ac-pcard.active{border-color:var(--accent);background:var(--accent-bg);}`;
+.ac-pcard.active{border-color:var(--accent);background:var(--accent-bg);}
+.ac-hud-wrap{display:grid;grid-template-columns:minmax(360px,1.7fr) minmax(250px,1fr);gap:12px;align-items:start;}
+@media(max-width:920px){.ac-hud-wrap{grid-template-columns:1fr;}}
+.ac-stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:radial-gradient(circle at 50% 35%,rgba(80,120,170,0.32),rgba(16,20,28,0.92));user-select:none;}
+.ac-stage-grid{position:absolute;inset:0;background-image:linear-gradient(to right,rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:10% 10%;pointer-events:none;}
+.ac-hud-box{position:absolute;padding:4px 7px;border-radius:5px;font-family:ui-monospace,monospace;font-size:11px;line-height:1.25;white-space:pre;cursor:grab;transform-origin:top left;transition:box-shadow 0.12s;}
+.ac-hud-box:active{cursor:grabbing;}
+.ac-hud-box.selected{outline:2px solid var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),0.25);z-index:10;}
+.ac-hud-box.disabled{opacity:0.32 !important;border-style:dashed !important;}
+.ac-xhair-preview{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;}
+.ac-hotbar-mock{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);display:flex;gap:2px;padding:3px;border-radius:4px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.2);pointer-events:none;}
+.ac-hotbar-mock span{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,0.55);border:1px solid rgba(255,255,255,0.12);}
+@keyframes ac-chroma{0%{color:#ff6b6b;}33%{color:#51cf66;}66%{color:#339af0;}100%{color:#ff6b6b;}}
+.ac-chroma{animation:ac-chroma 3s linear infinite;}`;
 
 const TAB_SCRIPT = `(async function() {
   const esc = Aetheria.escapeHtml, q = s => panelEl.querySelector(s);
   let data = await Aetheria.ipcRenderer.invoke('ac:get-state');
   window.__AetheriaClientCache = data;
-  let activeCat = 'All', saveTimer = null;
+  let activeCat = 'All', saveTimer = null, hudTimer = null, selectedHudKey = 'fps';
   const pings = {};
   const fmtSec = sec => { const s = Math.max(0, Math.round(sec || 0)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? h + 'h ' + m + 'm' : m + 'm ' + (s % 60) + 's'; };
 
@@ -619,19 +816,32 @@ const TAB_SCRIPT = `(async function() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => Aetheria.ipcRenderer.invoke('ac:save-options', { options: data.state.options, activePreset: data.state.activePreset }), 180);
   }
+  function queueHudSave() {
+    clearTimeout(hudTimer);
+    hudTimer = setTimeout(() => Aetheria.ipcRenderer.invoke('ac:save-hud', { hudLayout: data.state.hudLayout, options: data.state.options }), 180);
+  }
 
   function renderHeader() {
     const st = data.state;
     q('#ac-ver-badge').innerText = 'MC ' + st.selectedMcVersion + ' • ' + String(st.selectedLoader || 'fabric').toUpperCase();
     const onCnt = data.catalog.options.filter(o => o.type === 'b' && st.options[o.id]).length;
     q('#ac-opt-badge').innerText = data.catalog.options.length + ' OPTIONS (' + onCnt + ' ON)';
+    const jb = q('#ac-jar-badge');
+    if (data.bundledJar) {
+      jb.innerText = 'MOD JAR: READY';
+      if (q('#ac-jar-status')) q('#ac-jar-status').innerText = 'Detected homemade JAR: ' + data.bundledJar + ' (auto-deploys to /mods on Fabric launch)';
+    } else {
+      jb.innerText = 'MOD JAR: NOT ADDED';
+      if (q('#ac-jar-status')) q('#ac-jar-status').innerText = 'Drop aetheria-client-mod.jar into extensions/aetheria-client/ or download from your GitHub Release below.';
+    }
     const qv = q('#ac-quick-vers'); qv.innerHTML = '';
-    ['26.1.3', '1.21.4', '1.20.4', '1.8.9'].forEach(v => {
+    ['26.2', '26.1.3', '1.21.4', '1.8.9'].forEach(v => {
       const b = document.createElement('button');
       b.className = 'ac-cbtn ' + (st.selectedMcVersion === v ? 'active' : '');
       b.innerText = v; b.onclick = () => setVer(v, st.selectedLoader);
       qv.appendChild(b);
     });
+    if (q('#ac-mod-url')) q('#ac-mod-url').value = st.modJarUrl || '';
   }
 
   async function setVer(version, loader) {
@@ -663,19 +873,19 @@ const TAB_SCRIPT = `(async function() {
       top.innerHTML = '<div><span style="font-size:0.6rem;color:var(--text-dim);text-transform:uppercase;">' + esc(o.category) + '</span><strong style="display:block;font-size:0.8rem;">' + esc(o.label) + '</strong><p style="font-size:0.69rem;color:var(--text-muted);margin-top:2px;">' + esc(o.desc) + '</p></div>';
       if (o.type === 'b') {
         const p = document.createElement('button'); p.className = 'ac-pill ' + (val ? 'on' : ''); p.innerText = val ? 'ON' : 'OFF';
-        p.onclick = () => { data.state.options[o.id] = !data.state.options[o.id]; data.state.activePreset = 'custom'; p.className = 'ac-pill ' + (data.state.options[o.id] ? 'on' : ''); p.innerText = data.state.options[o.id] ? 'ON' : 'OFF'; renderHeader(); queueSave(); };
+        p.onclick = () => { data.state.options[o.id] = !data.state.options[o.id]; data.state.activePreset = 'custom'; p.className = 'ac-pill ' + (data.state.options[o.id] ? 'on' : ''); p.innerText = data.state.options[o.id] ? 'ON' : 'OFF'; renderHeader(); renderHudEditor(); queueSave(); };
         top.appendChild(p); card.appendChild(top);
       } else if (o.type === 'r') {
         const badge = document.createElement('span'); badge.className = 'brand-badge'; badge.innerText = String(val); top.appendChild(badge); card.appendChild(top);
         const sl = document.createElement('input'); sl.type = 'range'; sl.className = 'range-slider'; sl.min = o.extra[0]; sl.max = o.extra[1]; sl.step = o.extra[2]; sl.value = val;
-        sl.oninput = () => { const n = Number(sl.value); data.state.options[o.id] = n; data.state.activePreset = 'custom'; badge.innerText = String(n); queueSave(); };
+        sl.oninput = () => { const n = Number(sl.value); data.state.options[o.id] = n; data.state.activePreset = 'custom'; badge.innerText = String(n); renderCrosshairPreview(); queueSave(); };
         card.appendChild(sl);
       } else {
         card.appendChild(top);
         const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;';
         o.extra.forEach(ch => {
           const cb = document.createElement('button'); cb.className = 'ac-cbtn ' + (String(val) === String(ch) ? 'active' : ''); cb.innerText = ch;
-          cb.onclick = () => { data.state.options[o.id] = ch; data.state.activePreset = 'custom'; row.querySelectorAll('button').forEach(x => x.classList.remove('active')); cb.classList.add('active'); queueSave(); };
+          cb.onclick = () => { data.state.options[o.id] = ch; data.state.activePreset = 'custom'; row.querySelectorAll('button').forEach(x => x.classList.remove('active')); cb.classList.add('active'); renderCrosshairPreview(); queueSave(); };
           row.appendChild(cb);
         });
         card.appendChild(row);
@@ -683,6 +893,136 @@ const TAB_SCRIPT = `(async function() {
       frag.appendChild(card);
     });
     grid.appendChild(frag);
+  }
+
+  function renderCrosshairPreview() {
+    const xp = q('#ac-xhair-preview'); if (!xp) return;
+    const st = data.state.options;
+    const style = st.pvp_xhair_style || 'classic', sz = Number(st.pvp_xhair_size || 6), gap = Number(st.pvp_xhair_gap || 2);
+    if (style === 'dot') {
+      xp.innerHTML = '<div style="width:4px;height:4px;border-radius:50%;background:#fff;box-shadow:0 0 2px #000;"></div>';
+    } else if (style === 'circle') {
+      const d = (sz + gap) * 2;
+      xp.innerHTML = '<div style="width:' + d + 'px;height:' + d + 'px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 2px #000;"></div>';
+    } else {
+      const topBar = style === 't_shape' ? '' : '<div style="position:absolute;left:-1px;bottom:' + gap + 'px;width:2px;height:' + sz + 'px;background:#fff;"></div>';
+      xp.innerHTML = '<div style="position:relative;width:0;height:0;">' + topBar +
+        '<div style="position:absolute;left:-1px;top:' + gap + 'px;width:2px;height:' + sz + 'px;background:#fff;"></div>' +
+        '<div style="position:absolute;top:-1px;right:' + gap + 'px;height:2px;width:' + sz + 'px;background:#fff;"></div>' +
+        '<div style="position:absolute;top:-1px;left:' + gap + 'px;height:2px;width:' + sz + 'px;background:#fff;"></div></div>';
+    }
+  }
+
+  function renderHudInspector() {
+    const box = q('#ac-hud-inspector');
+    const layout = data.state.hudLayout || {};
+    const m = layout[selectedHudKey];
+    if (!m) return;
+    const isOn = m.optId ? !!data.state.options[m.optId] : true;
+    box.innerHTML =
+      '<div class="flex-between"><div><span style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;">Selected HUD Module</span><strong style="display:block;font-size:0.98rem;">' + esc(m.label) + '</strong></div>' +
+      '<button class="ac-pill ' + (isOn ? 'on' : '') + '" id="ac-hi-tog">' + (isOn ? 'ON' : 'OFF') + '</button></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.75rem;">' +
+        '<div><span style="color:var(--text-muted);">X Position: <strong id="ac-hi-xv">' + Math.round(m.x * 100) + '%</strong></span><input type="range" class="range-slider" id="ac-hi-x" min="0" max="0.92" step="0.005" value="' + m.x + '" /></div>' +
+        '<div><span style="color:var(--text-muted);">Y Position: <strong id="ac-hi-yv">' + Math.round(m.y * 100) + '%</strong></span><input type="range" class="range-slider" id="ac-hi-y" min="0" max="0.92" step="0.005" value="' + m.y + '" /></div>' +
+      '</div>' +
+      '<div><span style="font-size:0.75rem;color:var(--text-muted);">Scale: <strong id="ac-hi-sv">' + Number(m.scale).toFixed(2) + 'x</strong></span><input type="range" class="range-slider" id="ac-hi-s" min="0.5" max="2.0" step="0.05" value="' + m.scale + '" /></div>' +
+      '<div><span style="font-size:0.75rem;color:var(--text-muted);">Background Opacity: <strong id="ac-hi-ov">' + Math.round(m.opacity * 100) + '%</strong></span><input type="range" class="range-slider" id="ac-hi-o" min="0" max="1" step="0.05" value="' + m.opacity + '" /></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+        '<button class="ac-cbtn ' + (m.bg ? 'active' : '') + '" id="ac-hi-bg">Background</button>' +
+        '<button class="ac-cbtn ' + (m.border ? 'active' : '') + '" id="ac-hi-bd">Border</button>' +
+        '<button class="ac-cbtn ' + (m.chroma ? 'active' : '') + '" id="ac-hi-ch">Chroma RGB</button>' +
+      '</div>' +
+      '<div class="flex-between" style="padding-top:4px;"><span style="font-size:0.76rem;color:var(--text-muted);">Text Color</span><input type="color" id="ac-hi-col" value="' + esc(m.color || '#ffffff') + '" style="width:44px;height:28px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;" /></div>' +
+      '<div style="border-top:1px solid var(--border);padding-top:8px;"><span style="font-size:0.7rem;color:var(--text-muted);display:block;margin-bottom:6px;">Quick Jump Module</span><div id="ac-hi-list" style="display:flex;gap:4px;flex-wrap:wrap;"></div></div>';
+
+    const list = box.querySelector('#ac-hi-list');
+    Object.entries(layout).forEach(([k, item]) => {
+      const b = document.createElement('button');
+      b.className = 'ac-cbtn ' + (k === selectedHudKey ? 'active' : '');
+      b.innerText = item.label;
+      b.onclick = () => { selectedHudKey = k; renderHudEditor(); };
+      list.appendChild(b);
+    });
+
+    box.querySelector('#ac-hi-tog').onclick = () => {
+      if (m.optId) data.state.options[m.optId] = !data.state.options[m.optId];
+      queueHudSave(); renderHeader(); renderOpts(); renderHudEditor();
+    };
+    const updateStageBox = () => {
+      const el = q('.ac-hud-box[data-hud="' + selectedHudKey + '"]');
+      if (!el) return;
+      el.style.left = (m.x * 100) + '%';
+      el.style.top = (m.y * 100) + '%';
+      el.style.transform = 'scale(' + m.scale + ')';
+      el.style.background = m.bg ? 'rgba(10,12,18,' + m.opacity + ')' : 'transparent';
+      el.style.border = m.border ? '1px solid rgba(255,255,255,0.22)' : '1px solid transparent';
+      el.style.color = m.chroma ? '' : (m.color || '#ffffff');
+      el.classList.toggle('ac-chroma', !!m.chroma);
+    };
+    box.querySelector('#ac-hi-x').oninput = e => { m.x = Number(e.target.value); box.querySelector('#ac-hi-xv').innerText = Math.round(m.x * 100) + '%'; updateStageBox(); queueHudSave(); };
+    box.querySelector('#ac-hi-y').oninput = e => { m.y = Number(e.target.value); box.querySelector('#ac-hi-yv').innerText = Math.round(m.y * 100) + '%'; updateStageBox(); queueHudSave(); };
+    box.querySelector('#ac-hi-s').oninput = e => { m.scale = Number(e.target.value); box.querySelector('#ac-hi-sv').innerText = m.scale.toFixed(2) + 'x'; updateStageBox(); queueHudSave(); };
+    box.querySelector('#ac-hi-o').oninput = e => { m.opacity = Number(e.target.value); box.querySelector('#ac-hi-ov').innerText = Math.round(m.opacity * 100) + '%'; updateStageBox(); queueHudSave(); };
+    box.querySelector('#ac-hi-bg').onclick = () => { m.bg = !m.bg; queueHudSave(); renderHudEditor(); };
+    box.querySelector('#ac-hi-bd').onclick = () => { m.border = !m.border; queueHudSave(); renderHudEditor(); };
+    box.querySelector('#ac-hi-ch').onclick = () => { m.chroma = !m.chroma; queueHudSave(); renderHudEditor(); };
+    box.querySelector('#ac-hi-col').oninput = e => { m.color = e.target.value; m.chroma = false; updateStageBox(); queueHudSave(); };
+  }
+
+  function renderHudEditor() {
+    const stage = q('#ac-hud-stage'); if (!stage) return;
+    stage.querySelectorAll('.ac-hud-box').forEach(el => el.remove());
+    const layout = data.state.hudLayout || {};
+    Object.entries(layout).forEach(([key, m]) => {
+      const enabled = m.optId ? !!data.state.options[m.optId] : true;
+      const box = document.createElement('div');
+      box.className = 'ac-hud-box' + (key === selectedHudKey ? ' selected' : '') + (enabled ? '' : ' disabled') + (m.chroma ? ' ac-chroma' : '');
+      box.dataset.hud = key;
+      box.innerText = m.sample || m.label;
+      box.style.left = (m.x * 100) + '%';
+      box.style.top = (m.y * 100) + '%';
+      box.style.transform = 'scale(' + (m.scale || 1) + ')';
+      box.style.background = m.bg ? 'rgba(10,12,18,' + (m.opacity ?? 0.85) + ')' : 'transparent';
+      box.style.border = m.border ? '1px solid rgba(255,255,255,0.22)' : '1px solid transparent';
+      if (!m.chroma) box.style.color = m.color || '#ffffff';
+
+      box.onpointerdown = ev => {
+        ev.preventDefault();
+        selectedHudKey = key;
+        stage.querySelectorAll('.ac-hud-box').forEach(x => x.classList.remove('selected'));
+        box.classList.add('selected');
+        renderHudInspector();
+        const rect = stage.getBoundingClientRect();
+        const startX = ev.clientX, startY = ev.clientY;
+        const origX = m.x, origY = m.y;
+        const onMove = mv => {
+          let nx = origX + (mv.clientX - startX) / rect.width;
+          let ny = origY + (mv.clientY - startY) / rect.height;
+          if (data.state.options.hud_snap_grid) {
+            nx = Math.round(nx * 40) / 40;
+            ny = Math.round(ny * 40) / 40;
+          }
+          m.x = Math.max(0, Math.min(0.92, nx));
+          m.y = Math.max(0, Math.min(0.92, ny));
+          box.style.left = (m.x * 100) + '%';
+          box.style.top = (m.y * 100) + '%';
+          const rx = q('#ac-hi-x'), ry = q('#ac-hi-y');
+          if (rx) { rx.value = m.x; q('#ac-hi-xv').innerText = Math.round(m.x * 100) + '%'; }
+          if (ry) { ry.value = m.y; q('#ac-hi-yv').innerText = Math.round(m.y * 100) + '%'; }
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          queueHudSave();
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      };
+      stage.appendChild(box);
+    });
+    renderCrosshairPreview();
+    renderHudInspector();
   }
 
   function renderPresetsAndMods() {
@@ -708,7 +1048,7 @@ const TAB_SCRIPT = `(async function() {
       cp.appendChild(d);
     });
     const lm = q('#ac-local-mods'); lm.innerHTML = '';
-    if (!data.localMods.length) lm.innerHTML = '<span style="font-size:0.75rem;color:var(--text-muted);">No .jar mods in active profile — pure 250-option homemade mode active.</span>';
+    if (!data.localMods.length) lm.innerHTML = '<span style="font-size:0.75rem;color:var(--text-muted);">No .jar mods in active profile.</span>';
     else data.localMods.forEach(m => {
       const r = document.createElement('div'); r.className = 'mod-item'; r.style.marginBottom = '0';
       r.innerHTML = '<div><strong style="font-size:0.8rem;">' + esc(m.name) + '</strong><span style="font-size:0.68rem;color:var(--text-muted);margin-left:8px;">' + m.sizeMb + ' MB</span></div><button class="btn-secondary" style="font-size:0.7rem;padding:4px 10px;">' + (m.enabled ? 'Enabled' : 'Disabled') + '</button>';
@@ -772,7 +1112,7 @@ const TAB_SCRIPT = `(async function() {
     });
   }
 
-  function renderAll() { renderHeader(); renderCats(); renderOpts(); renderPresetsAndMods(); renderServers(); renderSocial(); renderPlaytime(); }
+  function renderAll() { renderHeader(); renderCats(); renderOpts(); renderHudEditor(); renderPresetsAndMods(); renderServers(); renderSocial(); renderPlaytime(); }
 
   q('#ac-subnav').querySelectorAll('button').forEach(btn => {
     btn.onclick = async () => {
@@ -785,7 +1125,14 @@ const TAB_SCRIPT = `(async function() {
 
   q('#ac-search').oninput = renderOpts;
   q('#ac-launch-btn').onclick = () => Aetheria.ipcRenderer.send('launch-game', { selectedVersion: data.state.selectedMcVersion });
-  q('#ac-sync-btn').onclick = async () => { await Aetheria.ipcRenderer.invoke('ac:sync-now'); Aetheria.toast('Synced 250 options to profile!'); };
+  q('#ac-sync-btn').onclick = async () => { await Aetheria.ipcRenderer.invoke('ac:sync-now'); Aetheria.toast('Synced 250 options + HUD layout to profile!'); };
+  q('#ac-hud-save').onclick = async () => { await Aetheria.ipcRenderer.invoke('ac:save-hud', { hudLayout: data.state.hudLayout, options: data.state.options }); await Aetheria.ipcRenderer.invoke('ac:sync-now'); Aetheria.toast('HUD positions saved to config/aetheria-client.json!'); };
+  q('#ac-hud-pull').onclick = async () => { const res = await Aetheria.ipcRenderer.invoke('ac:pull-ingame'); data = res.pack; window.__AetheriaClientCache = data; renderAll(); Aetheria.toast(res.pulled ? 'Imported in-game HUD edits!' : 'Launcher already has the latest HUD layout.'); };
+  q('#ac-hud-reset').onclick = async () => {
+    if (await Aetheria.showConfirmModal('Reset all HUD module positions and styles to default?', 'Reset HUD Layout')) {
+      const r = await Aetheria.ipcRenderer.invoke('ac:reset-hud'); data.state = r.state; window.__AetheriaClientCache = data; renderAll(); Aetheria.toast('HUD layout reset.');
+    }
+  };
   q('#ac-reset-btn').onclick = async () => {
     if (await Aetheria.showConfirmModal('Reset all 250 client options to defaults?', 'Reset Aetheria Client')) {
       const r = await Aetheria.ipcRenderer.invoke('ac:reset-options'); data.state = r.state; window.__AetheriaClientCache = data; renderAll(); Aetheria.toast('250 options reset.');
@@ -793,11 +1140,27 @@ const TAB_SCRIPT = `(async function() {
   };
   q('#ac-ld-fabric').onclick = () => setVer(data.state.selectedMcVersion, 'fabric');
   q('#ac-ld-vanilla').onclick = () => setVer(data.state.selectedMcVersion, 'vanilla');
+  q('#ac-deploy-jar').onclick = async () => {
+    const res = await Aetheria.ipcRenderer.invoke('ac:deploy-jar');
+    data.localMods = res.localMods || data.localMods; renderPresetsAndMods();
+    if (res.deployed) Aetheria.toast('Deployed ' + res.fileName + ' to /mods!');
+    else Aetheria.showAlertModal(res.reason || 'Put aetheria-client-mod.jar in extensions/aetheria-client/ or download it below.', 'Homemade Mod JAR');
+  };
+  q('#ac-dl-jar').onclick = async () => {
+    const url = q('#ac-mod-url').value.trim();
+    if (!url) return Aetheria.showAlertModal('Paste your GitHub Release .jar URL first.', 'Download Mod JAR');
+    try {
+      Aetheria.toast('Downloading homemade mod JAR...');
+      const res = await Aetheria.ipcRenderer.invoke('ac:download-mod-jar', url);
+      data = res.pack; window.__AetheriaClientCache = data; renderAll();
+      Aetheria.toast('Downloaded & deployed ' + res.fileName + '!');
+    } catch (err) { Aetheria.showAlertModal(err.message, 'Download Failed'); }
+  };
   q('#ac-install-core').onclick = async () => {
-    Aetheria.toast('Installing 6-Mod ARM64 Core for ' + data.state.selectedMcVersion + '...');
+    Aetheria.toast('Installing optional 6-Mod Pack for ' + data.state.selectedMcVersion + '...');
     const res = await Aetheria.ipcRenderer.invoke('ac:install-core-mods', { mcVersion: data.state.selectedMcVersion });
     data.localMods = res.localMods || data.localMods; renderPresetsAndMods();
-    Aetheria.toast('Installed ' + res.installed.length + ' core mod(s)' + (res.skipped.length ? ' (' + res.skipped.length + ' unavailable for version)' : ''));
+    Aetheria.toast('Installed ' + res.installed.length + ' mod(s)' + (res.skipped.length ? ' (' + res.skipped.length + ' unavailable)' : ''));
   };
   q('#ac-ref-mods').onclick = async () => { data = await Aetheria.ipcRenderer.invoke('ac:get-state'); window.__AetheriaClientCache = data; renderPresetsAndMods(); };
   q('#ac-cfg-reload').onclick = async () => { q('#ac-raw-txt').value = await Aetheria.ipcRenderer.invoke('ac:read-options-txt'); };
@@ -840,7 +1203,7 @@ const TAB_SCRIPT = `(async function() {
 const WIDGET_JS = `(function(Aetheria) {
   return function(wConf, container) {
     function draw(d) {
-      var st = d && d.state ? d.state : { selectedMcVersion: '1.21.4', selectedLoader: 'fabric', activePreset: 'pvp', playtime: { totalSeconds: 0 } };
+      var st = d && d.state ? d.state : { selectedMcVersion: '26.2', selectedLoader: 'fabric', activePreset: 'pvp', playtime: { totalSeconds: 0 } };
       var tiny = wConf.colSpan <= 3 || wConf.rowSpan <= 1;
       var min = Math.floor((st.playtime && st.playtime.totalSeconds ? st.playtime.totalSeconds : 0) / 60);
       container.innerHTML = '<div class="widget-card">' +
@@ -869,8 +1232,11 @@ async function activate(api) {
   let sessionStart = null;
   const pack = () => {
     const state = loadState(api);
+    pullInGameConfigIfNewer(api, state, api.getActiveProfileDir());
+    const bundled = findBundledModJar(api);
     return {
       state,
+      bundledJar: bundled ? path.basename(bundled) : null,
       catalog: { versions: CLIENT_VERSIONS, presets: CLIENT_PRESETS, categories: RAW_CATS.map(c => c[0]), options: OPTIONS_CATALOG, coreMods: CORE_HYBRID_MODS },
       localMods: listLocalMods(api.getActiveProfileDir())
     };
@@ -883,6 +1249,24 @@ async function activate(api) {
     if (activePreset !== undefined) st.activePreset = activePreset;
     saveState(api, st);
     return { ok: true, state: st };
+  });
+  api.registerIpc('ac:save-hud', (e, { hudLayout, options }) => {
+    const st = loadState(api);
+    if (hudLayout) st.hudLayout = { ...st.hudLayout, ...hudLayout };
+    if (options) st.options = { ...st.options, ...options };
+    saveState(api, st);
+    return { ok: true, state: st };
+  });
+  api.registerIpc('ac:reset-hud', () => {
+    const st = loadState(api);
+    st.hudLayout = cloneDefaultHud();
+    saveState(api, st);
+    return { ok: true, state: st };
+  });
+  api.registerIpc('ac:pull-ingame', () => {
+    const st = loadState(api);
+    const pulled = pullInGameConfigIfNewer(api, st, api.getActiveProfileDir());
+    return { pulled, pack: pack() };
   });
   api.registerIpc('ac:reset-options', () => {
     const st = loadState(api); st.options = { ...DEFAULT_OPTIONS_MAP }; st.activePreset = 'custom'; saveState(api, st); return { ok: true, state: st };
@@ -907,13 +1291,29 @@ async function activate(api) {
   api.registerIpc('ac:read-options-txt', () => { const p = path.join(api.getActiveProfileDir(), 'options.txt'); return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : ''; });
   api.registerIpc('ac:write-options-txt', (e, txt) => { const d = api.getActiveProfileDir(); api.utils.safeMkdirSync(d); fs.writeFileSync(path.join(d, 'options.txt'), String(txt || '')); return { ok: true }; });
   api.registerIpc('ac:sync-now', () => { syncOptionsToDisk(api, loadState(api), api.getActiveProfileDir()); return { ok: true }; });
+  api.registerIpc('ac:deploy-jar', () => {
+    const st = loadState(api);
+    const res = deployHomemadeModJar(api, st, api.getActiveProfileDir());
+    return { ...res, localMods: listLocalMods(api.getActiveProfileDir()) };
+  });
+  api.registerIpc('ac:download-mod-jar', async (e, url) => {
+    const st = loadState(api);
+    st.modJarUrl = String(url || '').trim();
+    saveState(api, st);
+    if (!/^https:\/\//i.test(st.modJarUrl)) throw new Error('Must be an https:// URL to your .jar release.');
+    api.utils.safeMkdirSync(api.extensionDir);
+    const dest = path.join(api.extensionDir, 'aetheria-client-mod.jar');
+    await api.utils.downloadFile(st.modJarUrl, dest);
+    deployHomemadeModJar(api, st, api.getActiveProfileDir());
+    return { ok: true, fileName: 'aetheria-client-mod.jar', pack: pack() };
+  });
   api.registerIpc('ac:toggle-local-mod', (e, fn) => {
     const mDir = path.join(api.getActiveProfileDir(), 'mods'), src = path.join(mDir, fn);
     if (fs.existsSync(src)) fs.renameSync(src, path.join(mDir, fn.endsWith('.disabled') ? fn.replace(/\.disabled$/, '') : fn + '.disabled'));
     return listLocalMods(api.getActiveProfileDir());
   });
   api.registerIpc('ac:install-core-mods', async (e, { mcVersion }) => {
-    const clean = api.utils.extractMcVersion(mcVersion || loadState(api).selectedMcVersion || '1.21.4');
+    const clean = api.utils.extractMcVersion(mcVersion || loadState(api).selectedMcVersion || '26.2');
     const mDir = path.join(api.getActiveProfileDir(), 'mods'); api.utils.safeMkdirSync(mDir);
     const installed = [], skipped = [];
     const gv = encodeURIComponent(JSON.stringify([clean])), ld = encodeURIComponent(JSON.stringify(['fabric']));
@@ -939,8 +1339,12 @@ async function activate(api) {
   api.onBeforeLaunch(async (ctx) => {
     const st = loadState(api), o = st.options;
     sessionStart = Date.now();
-    ctx.sendStatus('Aetheria Client: syncing 250 options...');
+    pullInGameConfigIfNewer(api, st, ctx.activeGameDir);
+    ctx.sendStatus('Aetheria Client: syncing 250 options & HUD layout...');
     syncOptionsToDisk(api, st, ctx.activeGameDir);
+    const jarRes = deployHomemadeModJar(api, st, ctx.activeGameDir);
+    if (jarRes.deployed && o.cos_dev_overlay) api.appendLog('Deployed homemade mod JAR: ' + jarRes.fileName);
+
     const jvm = ctx.jvmArgs.filter(a => !a.startsWith('-XX:+UseG1GC') && !a.startsWith('-XX:+UseZGC') && !a.startsWith('-XX:MaxGCPauseMillis='));
     if (o.fps_gc_mode === 'ZGC' || o.fps_gc_mode === 'GenerationalZGC') { jvm.push('-XX:+UseZGC'); if (o.fps_gc_mode === 'GenerationalZGC') jvm.push('-XX:+ZGenerational'); }
     else jvm.push('-XX:+UseG1GC', '-XX:MaxGCPauseMillis=' + Number(o.fps_gc_pause || 20));
@@ -959,7 +1363,7 @@ async function activate(api) {
       else { const [h, p] = target.split(':'); ctx.gameArgs.push('--server', h); if (p) ctx.gameArgs.push('--port', p); }
       ctx.sendStatus('Aetheria Client: Quick-joining ' + target + '...');
     }
-    if (o.cos_dev_overlay) api.appendLog('Synced 250 options | Preset=' + st.activePreset + ' | MC=' + ctx.baseGameVersion);
+    if (o.cos_dev_overlay) api.appendLog('Synced 250 options + HUD | Preset=' + st.activePreset + ' | MC=' + ctx.baseGameVersion);
   });
 
   api.onGameExit(async ({ code, crashed, baseGameVersion }) => {
@@ -967,6 +1371,7 @@ async function activate(api) {
     const sec = Math.max(1, Math.round((Date.now() - sessionStart) / 1000));
     sessionStart = null;
     const st = loadState(api), ver = baseGameVersion || st.selectedMcVersion || 'unknown';
+    pullInGameConfigIfNewer(api, st, api.getActiveProfileDir());
     st.playtime.totalSeconds = (st.playtime.totalSeconds || 0) + sec;
     st.playtime.sessions = (st.playtime.sessions || 0) + 1;
     st.playtime.lastPlayedAt = new Date().toISOString();
