@@ -1,280 +1,230 @@
-package dev.aetheria.client.hud;
+package dev.aetheria.client.config;
 
-import dev.aetheria.client.AetheriaClientMod;
-import dev.aetheria.client.config.ClientConfig;
-import dev.aetheria.client.gui.HudEditorScreen;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.multiplayer.PlayerInfo;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.ItemStack;
-import org.lwjgl.glfw.GLFW;
+import com.google.gson.*;
+import net.fabricmc.loader.api.FabricLoader;
 
-import java.awt.Color;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-public class HudManager {
-    private static final Deque<Long> LEFT_CLICKS = new ArrayDeque<>();
-    private static final Deque<Long> RIGHT_CLICKS = new ArrayDeque<>();
-    private static boolean prevLmb = false;
-    private static boolean prevRmb = false;
-    private static final DateTimeFormatter CLOCK_FMT = DateTimeFormatter.ofPattern("hh:mm a");
+public class ClientConfig {
+    private static final ClientConfig INSTANCE = new ClientConfig();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    public static void pollClicks(Minecraft mc) {
-        if (AetheriaClientMod.windowHandle == 0L || mc.screen != null) return;
-        long now = System.currentTimeMillis();
-        boolean lmb = GLFW.glfwGetMouseButton(AetheriaClientMod.windowHandle, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-        boolean rmb = GLFW.glfwGetMouseButton(AetheriaClientMod.windowHandle, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
-        if (lmb && !prevLmb) LEFT_CLICKS.addLast(now);
-        if (rmb && !prevRmb) RIGHT_CLICKS.addLast(now);
-        prevLmb = lmb;
-        prevRmb = rmb;
-        while (!LEFT_CLICKS.isEmpty() && now - LEFT_CLICKS.peekFirst() > 1000L) LEFT_CLICKS.removeFirst();
-        while (!RIGHT_CLICKS.isEmpty() && now - RIGHT_CLICKS.peekFirst() > 1000L) RIGHT_CLICKS.removeFirst();
+    public String menuKey = "RSHIFT";
+    public long updatedAt = 0L;
+    public final Map<String, HudModule> hudModules = new LinkedHashMap<>();
+    public final Map<String, JsonElement> options = new LinkedHashMap<>();
+
+    public static class HudModule {
+        public String id;
+        public String label;
+        public String optId;
+        public boolean enabled;
+        public double x;
+        public double y;
+        public double scale = 1.0;
+        public double opacity = 0.85;
+        public boolean bg = true;
+        public boolean border = true;
+        public boolean chroma = false;
+        public String color = "#ffffff";
+        public String anchor = "top-left";
     }
 
-    public static int getLeftCps() { return LEFT_CLICKS.size(); }
-    public static int getRightCps() { return RIGHT_CLICKS.size(); }
-
-    public static void renderInGame(GuiGraphics g) {
-        Minecraft mc = Minecraft.getInstance();
-        AetheriaClientMod.captureWindow();
-        pollClicks(mc);
-        if (mc.player == null || mc.options.hideGui) return;
-        if (mc.screen instanceof HudEditorScreen) return;
-
-        renderCrosshair(g, mc);
-
-        ClientConfig cfg = ClientConfig.get();
-        int sw = mc.getWindow().getGuiScaledWidth();
-        int sh = mc.getWindow().getGuiScaledHeight();
-        boolean shadow = cfg.getBool("hud_shadow", true);
-
-        for (ClientConfig.HudModule m : cfg.hudModules.values()) {
-            if (!m.enabled) continue;
-            renderModule(g, mc, m, sw, sh, shadow, false);
-        }
+    public static ClientConfig get() {
+        return INSTANCE;
     }
 
-    public static int[] getModulePixelBounds(Minecraft mc, ClientConfig.HudModule m, int sw, int sh) {
-        String[] lines = getModuleLines(mc, m);
-        Font font = mc.font;
-        int w = 44;
-        int h = Math.max(14, lines.length * 11 + 6);
-        if ("keystrokes".equals(m.id)) {
-            w = 78; h = 68;
-        } else {
-            int maxW = 0;
-            for (String ln : lines) maxW = Math.max(maxW, font.width(ln));
-            w = Math.max(36, maxW + 10);
-        }
-        int px = (int) Math.round(m.x * sw);
-        int py = (int) Math.round(m.y * sh);
-        return new int[]{px, py, (int) Math.round(w * m.scale), (int) Math.round(h * m.scale)};
+    private Path getConfigPath() {
+        return FabricLoader.getInstance().getConfigDir().resolve("aetheria-client.json");
     }
 
-    public static void renderModule(GuiGraphics g, Minecraft mc, ClientConfig.HudModule m, int sw, int sh, boolean shadow, boolean editorPreview) {
-        int px = (int) Math.round(m.x * sw);
-        int py = (int) Math.round(m.y * sh);
-        float scale = (float) Math.max(0.5, Math.min(2.5, m.scale));
-        int textColor = resolveColor(m);
+    private void initDefaults() {
+        hudModules.clear();
+        addDefault("fps", "FPS Counter", "hud_fps", true, 0.015, 0.025, "#ffffff");
+        addDefault("coords", "Coordinates", "hud_coords", true, 0.015, 0.085, "#ffffff");
+        addDefault("biome", "Biome", "hud_biome", true, 0.015, 0.175, "#a5f3fc");
+        addDefault("ping", "Live Ping", "pvp_ping_hud", true, 0.015, 0.230, "#86efac");
+        addDefault("cps", "CPS Counter", "pvp_cps", true, 0.015, 0.285, "#ffffff");
+        addDefault("keystrokes", "Keystrokes", "pvp_keystrokes", true, 0.015, 0.345, "#ffffff");
+        addDefault("togglesprint", "ToggleSprint", "pvp_togglesprint", true, 0.015, 0.545, "#fde68a");
+        addDefault("potions", "Potion Effects", "pvp_potion_hud", true, 0.015, 0.615, "#c4b5fd");
+        addDefault("compass", "Compass Strip", "hud_compass", true, 0.340, 0.020, "#ffffff");
+        addDefault("clock", "System Clock", "hud_clock", false, 0.855, 0.025, "#ffffff");
+        addDefault("session", "Session Timer", "hud_session", true, 0.835, 0.080, "#ffffff");
+        addDefault("server_ip", "Server IP", "hud_srv_ip", false, 0.840, 0.135, "#93c5fd");
+        addDefault("day_count", "Day Counter", "hud_day_count", false, 0.875, 0.190, "#fde047");
+        addDefault("durability", "Tool Durability", "hud_durability", true, 0.825, 0.650, "#ffffff");
+        addDefault("armor", "Armor Status", "pvp_armor_hud", true, 0.790, 0.720, "#ffffff");
+        addDefault("combo", "Combo Counter", "pvp_combo_hud", false, 0.435, 0.600, "#fca5a5");
+        addDefault("reach", "Reach Display", "pvp_reach_hud", false, 0.435, 0.660, "#fca5a5");
 
-        g.pose().pushMatrix();
-        g.pose().translate((float) px, (float) py);
-        g.pose().scale(scale, scale);
-
-        if ("keystrokes".equals(m.id)) {
-            renderKeystrokes(g, mc, m, textColor, shadow);
-        } else {
-            String[] lines = getModuleLines(mc, m);
-            int maxW = 0;
-            for (String ln : lines) maxW = Math.max(maxW, mc.font.width(ln));
-            int boxW = Math.max(36, maxW + 10);
-            int boxH = Math.max(14, lines.length * 11 + 6);
-
-            if (m.bg) {
-                int alpha = (int) Math.round(Math.max(0.0, Math.min(1.0, m.opacity)) * 180.0);
-                g.fill(0, 0, boxW, boxH, (alpha << 24) | 0x0B0E14);
-            }
-            if (m.border) {
-                drawBorder(g, 0, 0, boxW, boxH, editorPreview && !m.enabled ? 0x88FFAA44 : 0x55FFFFFF);
-            }
-            for (int i = 0; i < lines.length; i++) {
-                g.drawString(mc.font, lines[i], 5, 4 + i * 11, textColor, shadow);
-            }
-        }
-        g.pose().popMatrix();
+        setDefaultOpt("hud_fps", true);
+        setDefaultOpt("hud_coords", true);
+        setDefaultOpt("hud_biome", true);
+        setDefaultOpt("hud_compass", true);
+        setDefaultOpt("hud_session", true);
+        setDefaultOpt("hud_durability", true);
+        setDefaultOpt("hud_snap_grid", true);
+        setDefaultOpt("hud_shadow", true);
+        setDefaultOpt("pvp_keystrokes", true);
+        setDefaultOpt("pvp_cps", true);
+        setDefaultOpt("pvp_togglesprint", true);
+        setDefaultOpt("pvp_armor_hud", true);
+        setDefaultOpt("pvp_potion_hud", true);
+        setDefaultOpt("pvp_ping_hud", true);
+        setDefaultOpt("pvp_low_fire", true);
+        setDefaultOpt("pvp_xhair_style", "classic");
+        setDefaultOpt("pvp_xhair_size", 6);
+        setDefaultOpt("pvp_xhair_gap", 2);
+        setDefaultOpt("cam_zoom", true);
+        setDefaultOpt("cam_zoom_fac", 4);
+        setDefaultOpt("cam_zoom_key", "C");
+        setDefaultOpt("ctl_menu_key", "RSHIFT");
     }
 
-    private static void renderKeystrokes(GuiGraphics g, Minecraft mc, ClientConfig.HudModule m, int textColor, boolean shadow) {
-        long h = AetheriaClientMod.windowHandle;
-        boolean w = h != 0 && GLFW.glfwGetKey(h, GLFW.GLFW_KEY_W) == GLFW.GLFW_PRESS;
-        boolean a = h != 0 && GLFW.glfwGetKey(h, GLFW.GLFW_KEY_A) == GLFW.GLFW_PRESS;
-        boolean s = h != 0 && GLFW.glfwGetKey(h, GLFW.GLFW_KEY_S) == GLFW.GLFW_PRESS;
-        boolean d = h != 0 && GLFW.glfwGetKey(h, GLFW.GLFW_KEY_D) == GLFW.GLFW_PRESS;
-        boolean sp = h != 0 && GLFW.glfwGetKey(h, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
-        boolean lmb = h != 0 && GLFW.glfwGetMouseButton(h, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-        boolean rmb = h != 0 && GLFW.glfwGetMouseButton(h, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
-
-        drawKeyBox(g, mc.font, 26, 0, 24, 20, "W", w, m, textColor, shadow);
-        drawKeyBox(g, mc.font, 0, 22, 24, 20, "A", a, m, textColor, shadow);
-        drawKeyBox(g, mc.font, 26, 22, 24, 20, "S", s, m, textColor, shadow);
-        drawKeyBox(g, mc.font, 52, 22, 24, 20, "D", d, m, textColor, shadow);
-        drawKeyBox(g, mc.font, 0, 44, 37, 14, "LMB " + getLeftCps(), lmb, m, textColor, shadow);
-        drawKeyBox(g, mc.font, 39, 44, 37, 14, "RMB " + getRightCps(), rmb, m, textColor, shadow);
-        drawKeyBox(g, mc.font, 0, 60, 76, 12, "SPACE", sp, m, textColor, shadow);
+    private void addDefault(String id, String label, String optId, boolean en, double x, double y, String col) {
+        HudModule m = new HudModule();
+        m.id = id; m.label = label; m.optId = optId; m.enabled = en;
+        m.x = x; m.y = y; m.color = col;
+        hudModules.put(id, m);
     }
 
-    private static void drawKeyBox(GuiGraphics g, Font f, int x, int y, int w, int h, String txt, boolean down, ClientConfig.HudModule m, int col, boolean shadow) {
-        int bgCol = down ? 0xCCFFFFFF : (((int) (m.opacity * 170) << 24) | 0x0B0E14);
-        int fgCol = down ? 0xFF101318 : col;
-        if (m.bg || down) g.fill(x, y, x + w, y + h, bgCol);
-        if (m.border) drawBorder(g, x, y, w, h, 0x55FFFFFF);
-        int tw = f.width(txt);
-        g.drawString(f, txt, x + (w - tw) / 2, y + (h - 8) / 2, fgCol, shadow && !down);
+    private void setDefaultOpt(String id, Object val) {
+        options.putIfAbsent(id, GSON.toJsonTree(val));
     }
 
-    private static String[] getModuleLines(Minecraft mc, ClientConfig.HudModule m) {
-        if (mc.player == null || mc.level == null) return new String[]{m.label};
-        switch (m.id) {
-            case "fps":
-                return new String[]{mc.getFps() + " FPS"};
-            case "coords": {
-                BlockPos pos = mc.player.blockPosition();
-                Direction dir = mc.player.getDirection();
-                return new String[]{
-                    "XYZ: " + pos.getX() + " / " + pos.getY() + " / " + pos.getZ(),
-                    "Facing: " + dir.getName().substring(0, 1).toUpperCase() + dir.getName().substring(1)
-                };
-            }
-            case "biome": {
-                String key = mc.level.getBiome(mc.player.blockPosition()).unwrapKey()
-                        .map(k -> k.identifier().getPath()).orElse("unknown");
-                return new String[]{titleCase(key.replace('_', ' '))};
-            }
-            case "ping": {
-                int ms = 0;
-                if (mc.getConnection() != null) {
-                    PlayerInfo pi = mc.getConnection().getPlayerInfo(mc.player.getUUID());
-                    if (pi != null) ms = pi.getLatency();
-                }
-                return new String[]{ms + " ms"};
-            }
-            case "cps":
-                return new String[]{getLeftCps() + " | " + getRightCps() + " CPS"};
-            case "togglesprint":
-                return new String[]{mc.player.isSprinting() ? "[Sprinting (Toggled)]" : "[Walking]"};
-            case "potions": {
-                List<String> out = new ArrayList<>();
-                for (MobEffectInstance eff : mc.player.getActiveEffects()) {
-                    int sec = Math.max(0, eff.getDuration() / 20);
-                    String name = eff.getEffect().value().getDisplayName().getString();
-                    out.add(name + " " + (sec / 60) + ":" + String.format("%02d", sec % 60));
-                }
-                return out.isEmpty() ? new String[]{"No Potions"} : out.toArray(new String[0]);
-            }
-            case "compass": {
-                float yaw = ((mc.player.getYRot() % 360f) + 360f) % 360f;
-                String[] dirs = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
-                String dir = dirs[Math.round(yaw / 45f) % 8];
-                return new String[]{"<<  " + dir + " (" + Math.round(yaw) + "°)  >>"};
-            }
-            case "clock":
-                return new String[]{LocalTime.now().format(CLOCK_FMT)};
-            case "session": {
-                long s = Math.max(0, (System.currentTimeMillis() - AetheriaClientMod.START_TIME_MS) / 1000L);
-                return new String[]{String.format("Session: %02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)};
-            }
-            case "server_ip":
-                return new String[]{mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"};
-            case "day_count":
-                return new String[]{"Day " + (mc.level.getDayTime() / 24000L)};
-            case "durability": {
-                ItemStack hand = mc.player.getMainHandItem();
-                if (!hand.isEmpty() && hand.isDamageableItem()) {
-                    int left = hand.getMaxDamage() - hand.getDamageValue();
-                    return new String[]{hand.getHoverName().getString() + ": " + left + "/" + hand.getMaxDamage()};
-                }
-                return new String[]{"Tool: --"};
-            }
-            case "armor": {
-                List<String> list = new ArrayList<>();
-                for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
-                    ItemStack st = mc.player.getItemBySlot(slot);
-                    if (!st.isEmpty() && st.isDamageableItem()) {
-                        int pct = (int) Math.round(100.0 * (st.getMaxDamage() - st.getDamageValue()) / st.getMaxDamage());
-                        list.add(slot.getName().substring(0, 1).toUpperCase() + ": " + pct + "%");
-                    }
-                }
-                return list.isEmpty() ? new String[]{"Armor: None"} : new String[]{String.join(" | ", list)};
-            }
-            case "combo":
-                return new String[]{AetheriaClientMod.getComboCount() + " Hit Combo"};
-            case "reach":
-                return new String[]{String.format("%.2f blocks", AetheriaClientMod.getLastReach())};
-            default:
-                return new String[]{m.label};
-        }
-    }
-
-    private static void renderCrosshair(GuiGraphics g, Minecraft mc) {
-        ClientConfig cfg = ClientConfig.get();
-        String style = cfg.getString("pvp_xhair_style", "classic");
-        if ("vanilla".equalsIgnoreCase(style)) return;
-        int cx = mc.getWindow().getGuiScaledWidth() / 2;
-        int cy = mc.getWindow().getGuiScaledHeight() / 2;
-        int sz = (int) Math.round(cfg.getDouble("pvp_xhair_size", 6));
-        int gap = (int) Math.round(cfg.getDouble("pvp_xhair_gap", 2));
-        int col = 0xFFFFFFFF;
-
-        if ("dot".equalsIgnoreCase(style)) {
-            g.fill(cx - 1, cy - 1, cx + 2, cy + 2, col);
-        } else {
-            if (!"t_shape".equalsIgnoreCase(style)) {
-                g.fill(cx, cy - gap - sz, cx + 1, cy - gap, col);
-            }
-            g.fill(cx, cy + gap + 1, cx + 1, cy + gap + 1 + sz, col);
-            g.fill(cx - gap - sz, cy, cx - gap, cy + 1, col);
-            g.fill(cx + gap + 1, cy, cx + gap + 1 + sz, cy + 1, col);
-        }
-    }
-
-    private static int resolveColor(ClientConfig.HudModule m) {
-        if (m.chroma) {
-            float hue = (System.currentTimeMillis() % 3000L) / 3000.0f;
-            return 0xFF000000 | (Color.HSBtoRGB(hue, 0.85f, 1.0f) & 0x00FFFFFF);
+    public synchronized void load() {
+        initDefaults();
+        Path p = getConfigPath();
+        if (!Files.exists(p)) {
+            save();
+            return;
         }
         try {
-            String hex = m.color.startsWith("#") ? m.color.substring(1) : m.color;
-            return 0xFF000000 | Integer.parseInt(hex, 16);
-        } catch (Exception e) {
-            return 0xFFFFFFFF;
+            String raw = Files.readString(p, StandardCharsets.UTF_8);
+            JsonObject root = JsonParser.parseString(raw).getAsJsonObject();
+            if (root.has("menuKey")) menuKey = root.get("menuKey").getAsString();
+            if (root.has("updatedAt")) updatedAt = root.get("updatedAt").getAsLong();
+
+            if (root.has("options") && root.get("options").isJsonObject()) {
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("options").entrySet()) {
+                    options.put(e.getKey(), e.getValue());
+                }
+            }
+            if (root.has("hudModules") && root.get("hudModules").isJsonObject()) {
+                JsonObject mods = root.getAsJsonObject("hudModules");
+                for (Map.Entry<String, JsonElement> e : mods.entrySet()) {
+                    if (!e.getValue().isJsonObject()) continue;
+                    JsonObject o = e.getValue().getAsJsonObject();
+                    HudModule m = hudModules.getOrDefault(e.getKey(), new HudModule());
+                    m.id = e.getKey();
+                    if (o.has("label")) m.label = o.get("label").getAsString();
+                    if (o.has("optId") && !o.get("optId").isJsonNull()) m.optId = o.get("optId").getAsString();
+                    if (o.has("enabled")) m.enabled = o.get("enabled").getAsBoolean();
+                    if (o.has("x")) m.x = o.get("x").getAsDouble();
+                    if (o.has("y")) m.y = o.get("y").getAsDouble();
+                    if (o.has("scale")) m.scale = o.get("scale").getAsDouble();
+                    if (o.has("opacity")) m.opacity = o.get("opacity").getAsDouble();
+                    if (o.has("bg")) m.bg = o.get("bg").getAsBoolean();
+                    if (o.has("border")) m.border = o.get("border").getAsBoolean();
+                    if (o.has("chroma")) m.chroma = o.get("chroma").getAsBoolean();
+                    if (o.has("color")) m.color = o.get("color").getAsString();
+                    if (o.has("anchor")) m.anchor = o.get("anchor").getAsString();
+                    if (m.optId != null && options.containsKey(m.optId)) {
+                        m.enabled = getBool(m.optId, m.enabled);
+                    }
+                    hudModules.put(e.getKey(), m);
+                }
+            }
+        } catch (Exception ignored) {
         }
     }
 
-    public static void drawBorder(GuiGraphics g, int x, int y, int w, int h, int col) {
-        g.fill(x, y, x + w, y + 1, col);
-        g.fill(x, y + h - 1, x + w, y + h, col);
-        g.fill(x, y, x + 1, y + h, col);
-        g.fill(x + w - 1, y, x + w, y + h, col);
+    public synchronized void save() {
+        updatedAt = System.currentTimeMillis();
+        menuKey = getString("ctl_menu_key", menuKey);
+        JsonObject root = new JsonObject();
+        root.addProperty("schemaVersion", 1);
+        root.addProperty("updatedAt", updatedAt);
+        root.addProperty("menuKey", menuKey);
+
+        JsonObject mods = new JsonObject();
+        for (Map.Entry<String, HudModule> e : hudModules.entrySet()) {
+            HudModule m = e.getValue();
+            if (m.optId != null) m.enabled = getBool(m.optId, m.enabled);
+            JsonObject o = new JsonObject();
+            o.addProperty("label", m.label);
+            if (m.optId != null) o.addProperty("optId", m.optId);
+            o.addProperty("enabled", m.enabled);
+            o.addProperty("x", Math.round(m.x * 1000.0) / 1000.0);
+            o.addProperty("y", Math.round(m.y * 1000.0) / 1000.0);
+            o.addProperty("scale", Math.round(m.scale * 100.0) / 100.0);
+            o.addProperty("opacity", Math.round(m.opacity * 100.0) / 100.0);
+            o.addProperty("bg", m.bg);
+            o.addProperty("border", m.border);
+            o.addProperty("chroma", m.chroma);
+            o.addProperty("color", m.color);
+            o.addProperty("anchor", m.anchor);
+            mods.add(e.getKey(), o);
+        }
+        root.add("hudModules", mods);
+
+        JsonObject opts = new JsonObject();
+        for (Map.Entry<String, JsonElement> e : options.entrySet()) {
+            opts.add(e.getKey(), e.getValue());
+        }
+        root.add("options", opts);
+
+        try {
+            Path p = getConfigPath();
+            Files.createDirectories(p.getParent());
+            Files.writeString(p, GSON.toJson(root), StandardCharsets.UTF_8);
+        } catch (IOException ignored) {
+        }
     }
 
-    private static String titleCase(String s) {
-        String[] parts = s.split(" ");
-        StringBuilder sb = new StringBuilder();
-        for (String p : parts) {
-            if (p.isEmpty()) continue;
-            sb.append(Character.toUpperCase(p.charAt(0))).append(p.substring(1)).append(" ");
+    public boolean getBool(String id, boolean def) {
+        JsonElement el = options.get(id);
+        return (el != null && el.isJsonPrimitive() && el.getAsJsonPrimitive().isBoolean()) ? el.getAsBoolean() : def;
+    }
+
+    public double getDouble(String id, double def) {
+        JsonElement el = options.get(id);
+        return (el != null && el.isJsonPrimitive() && el.getAsJsonPrimitive().isNumber()) ? el.getAsDouble() : def;
+    }
+
+    public String getString(String id, String def) {
+        JsonElement el = options.get(id);
+        return (el != null && el.isJsonPrimitive()) ? el.getAsString() : def;
+    }
+
+    public void setOption(String id, Object val) {
+        options.put(id, GSON.toJsonTree(val));
+        for (HudModule m : hudModules.values()) {
+            if (id.equals(m.optId) && val instanceof Boolean b) m.enabled = b;
         }
-        return sb.toString().trim();
+        save();
+    }
+
+    public void toggleModule(HudModule m) {
+        m.enabled = !m.enabled;
+        if (m.optId != null) options.put(m.optId, new JsonPrimitive(m.enabled));
+        save();
+    }
+
+    public double getZoomFactor() {
+        return Math.max(2.0, getDouble("cam_zoom_fac", 4.0));
+    }
+
+    public void resetLayout() {
+        Map<String, JsonElement> kept = new LinkedHashMap<>(options);
+        initDefaults();
+        options.putAll(kept);
+        save();
     }
 }
