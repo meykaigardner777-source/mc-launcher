@@ -1,0 +1,5 @@
+{
+  "required": true, "package": "dev.aetheria.client.mixin", "compatibilityLevel": "JAVA_8",
+  "client": ["InGameHudMixin","MinecraftClientMixin","GameRendererMixin","HeldItemRendererMixin"],
+  "injectors": { "defaultRequire": 0 }
+}

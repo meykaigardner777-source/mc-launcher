@@ -1,0 +1,18 @@
+plugins {
+    id 'net.fabricmc.fabric-loom-remap' version '1.16-SNAPSHOT'
+    id 'legacy-looming' version '1.16-SNAPSHOT'
+    id 'java'
+}
+version = '1.1.0'
+group = 'dev.aetheria'
+base { archivesName = 'aetheria-client-mod-1.8.9' }
+repositories { mavenCentral() }
+sourceSets { main { java { srcDirs = ['src/main/java', '../common/src/main/java'] } } }
+dependencies {
+    minecraft 'com.mojang:minecraft:1.8.9'
+    mappings 'net.legacyfabric:yarn:1.8.9+build.604:v2'
+    modImplementation 'net.fabricmc:fabric-loader:0.19.5'
+}
+processResources { inputs.property 'version', project.version; filesMatching('fabric.mod.json') { expand 'version': project.version } }
+tasks.withType(JavaCompile).configureEach { it.options.release = 8 }
+java { sourceCompatibility = JavaVersion.VERSION_1_8; targetCompatibility = JavaVersion.VERSION_1_8 }

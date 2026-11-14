@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "dev.aetheria.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "HudMixin",
+    "MinecraftMixin",
+    "MouseHandlerMixin",
+    "GameRendererMixin",
+    "EntityMixin",
+    "ScreenEffectRendererMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}

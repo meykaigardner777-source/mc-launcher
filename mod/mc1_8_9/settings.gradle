@@ -1,0 +1,9 @@
+pluginManagement {
+    repositories {
+        maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
+        maven { name = 'Legacy Fabric'; url = 'https://repo.legacyfabric.net/repository/legacyfabric/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+rootProject.name = 'aetheria-client-mod-1.8.9'

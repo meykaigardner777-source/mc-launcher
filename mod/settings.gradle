@@ -1,10 +1,10 @@
 pluginManagement {
     repositories {
-        maven {
-            name = 'Fabric'
-            url = 'https://maven.fabricmc.net/'
-        }
+        maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
         mavenCentral()
         gradlePluginPortal()
     }
 }
+
+rootProject.name = 'aetheria-client-mod'
+include 'mc26_3', 'mc26_2', 'mc26_1', 'mc1_21_11', 'mc1_21_1'

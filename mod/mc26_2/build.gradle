@@ -1,0 +1,7 @@
+plugins { id 'net.fabricmc.fabric-loom'; id 'java' }
+base { archivesName = "${rootProject.archives_base_name}-26.2" }
+sourceSets { main { java { srcDirs = ['src/main/java', '../common/src/main/java'] } } }
+dependencies { minecraft 'com.mojang:minecraft:26.2'; implementation "net.fabricmc:fabric-loader:${rootProject.loader_version}" }
+processResources { inputs.property 'version', project.version; filesMatching('fabric.mod.json') { expand 'version': project.version } }
+tasks.withType(JavaCompile).configureEach { it.options.release = 25 }
+java { sourceCompatibility = JavaVersion.VERSION_25; targetCompatibility = JavaVersion.VERSION_25 }

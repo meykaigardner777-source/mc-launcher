@@ -6,7 +6,6 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:mods": "cd mod && gradlew.bat buildAllMods",
     "pack:arm": "electron-builder --win --arm64 --publish never"
   },
   "devDependencies": {

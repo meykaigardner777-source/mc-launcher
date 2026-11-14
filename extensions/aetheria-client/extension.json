@@ -2,6 +2,6 @@
   "id": "aetheria-client",
   "name": "Aetheria Client",
   "version": "1.1.0",
-  "description": "In-game HUD & settings manager for Aetheria Client Mod (1.8.9, 1.21.1, 1.21.11, 26.1, 26.2, 26.3), servers, friends, playtime & 21x21 widget.",
+  "description": "In-game HUD & settings manager for Aetheria Client Mod (1.8.9, 1.21.1, 1.21.11, 26.1, 26.2, 26.3).",
   "main": "index.js"
 }

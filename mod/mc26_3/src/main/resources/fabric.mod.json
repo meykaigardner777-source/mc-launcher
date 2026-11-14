@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "aetheria-client",
+  "version": "${version}",
+  "name": "Aetheria Client",
+  "description": "In-game HUD and mod menu synced with Aetheria Launcher.",
+  "authors": ["Aetheria"],
+  "environment": "client",
+  "entrypoints": { "client": ["dev.aetheria.client.AetheriaClientMod"] },
+  "mixins": ["aetheria-client.mixins.json"],
+  "depends": { "fabricloader": ">=0.19.5", "minecraft": "~26.3", "java": ">=25" }
+}
