@@ -4,7 +4,7 @@ import dev.aetheria.client.AetheriaClientMod;
 import dev.aetheria.client.config.ClientConfig;
 import dev.aetheria.client.hud.HudManager;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
@@ -26,7 +26,7 @@ public class ModMenuScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         AetheriaClientMod.captureWindow();
         ClientConfig cfg = ClientConfig.get();
@@ -48,16 +48,16 @@ public class ModMenuScreen extends Screen {
         HudManager.drawBorder(g, px, py, panelW, panelH, 0xFF4F8EF7);
 
         // Header
-        g.drawString(mc.font, "✦ AETHERIA CLIENT", px + 14, py + 12, 0xFFFFFFFF, true);
+        g.text(mc.font, "✦ AETHERIA CLIENT", px + 14, py + 12, 0xFFFFFFFF, true);
 
         // Top action buttons
         if (drawBtn(g, mc, px + panelW - 224, py + 8, 108, 20, "Edit HUD Layout", 0xFF2D6CDF, mouseX, mouseY, clicked)) {
-            mc.setScreen(new HudEditorScreen());
+            mc.gui.setScreen(new HudEditorScreen());
             return;
         }
         if (drawBtn(g, mc, px + panelW - 110, py + 8, 96, 20, "Save & Close", 0xFF263042, mouseX, mouseY, clicked)) {
             cfg.save();
-            mc.setScreen(null);
+            mc.gui.setScreen(null);
             return;
         }
 
@@ -106,8 +106,8 @@ public class ModMenuScreen extends Screen {
 
                 g.fill(cx, cy, cx + cardW, cy + 30, 0xCC181E2B);
                 HudManager.drawBorder(g, cx, cy, cardW, 30, m.enabled ? 0xFF4F8EF7 : 0x44FFFFFF);
-                g.drawString(mc.font, m.label, cx + 8, cy + 6, 0xFFFFFFFF, false);
-                g.drawString(mc.font, "Scale " + String.format("%.1fx", m.scale) + " • " + Math.round(m.x * 100) + "%," + Math.round(m.y * 100) + "%", cx + 8, cy + 17, 0xFF9AA5B8, false);
+                g.text(mc.font, m.label, cx + 8, cy + 6, 0xFFFFFFFF, false);
+                g.text(mc.font, "Scale " + String.format("%.1fx", m.scale) + " • " + Math.round(m.x * 100) + "%," + Math.round(m.y * 100) + "%", cx + 8, cy + 17, 0xFF9AA5B8, false);
 
                 if (drawBtn(g, mc, cx + cardW - 86, cy + 5, 34, 20, "BG", m.bg ? 0xFF334766 : 0xFF222834, mouseX, mouseY, clicked)) {
                     m.bg = !m.bg;
@@ -120,15 +120,15 @@ public class ModMenuScreen extends Screen {
         }
 
         // Footer
-        g.drawString(mc.font, "ESC to close • Click 'Edit HUD Layout' to drag every module's position on-screen", px + 14, py + panelH - 16, 0xFF8C97AB, false);
+        g.text(mc.font, "ESC to close • Click 'Edit HUD Layout' to drag every module's position on-screen", px + 14, py + panelH - 16, 0xFF8C97AB, false);
     }
 
-    private boolean drawBtn(GuiGraphics g, Minecraft mc, int x, int y, int w, int h, String label, int bg, int mx, int my, boolean clicked) {
+    private boolean drawBtn(GuiGraphicsExtractor g, Minecraft mc, int x, int y, int w, int h, String label, int bg, int mx, int my, boolean clicked) {
         boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + h;
         g.fill(x, y, x + w, y + h, hover ? bg + 0x00151515 : bg);
         HudManager.drawBorder(g, x, y, w, h, hover ? 0xAAFFFFFF : 0x44FFFFFF);
         int tw = mc.font.width(label);
-        g.drawString(mc.font, label, x + (w - tw) / 2, y + (h - 8) / 2, 0xFFFFFFFF, false);
+        g.text(mc.font, label, x + (w - tw) / 2, y + (h - 8) / 2, 0xFFFFFFFF, false);
         return hover && clicked;
     }
 }
