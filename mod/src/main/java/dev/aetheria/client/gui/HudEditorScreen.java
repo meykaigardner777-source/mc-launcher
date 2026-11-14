@@ -4,7 +4,7 @@ import dev.aetheria.client.AetheriaClientMod;
 import dev.aetheria.client.config.ClientConfig;
 import dev.aetheria.client.hud.HudManager;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
@@ -26,7 +26,7 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         AetheriaClientMod.captureWindow();
         ClientConfig cfg = ClientConfig.get();
@@ -90,7 +90,7 @@ public class HudEditorScreen extends Screen {
 
         ClientConfig.HudModule sel = cfg.hudModules.get(selectedId);
         if (sel != null) {
-            g.drawString(mc.font, sel.label + " (" + String.format("%.2fx", sel.scale) + ")", 16, barY + 13, 0xFFFFFFFF, false);
+            g.text(mc.font, sel.label + " (" + String.format("%.2fx", sel.scale) + ")", 16, barY + 13, 0xFFFFFFFF, false);
             int x = sw - 455;
             if (btn(g, mc, x, barY + 7, 52, 20, sel.enabled ? "ON" : "OFF", sel.enabled ? 0xFF216E4E : 0xFF4A252A, mouseX, mouseY, justPressed)) {
                 cfg.toggleModule(sel);
@@ -115,17 +115,17 @@ public class HudEditorScreen extends Screen {
             }
             if (btn(g, mc, x + 361, barY + 7, 80, 20, "Back to Menu", 0xFF2D6CDF, mouseX, mouseY, justPressed)) {
                 cfg.save();
-                mc.setScreen(new ModMenuScreen());
+                mc.gui.setScreen(new ModMenuScreen());
             }
         }
     }
 
-    private boolean btn(GuiGraphics g, Minecraft mc, int x, int y, int w, int h, String txt, int bg, int mx, int my, boolean clicked) {
+    private boolean btn(GuiGraphicsExtractor g, Minecraft mc, int x, int y, int w, int h, String txt, int bg, int mx, int my, boolean clicked) {
         boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + h;
         g.fill(x, y, x + w, y + h, hover ? bg + 0x00151515 : bg);
         HudManager.drawBorder(g, x, y, w, h, 0x55FFFFFF);
         int tw = mc.font.width(txt);
-        g.drawString(mc.font, txt, x + (w - tw) / 2, y + (h - 8) / 2, 0xFFFFFFFF, false);
+        g.text(mc.font, txt, x + (w - tw) / 2, y + (h - 8) / 2, 0xFFFFFFFF, false);
         return hover && clicked;
     }
 }
