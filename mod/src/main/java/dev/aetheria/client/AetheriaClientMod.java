@@ -35,18 +35,18 @@ public class AetheriaClientMod implements ClientModInitializer {
         ClientConfig cfg = ClientConfig.get();
         int menuKeyCode = mapKeyName(cfg.menuKey, GLFW.GLFW_KEY_RIGHT_SHIFT);
         boolean menuDown = GLFW.glfwGetKey(windowHandle, menuKeyCode) == GLFW.GLFW_PRESS;
-        if (menuDown && !prevMenuDown && mc.screen == null) {
-            mc.setScreen(new ModMenuScreen());
+        if (menuDown && !prevMenuDown && mc.gui.screen() == null) {
+            mc.gui.setScreen(new ModMenuScreen());
         }
         prevMenuDown = menuDown;
 
         // Zoom hold check
         int zoomKeyCode = mapKeyName(cfg.getString("cam_zoom_key", "C"), GLFW.GLFW_KEY_C);
-        zooming = mc.screen == null && cfg.getBool("cam_zoom", true)
+        zooming = mc.gui.screen() == null && cfg.getBool("cam_zoom", true)
                 && GLFW.glfwGetKey(windowHandle, zoomKeyCode) == GLFW.GLFW_PRESS;
 
         // ToggleSprint
-        if (mc.player != null && mc.screen == null && cfg.getBool("pvp_togglesprint", true)) {
+        if (mc.player != null && mc.gui.screen() == null && cfg.getBool("pvp_togglesprint", true)) {
             if (mc.options.keyUp.isDown() && !mc.player.isShiftKeyDown() && !mc.player.horizontalCollision) {
                 mc.player.setSprinting(true);
             }
