@@ -9,25 +9,70 @@ permissions:
   contents: write
 
 jobs:
+  build-mods-modern:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.7.1'
+      - name: Build Modern Mod JARs
+        working-directory: mod
+        run: gradle buildAllModern --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preinstalled-modern
+          path: extensions/aetheria-client/mods/*.jar
+
+  build-mods-legacy:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Build 1.8.9 Mod JAR
+        working-directory: mod/mc1_8_9
+        run: gradle build --no-daemon
+      - name: Collect 1.8.9 JAR
+        run: |
+          mkdir -p out-189
+          for f in mod/mc1_8_9/build/libs/*.jar; do
+            case "$f" in *-sources.jar|*-dev.jar) continue ;; esac
+            cp "$f" out-189/aetheria-client-mod-1.8.9.jar
+            break
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preinstalled-legacy
+          path: out-189/*.jar
+
   build-windows-arm64:
+    needs: [build-mods-modern, build-mods-legacy]
+    if: needs.build-mods-modern.result == 'success'
     runs-on: windows-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: preinstalled-*
+          path: extensions/aetheria-client/mods
+          merge-multiple: true
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build ARM64 Executable
-        run: npm run pack:arm
-
-      - name: Publish to GitHub Releases
-        uses: ncipollo/release-action@v1
+      - run: npm install
+      - run: npm run pack:arm
+      - uses: ncipollo/release-action@v1
         with:
           artifacts: "dist/*.exe"
           tag: "v1.0.${{ github.run_number }}"
