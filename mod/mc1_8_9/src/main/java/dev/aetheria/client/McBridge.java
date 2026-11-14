@@ -4,8 +4,6 @@ import dev.aetheria.client.gui.HudEditorScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.options.GameOptions;
-import net.minecraft.client.options.KeyBinding;
 import net.minecraft.client.util.Window;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.item.ItemStack;
@@ -20,24 +18,39 @@ public final class McBridge {
     private static int framesThisSecond = 0, measuredFps = 0;
     private static long lastFpsMs = System.currentTimeMillis();
     private static final Map<String, Integer> KEY_CACHE = new HashMap<String, Integer>();
+    private static long lastKeyRefreshMs = 0L;
 
-    public static int getKeyCode(GameOptions opts, String transKey, int fallback) {
+    public static int getKeyCode(Object opts, String transKey, int fallback) {
+        long now = System.currentTimeMillis();
+        if (now - lastKeyRefreshMs > 2000L) {
+            KEY_CACHE.clear();
+            lastKeyRefreshMs = now;
+        }
+        Integer cached = KEY_CACHE.get(transKey);
+        if (cached != null) return cached.intValue();
         if (opts == null) return fallback;
         try {
             for (Field f : opts.getClass().getFields()) {
                 Object val = f.get(opts);
-                if (val instanceof KeyBinding) {
-                    KeyBinding kb = (KeyBinding) val;
-                    if (transKey.equals(kb.getTranslationKey())) {
-                        int code = kb.getCode();
-                        KEY_CACHE.put(transKey, code);
-                        return code;
+                if (val == null || val.getClass().isPrimitive()) continue;
+                String keyName = null;
+                for (String gm : new String[]{"getTranslationKey", "getId", "getKeyDescription"}) {
+                    try { keyName = String.valueOf(val.getClass().getMethod(gm).invoke(val)); break; }
+                    catch (Throwable ignored) {}
+                }
+                if (transKey.equals(keyName)) {
+                    for (String cm : new String[]{"getCode", "getKeyCode"}) {
+                        try {
+                            int code = ((Integer) val.getClass().getMethod(cm).invoke(val)).intValue();
+                            KEY_CACHE.put(transKey, code);
+                            return code;
+                        } catch (Throwable ignored) {}
                     }
                 }
             }
         } catch (Throwable ignored) {}
-        Integer cached = KEY_CACHE.get(transKey);
-        return cached != null ? cached : fallback;
+        KEY_CACHE.put(transKey, fallback);
+        return fallback;
     }
 
     private static String itemName(ItemStack h) {
