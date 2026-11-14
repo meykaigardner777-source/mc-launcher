@@ -25,7 +25,8 @@ public class AetheriaClientMod implements ClientModInitializer {
         ClientState.setMouseButton(false, Mouse.isButtonDown(1), inWorld);
 
         if (mc.player != null && mc.currentScreen == null && cfg.getBool("pvp_togglesprint", true)) {
-            if (mc.options.keyForward.isPressed() && !mc.player.isSneaking() && !mc.player.horizontalCollision
+            if (Keyboard.isKeyDown(McBridge.getKeyCode(mc.options, "key.forward", Keyboard.KEY_W))
+                    && !mc.player.isSneaking() && !mc.player.horizontalCollision
                     && !mc.player.isUsingItem() && (mc.player.getHungerManager().getFoodLevel() > 6 || mc.player.abilities.allowFlying)) {
                 mc.player.setSprinting(true);
             }
