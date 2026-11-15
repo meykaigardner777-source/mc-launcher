@@ -1,4 +1,5 @@
 package dev.aetheria.client.mixin;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.aetheria.client.common.ClientConfig;
 import net.minecraft.client.renderer.*;
@@ -11,6 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ScreenEffectRendererMixin {
     @Inject(method = "renderFire", at = @At("HEAD"), require = 0)
     private static void aetheria$lowFire(PoseStack ps, SubmitNodeCollector snc, TextureAtlasSprite sp, CallbackInfo ci) {
-        if (ClientConfig.get().getBool("pvp_low_fire", true)) ps.translate(0.0, -0.32, 0.0);
+        if (ClientConfig.get().getBool("pvp_low_fire", true)) {
+            ps.translate(0.0, ClientConfig.get().getDouble("pvp_low_fire_offset", -0.32), 0.0);
+        }
     }
 }
