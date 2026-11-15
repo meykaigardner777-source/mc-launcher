@@ -18,13 +18,19 @@ public class HudEditorScreen extends Screen {
         Minecraft mc = Minecraft.getInstance();
         editor.render(McBridge.draw(g, mc), McBridge.data(mc), this.width, this.height, mx, my);
     }
+
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean dbl) {
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
+        int btn = event.button() == InputConstants.MOUSE_BUTTON_LEFT ? 0 : (event.button() == InputConstants.MOUSE_BUTTON_RIGHT ? 1 : -1);
+        if (btn >= 0) {
             Minecraft mc = Minecraft.getInstance();
-            if (editor.mouseClicked(McBridge.draw(null, mc), McBridge.data(mc), this.width, this.height, event.x(), event.y(), () -> mc.gui.setScreen(new ModMenuScreen()))) return true;
+            if (editor.mouseClicked(McBridge.draw(null, mc), McBridge.data(mc), this.width, this.height, event.x(), event.y(), btn, new SharedHudEditor.Actions() {
+                @Override public void backToMenu() { mc.gui.setScreen(new ModMenuScreen()); }
+                @Override public void openModSettings(String modId) { mc.gui.setScreen(new ModMenuScreen(modId)); }
+            })) return true;
         }
         return super.mouseClicked(event, dbl);
     }
+
     @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             Minecraft mc = Minecraft.getInstance();
@@ -32,6 +38,7 @@ public class HudEditorScreen extends Screen {
         }
         return super.mouseDragged(event, dx, dy);
     }
+
     @Override public boolean mouseReleased(MouseButtonEvent event) {
         if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && editor.mouseReleased()) return true;
         return super.mouseReleased(event);
