@@ -1,4 +1,5 @@
 package dev.aetheria.client.gui;
+
 import dev.aetheria.client.McBridge;
 import dev.aetheria.client.common.SharedHudEditor;
 import net.minecraft.client.Minecraft;
@@ -10,11 +11,15 @@ public class HudEditorScreen extends Screen {
     private final SharedHudEditor editor = new SharedHudEditor();
     public HudEditorScreen() { super(Component.literal("Aetheria HUD Editor")); }
     @Override public boolean isPauseScreen() { return false; }
+
     @Override public void render(GuiGraphics g, int mx, int my, float pt) { Minecraft mc = Minecraft.getInstance(); editor.render(McBridge.draw(g, mc), McBridge.data(mc), this.width, this.height, mx, my); }
     @Override public boolean mouseClicked(double mx, double my, int btn) {
-        if (btn == 0) {
+        if (btn == 0 || btn == 1) {
             Minecraft mc = Minecraft.getInstance();
-            if (editor.mouseClicked(McBridge.draw(null, mc), McBridge.data(mc), this.width, this.height, mx, my, () -> mc.setScreen(new ModMenuScreen()))) return true;
+            if (editor.mouseClicked(McBridge.draw(null, mc), McBridge.data(mc), this.width, this.height, mx, my, btn, new SharedHudEditor.Actions() {
+                @Override public void backToMenu() { mc.setScreen(new ModMenuScreen()); }
+                @Override public void openModSettings(String modId) { mc.setScreen(new ModMenuScreen(modId)); }
+            })) return true;
         }
         return super.mouseClicked(mx, my, btn);
     }
