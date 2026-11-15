@@ -1,10 +1,18 @@
 package dev.aetheria.client.common;
 
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class ClientConfig {
     private static final ClientConfig INSTANCE = new ClientConfig();
@@ -20,12 +28,25 @@ public class ClientConfig {
     public final Map<String, JsonElement> options = new LinkedHashMap<String, JsonElement>();
 
     public static class HudModule {
-        public String id, label, optId, color = "#ffffff", anchor = "top-left";
-        public boolean enabled, bg = true, border = true, chroma = false;
-        public double x, y, scale = 1.0, opacity = 0.85;
+        public String id;
+        public String label;
+        public String optId;
+        public boolean enabled;
+        public double x;
+        public double y;
+        public double scale = 1.0;
+        public double opacity = 0.85;
+        public boolean bg = true;
+        public boolean border = true;
+        public boolean chroma = false;
+        public boolean shadow = true;
+        public String color = "#ffffff";
+        public String anchor = "top-left";
     }
 
-    public static ClientConfig get() { return INSTANCE; }
+    public static ClientConfig get() {
+        return INSTANCE;
+    }
 
     public synchronized void init(Path configDir) {
         this.configPath = configDir.resolve("aetheria-client.json");
@@ -41,7 +62,8 @@ public class ClientConfig {
             if (!Files.exists(configPath)) return;
             long mtime = Files.getLastModifiedTime(configPath).toMillis();
             if (mtime > lastFileMtimeMs) load();
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
     }
 
     private void initDefaults() {
@@ -64,20 +86,71 @@ public class ClientConfig {
         addDefault("combo", "Combo Counter", "pvp_combo_hud", false, 0.435, 0.600, "#fca5a5", "center");
         addDefault("reach", "Reach Display", "pvp_reach_hud", false, 0.435, 0.660, "#fca5a5", "center");
 
-        for (HudModule m : hudModules.values()) if (m.optId != null) setDefaultOpt(m.optId, m.enabled);
-        setDefaultOpt("hud_snap_grid", true); setDefaultOpt("hud_shadow", true);
-        setDefaultOpt("pvp_low_fire", true); setDefaultOpt("pvp_xhair_style", "classic");
-        setDefaultOpt("pvp_xhair_size", 6); setDefaultOpt("pvp_xhair_gap", 2);
-        setDefaultOpt("cam_zoom", true); setDefaultOpt("cam_zoom_fac", 4);
-        setDefaultOpt("cam_zoom_ease", true); setDefaultOpt("cam_zoom_slow", true);
-        setDefaultOpt("cam_zoom_key", "C"); setDefaultOpt("ctl_menu_key", "RSHIFT");
+        for (HudModule m : hudModules.values()) {
+            if (m.optId != null) setDefaultOpt(m.optId, m.enabled);
+        }
+
+        setDefaultOpt("ui_accent", "white");
+        setDefaultOpt("hud_snap_grid", false);
+        setDefaultOpt("hud_shadow", true);
+
+        setDefaultOpt("pvp_low_fire", true);
+        setDefaultOpt("pvp_low_fire_offset", -0.32);
+
+        setDefaultOpt("pvp_xhair_style", "classic");
+        setDefaultOpt("pvp_xhair_size", 6);
+        setDefaultOpt("pvp_xhair_gap", 2);
+        setDefaultOpt("pvp_xhair_thick", 1);
+        setDefaultOpt("pvp_xhair_color", "#ffffff");
+        setDefaultOpt("pvp_xhair_target", true);
+        setDefaultOpt("pvp_xhair_target_players_only", true);
+        setDefaultOpt("pvp_xhair_target_range", 12);
+        setDefaultOpt("pvp_xhair_target_style", "same");
+        setDefaultOpt("pvp_xhair_target_color", "#ef4444");
+
+        setDefaultOpt("cam_zoom", true);
+        setDefaultOpt("cam_zoom_fac", 4);
+        setDefaultOpt("cam_zoom_ease", true);
+        setDefaultOpt("cam_zoom_slow", true);
+        setDefaultOpt("cam_zoom_key", "C");
+        setDefaultOpt("ctl_menu_key", "RSHIFT");
+
+        setDefaultOpt("fps_show_label", true);
+        setDefaultOpt("coords_facing", true);
+        setDefaultOpt("coords_compact", false);
+        setDefaultOpt("clock_24h", false);
+        setDefaultOpt("compass_degrees", true);
+        setDefaultOpt("armor_percent", true);
+        setDefaultOpt("keystrokes_cps", true);
+        setDefaultOpt("keystrokes_space", true);
+        setDefaultOpt("togglesprint_hide_hud", false);
     }
 
     private void addDefault(String id, String label, String optId, boolean en, double x, double y, String col, String anchor) {
         HudModule m = new HudModule();
-        m.id = id; m.label = label; m.optId = optId; m.enabled = en;
-        m.x = x; m.y = y; m.color = col; m.anchor = anchor;
+        m.id = id;
+        m.label = label;
+        m.optId = optId;
+        m.enabled = en;
+        m.x = x;
+        m.y = y;
+        m.color = col;
+        m.anchor = anchor;
         hudModules.put(id, m);
+    }
+
+    public void resetModule(String id) {
+        HudModule old = hudModules.get(id);
+        Map<String, HudModule> snap = new LinkedHashMap<String, HudModule>(hudModules);
+        initDefaults();
+        HudModule fresh = hudModules.get(id);
+        hudModules.clear();
+        hudModules.putAll(snap);
+        if (fresh != null) {
+            if (old != null) fresh.enabled = old.enabled;
+            hudModules.put(id, fresh);
+        }
+        save();
     }
 
     private void setDefaultOpt(String id, Object val) {
@@ -86,7 +159,10 @@ public class ClientConfig {
 
     public synchronized void load() {
         initDefaults();
-        if (configPath == null || !Files.exists(configPath)) { if (configPath != null) save(); return; }
+        if (configPath == null || !Files.exists(configPath)) {
+            if (configPath != null) save();
+            return;
+        }
         try {
             lastFileMtimeMs = Files.getLastModifiedTime(configPath).toMillis();
             String raw = new String(Files.readAllBytes(configPath), StandardCharsets.UTF_8);
@@ -95,7 +171,9 @@ public class ClientConfig {
             if (root.has("updatedAt")) updatedAt = root.get("updatedAt").getAsLong();
 
             if (root.has("options") && root.get("options").isJsonObject()) {
-                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("options").entrySet()) options.put(e.getKey(), e.getValue());
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("options").entrySet()) {
+                    options.put(e.getKey(), e.getValue());
+                }
             }
             if (root.has("hudModules") && root.get("hudModules").isJsonObject()) {
                 for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("hudModules").entrySet()) {
@@ -113,6 +191,7 @@ public class ClientConfig {
                     if (o.has("bg")) m.bg = o.get("bg").getAsBoolean();
                     if (o.has("border")) m.border = o.get("border").getAsBoolean();
                     if (o.has("chroma")) m.chroma = o.get("chroma").getAsBoolean();
+                    if (o.has("shadow")) m.shadow = o.get("shadow").getAsBoolean();
                     if (o.has("color")) m.color = o.get("color").getAsString();
                     if (o.has("anchor")) m.anchor = o.get("anchor").getAsString();
                     if (m.optId != null && options.containsKey(m.optId)) m.enabled = getBool(m.optId, m.enabled);
@@ -120,7 +199,8 @@ public class ClientConfig {
                 }
             }
             menuKey = getString("ctl_menu_key", menuKey);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     public synchronized void save() {
@@ -148,6 +228,7 @@ public class ClientConfig {
             o.addProperty("bg", m.bg);
             o.addProperty("border", m.border);
             o.addProperty("chroma", m.chroma);
+            o.addProperty("shadow", m.shadow);
             o.addProperty("color", m.color);
             o.addProperty("anchor", m.anchor);
             mods.add(e.getKey(), o);
@@ -162,34 +243,53 @@ public class ClientConfig {
             Files.createDirectories(configPath.getParent());
             Files.write(configPath, GSON.toJson(root).getBytes(StandardCharsets.UTF_8));
             lastFileMtimeMs = Files.getLastModifiedTime(configPath).toMillis();
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
     }
 
     public boolean getBool(String id, boolean def) {
         JsonElement el = options.get(id);
         return (el != null && el.isJsonPrimitive() && el.getAsJsonPrimitive().isBoolean()) ? el.getAsBoolean() : def;
     }
+
     public double getDouble(String id, double def) {
         JsonElement el = options.get(id);
         return (el != null && el.isJsonPrimitive() && el.getAsJsonPrimitive().isNumber()) ? el.getAsDouble() : def;
     }
+
     public String getString(String id, String def) {
         JsonElement el = options.get(id);
         return (el != null && el.isJsonPrimitive()) ? el.getAsString() : def;
     }
+
     public void setOption(String id, Object val) {
         options.put(id, GSON.toJsonTree(val));
-        for (HudModule m : hudModules.values()) if (id.equals(m.optId) && val instanceof Boolean) m.enabled = ((Boolean) val).booleanValue();
+        for (HudModule m : hudModules.values()) {
+            if (id.equals(m.optId) && val instanceof Boolean) m.enabled = ((Boolean) val).booleanValue();
+        }
         save();
     }
+
     public void toggleModule(HudModule m) {
         m.enabled = !m.enabled;
         if (m.optId != null) options.put(m.optId, new JsonPrimitive(m.enabled));
         save();
     }
-    public double getZoomFactor() { return Math.max(2.0, getDouble("cam_zoom_fac", 4.0)); }
+
+    public double getZoomFactor() {
+        return Math.max(2.0, getDouble("cam_zoom_fac", 4.0));
+    }
+
     public void resetLayout() {
         Map<String, JsonElement> kept = new LinkedHashMap<String, JsonElement>(options);
-        initDefaults(); options.putAll(kept); save();
+        initDefaults();
+        options.putAll(kept);
+        save();
+    }
+
+    public void resetAll() {
+        options.clear();
+        initDefaults();
+        save();
     }
 }
