@@ -1,25 +1,22 @@
 package dev.aetheria.client.common;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.*;
 
 public final class ClientState {
     public static final long START_TIME_MS = System.currentTimeMillis();
 
-    // Aetheria Launcher Obsidian Zinc Palette
-    public static final int UI_BACKDROP    = 0x80000000;
-    public static final int UI_PANEL       = 0xEB09090B;
-    public static final int UI_SIDEBAR     = 0xF20D0D10;
-    public static final int UI_CARD        = 0xD4121215;
-    public static final int UI_CARD_HOVER  = 0xEB19191E;
-    public static final int UI_INPUT       = 0xCC0D0D11;
+    public static final int UI_BACKDROP    = 0x7A000000;
+    public static final int UI_PANEL       = 0xDC09090B;
+    public static final int UI_TITLEBAR    = 0xCC121215;
+    public static final int UI_CARD        = 0xA8121215;
+    public static final int UI_CARD_HOVER  = 0xCE18181D;
+    public static final int UI_INPUT       = 0x99121215;
     public static final int UI_BORDER      = 0xFF27272A;
     public static final int UI_BORDER_HOV  = 0xFF3F3F46;
     public static final int UI_TEXT        = 0xFFF4F4F5;
     public static final int UI_TEXT_MUTED  = 0xFFA1A1AA;
     public static final int UI_TEXT_DIM    = 0xFF71717A;
     public static final int UI_DANGER      = 0xFFEF4444;
-    public static final int UI_SUCCESS     = 0xFF10B981;
 
     private static final Deque<Long> LEFT_CLICKS = new ArrayDeque<Long>();
     private static final Deque<Long> RIGHT_CLICKS = new ArrayDeque<Long>();
@@ -48,18 +45,26 @@ public final class ClientState {
         return 0xFF09090B;
     }
 
-    public static int withAlpha(int rgbOrArgb, int alpha255) {
-        return ((alpha255 & 0xFF) << 24) | (rgbOrArgb & 0x00FFFFFF);
+    public static int withAlpha(int rgbOrArgb, int alpha255) { return ((alpha255 & 0xFF) << 24) | (rgbOrArgb & 0x00FFFFFF); }
+
+    public static int scaleAlpha(int argb, double factor) {
+        int a = (int) Math.round(((argb >>> 24) & 0xFF) * Math.max(0.0, Math.min(1.0, factor)));
+        return ((a & 0xFF) << 24) | (argb & 0x00FFFFFF);
+    }
+
+    public static int lerpColor(int a, int b, float t) {
+        t = Math.max(0.0F, Math.min(1.0F, t));
+        int aa = (a >>> 24) & 0xFF, ar = (a >>> 16) & 0xFF, ag = (a >>> 8) & 0xFF, ab = a & 0xFF;
+        int ba = (b >>> 24) & 0xFF, br = (b >>> 16) & 0xFF, bg = (b >>> 8) & 0xFF, bb = b & 0xFF;
+        return (Math.round(aa + (ba - aa) * t) << 24)
+             | (Math.round(ar + (br - ar) * t) << 16)
+             | (Math.round(ag + (bg - ag) * t) << 8)
+             | Math.round(ab + (bb - ab) * t);
     }
 
     public static synchronized void setMouseButton(boolean isLeft, boolean down, boolean inWorld) {
-        if (isLeft) {
-            if (down && !leftDown && inWorld) LEFT_CLICKS.addLast(System.currentTimeMillis());
-            leftDown = down;
-        } else {
-            if (down && !rightDown && inWorld) RIGHT_CLICKS.addLast(System.currentTimeMillis());
-            rightDown = down;
-        }
+        if (isLeft) { if (down && !leftDown && inWorld) LEFT_CLICKS.addLast(Long.valueOf(System.currentTimeMillis())); leftDown = down; }
+        else { if (down && !rightDown && inWorld) RIGHT_CLICKS.addLast(Long.valueOf(System.currentTimeMillis())); rightDown = down; }
     }
 
     public static boolean isLeftDown() { return leftDown; }
@@ -67,13 +72,13 @@ public final class ClientState {
 
     public static synchronized int getLeftCps() {
         long now = System.currentTimeMillis();
-        while (!LEFT_CLICKS.isEmpty() && now - LEFT_CLICKS.peekFirst() > 1000L) LEFT_CLICKS.removeFirst();
+        while (!LEFT_CLICKS.isEmpty() && now - LEFT_CLICKS.peekFirst().longValue() > 1000L) LEFT_CLICKS.removeFirst();
         return LEFT_CLICKS.size();
     }
 
     public static synchronized int getRightCps() {
         long now = System.currentTimeMillis();
-        while (!RIGHT_CLICKS.isEmpty() && now - RIGHT_CLICKS.peekFirst() > 1000L) RIGHT_CLICKS.removeFirst();
+        while (!RIGHT_CLICKS.isEmpty() && now - RIGHT_CLICKS.peekFirst().longValue() > 1000L) RIGHT_CLICKS.removeFirst();
         return RIGHT_CLICKS.size();
     }
 
@@ -120,9 +125,7 @@ public final class ClientState {
         catch (Exception e) { return fallback; }
     }
 
-    public static String toHexColor(int argb) {
-        return String.format("#%06x", Integer.valueOf(argb & 0x00FFFFFF));
-    }
+    public static String toHexColor(int argb) { return String.format("#%06x", Integer.valueOf(argb & 0x00FFFFFF)); }
 
     public static int hsbToRgb(float hue, float sat, float bri) {
         float h = (hue - (float) Math.floor(hue)) * 6.0f, f = h - (float) Math.floor(h);

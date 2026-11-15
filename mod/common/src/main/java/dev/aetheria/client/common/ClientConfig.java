@@ -1,26 +1,17 @@
 package dev.aetheria.client.common;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
-
+import com.google.gson.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.nio.file.*;
+import java.util.*;
 
 public class ClientConfig {
     private static final ClientConfig INSTANCE = new ClientConfig();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private Path configPath;
-    private long lastPollMs = 0L;
-    private long lastFileMtimeMs = 0L;
+    private long lastPollMs = 0L, lastFileMtimeMs = 0L;
 
     public String menuKey = "RSHIFT";
     public long updatedAt = 0L;
@@ -28,25 +19,13 @@ public class ClientConfig {
     public final Map<String, JsonElement> options = new LinkedHashMap<String, JsonElement>();
 
     public static class HudModule {
-        public String id;
-        public String label;
-        public String optId;
-        public boolean enabled;
-        public double x;
-        public double y;
-        public double scale = 1.0;
-        public double opacity = 0.85;
-        public boolean bg = true;
-        public boolean border = true;
-        public boolean chroma = false;
-        public boolean shadow = true;
-        public String color = "#ffffff";
-        public String anchor = "top-left";
+        public String id, label, optId, color = "#ffffff", anchor = "top-left";
+        public boolean enabled, bg = true, border = true, chroma = false, shadow = true;
+        public double x, y, scale = 1.0, opacity = 0.72;
+        public int borderRadius = 7;
     }
 
-    public static ClientConfig get() {
-        return INSTANCE;
-    }
+    public static ClientConfig get() { return INSTANCE; }
 
     public synchronized void init(Path configDir) {
         this.configPath = configDir.resolve("aetheria-client.json");
@@ -62,8 +41,7 @@ public class ClientConfig {
             if (!Files.exists(configPath)) return;
             long mtime = Files.getLastModifiedTime(configPath).toMillis();
             if (mtime > lastFileMtimeMs) load();
-        } catch (IOException ignored) {
-        }
+        } catch (IOException ignored) {}
     }
 
     private void initDefaults() {
@@ -86,56 +64,44 @@ public class ClientConfig {
         addDefault("combo", "Combo Counter", "pvp_combo_hud", false, 0.435, 0.600, "#fca5a5", "center");
         addDefault("reach", "Reach Display", "pvp_reach_hud", false, 0.435, 0.660, "#fca5a5", "center");
 
-        for (HudModule m : hudModules.values()) {
-            if (m.optId != null) setDefaultOpt(m.optId, m.enabled);
-        }
-
+        for (HudModule m : hudModules.values()) if (m.optId != null) setDefaultOpt(m.optId, Boolean.valueOf(m.enabled));
         setDefaultOpt("ui_accent", "white");
-        setDefaultOpt("hud_snap_grid", false);
-        setDefaultOpt("hud_shadow", true);
-
-        setDefaultOpt("pvp_low_fire", true);
-        setDefaultOpt("pvp_low_fire_offset", -0.32);
-
+        setDefaultOpt("ui_animations", Boolean.TRUE);
+        setDefaultOpt("hud_snap_grid", Boolean.FALSE);
+        setDefaultOpt("hud_shadow", Boolean.TRUE);
+        setDefaultOpt("pvp_low_fire", Boolean.TRUE);
+        setDefaultOpt("pvp_low_fire_offset", Double.valueOf(-0.32));
         setDefaultOpt("pvp_xhair_style", "classic");
-        setDefaultOpt("pvp_xhair_size", 6);
-        setDefaultOpt("pvp_xhair_gap", 2);
-        setDefaultOpt("pvp_xhair_thick", 1);
+        setDefaultOpt("pvp_xhair_size", Integer.valueOf(6));
+        setDefaultOpt("pvp_xhair_gap", Integer.valueOf(2));
+        setDefaultOpt("pvp_xhair_thick", Integer.valueOf(1));
         setDefaultOpt("pvp_xhair_color", "#ffffff");
-        setDefaultOpt("pvp_xhair_target", true);
-        setDefaultOpt("pvp_xhair_target_players_only", true);
-        setDefaultOpt("pvp_xhair_target_range", 12);
+        setDefaultOpt("pvp_xhair_target", Boolean.TRUE);
+        setDefaultOpt("pvp_xhair_target_players_only", Boolean.TRUE);
+        setDefaultOpt("pvp_xhair_target_range", Integer.valueOf(12));
         setDefaultOpt("pvp_xhair_target_style", "same");
         setDefaultOpt("pvp_xhair_target_color", "#ef4444");
-
-        setDefaultOpt("cam_zoom", true);
-        setDefaultOpt("cam_zoom_fac", 4);
-        setDefaultOpt("cam_zoom_ease", true);
-        setDefaultOpt("cam_zoom_slow", true);
+        setDefaultOpt("cam_zoom", Boolean.TRUE);
+        setDefaultOpt("cam_zoom_fac", Integer.valueOf(4));
+        setDefaultOpt("cam_zoom_ease", Boolean.TRUE);
+        setDefaultOpt("cam_zoom_slow", Boolean.TRUE);
         setDefaultOpt("cam_zoom_key", "C");
         setDefaultOpt("ctl_menu_key", "RSHIFT");
-
-        setDefaultOpt("fps_show_label", true);
-        setDefaultOpt("coords_facing", true);
-        setDefaultOpt("coords_compact", false);
-        setDefaultOpt("clock_24h", false);
-        setDefaultOpt("compass_degrees", true);
-        setDefaultOpt("armor_percent", true);
-        setDefaultOpt("keystrokes_cps", true);
-        setDefaultOpt("keystrokes_space", true);
-        setDefaultOpt("togglesprint_hide_hud", false);
+        setDefaultOpt("fps_show_label", Boolean.TRUE);
+        setDefaultOpt("coords_facing", Boolean.TRUE);
+        setDefaultOpt("coords_compact", Boolean.FALSE);
+        setDefaultOpt("clock_24h", Boolean.FALSE);
+        setDefaultOpt("compass_degrees", Boolean.TRUE);
+        setDefaultOpt("armor_percent", Boolean.TRUE);
+        setDefaultOpt("keystrokes_cps", Boolean.TRUE);
+        setDefaultOpt("keystrokes_space", Boolean.TRUE);
+        setDefaultOpt("togglesprint_hide_hud", Boolean.FALSE);
     }
 
     private void addDefault(String id, String label, String optId, boolean en, double x, double y, String col, String anchor) {
         HudModule m = new HudModule();
-        m.id = id;
-        m.label = label;
-        m.optId = optId;
-        m.enabled = en;
-        m.x = x;
-        m.y = y;
-        m.color = col;
-        m.anchor = anchor;
+        m.id = id; m.label = label; m.optId = optId; m.enabled = en;
+        m.x = x; m.y = y; m.color = col; m.anchor = anchor;
         hudModules.put(id, m);
     }
 
@@ -146,10 +112,7 @@ public class ClientConfig {
         HudModule fresh = hudModules.get(id);
         hudModules.clear();
         hudModules.putAll(snap);
-        if (fresh != null) {
-            if (old != null) fresh.enabled = old.enabled;
-            hudModules.put(id, fresh);
-        }
+        if (fresh != null) { if (old != null) fresh.enabled = old.enabled; hudModules.put(id, fresh); }
         save();
     }
 
@@ -159,10 +122,7 @@ public class ClientConfig {
 
     public synchronized void load() {
         initDefaults();
-        if (configPath == null || !Files.exists(configPath)) {
-            if (configPath != null) save();
-            return;
-        }
+        if (configPath == null || !Files.exists(configPath)) { if (configPath != null) save(); return; }
         try {
             lastFileMtimeMs = Files.getLastModifiedTime(configPath).toMillis();
             String raw = new String(Files.readAllBytes(configPath), StandardCharsets.UTF_8);
@@ -171,9 +131,7 @@ public class ClientConfig {
             if (root.has("updatedAt")) updatedAt = root.get("updatedAt").getAsLong();
 
             if (root.has("options") && root.get("options").isJsonObject()) {
-                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("options").entrySet()) {
-                    options.put(e.getKey(), e.getValue());
-                }
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("options").entrySet()) options.put(e.getKey(), e.getValue());
             }
             if (root.has("hudModules") && root.get("hudModules").isJsonObject()) {
                 for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("hudModules").entrySet()) {
@@ -188,6 +146,7 @@ public class ClientConfig {
                     if (o.has("y")) m.y = o.get("y").getAsDouble();
                     if (o.has("scale")) m.scale = o.get("scale").getAsDouble();
                     if (o.has("opacity")) m.opacity = o.get("opacity").getAsDouble();
+                    if (o.has("borderRadius")) m.borderRadius = Math.max(0, Math.min(14, o.get("borderRadius").getAsInt()));
                     if (o.has("bg")) m.bg = o.get("bg").getAsBoolean();
                     if (o.has("border")) m.border = o.get("border").getAsBoolean();
                     if (o.has("chroma")) m.chroma = o.get("chroma").getAsBoolean();
@@ -199,8 +158,7 @@ public class ClientConfig {
                 }
             }
             menuKey = getString("ctl_menu_key", menuKey);
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
     }
 
     public synchronized void save() {
@@ -209,8 +167,8 @@ public class ClientConfig {
         menuKey = getString("ctl_menu_key", menuKey);
 
         JsonObject root = new JsonObject();
-        root.addProperty("schemaVersion", 1);
-        root.addProperty("updatedAt", updatedAt);
+        root.addProperty("schemaVersion", Integer.valueOf(1));
+        root.addProperty("updatedAt", Long.valueOf(updatedAt));
         root.addProperty("menuKey", menuKey);
 
         JsonObject mods = new JsonObject();
@@ -220,15 +178,16 @@ public class ClientConfig {
             JsonObject o = new JsonObject();
             o.addProperty("label", m.label);
             if (m.optId != null) o.addProperty("optId", m.optId);
-            o.addProperty("enabled", m.enabled);
-            o.addProperty("x", Math.round(m.x * 1000.0) / 1000.0);
-            o.addProperty("y", Math.round(m.y * 1000.0) / 1000.0);
-            o.addProperty("scale", Math.round(m.scale * 100.0) / 100.0);
-            o.addProperty("opacity", Math.round(m.opacity * 100.0) / 100.0);
-            o.addProperty("bg", m.bg);
-            o.addProperty("border", m.border);
-            o.addProperty("chroma", m.chroma);
-            o.addProperty("shadow", m.shadow);
+            o.addProperty("enabled", Boolean.valueOf(m.enabled));
+            o.addProperty("x", Double.valueOf(Math.round(m.x * 1000.0) / 1000.0));
+            o.addProperty("y", Double.valueOf(Math.round(m.y * 1000.0) / 1000.0));
+            o.addProperty("scale", Double.valueOf(Math.round(m.scale * 100.0) / 100.0));
+            o.addProperty("opacity", Double.valueOf(Math.round(m.opacity * 100.0) / 100.0));
+            o.addProperty("borderRadius", Integer.valueOf(m.borderRadius));
+            o.addProperty("bg", Boolean.valueOf(m.bg));
+            o.addProperty("border", Boolean.valueOf(m.border));
+            o.addProperty("chroma", Boolean.valueOf(m.chroma));
+            o.addProperty("shadow", Boolean.valueOf(m.shadow));
             o.addProperty("color", m.color);
             o.addProperty("anchor", m.anchor);
             mods.add(e.getKey(), o);
@@ -243,53 +202,35 @@ public class ClientConfig {
             Files.createDirectories(configPath.getParent());
             Files.write(configPath, GSON.toJson(root).getBytes(StandardCharsets.UTF_8));
             lastFileMtimeMs = Files.getLastModifiedTime(configPath).toMillis();
-        } catch (IOException ignored) {
-        }
+        } catch (IOException ignored) {}
     }
 
     public boolean getBool(String id, boolean def) {
         JsonElement el = options.get(id);
         return (el != null && el.isJsonPrimitive() && el.getAsJsonPrimitive().isBoolean()) ? el.getAsBoolean() : def;
     }
-
     public double getDouble(String id, double def) {
         JsonElement el = options.get(id);
         return (el != null && el.isJsonPrimitive() && el.getAsJsonPrimitive().isNumber()) ? el.getAsDouble() : def;
     }
-
     public String getString(String id, String def) {
         JsonElement el = options.get(id);
         return (el != null && el.isJsonPrimitive()) ? el.getAsString() : def;
     }
-
     public void setOption(String id, Object val) {
         options.put(id, GSON.toJsonTree(val));
-        for (HudModule m : hudModules.values()) {
-            if (id.equals(m.optId) && val instanceof Boolean) m.enabled = ((Boolean) val).booleanValue();
-        }
+        for (HudModule m : hudModules.values()) if (id.equals(m.optId) && val instanceof Boolean) m.enabled = ((Boolean) val).booleanValue();
         save();
     }
-
     public void toggleModule(HudModule m) {
         m.enabled = !m.enabled;
-        if (m.optId != null) options.put(m.optId, new JsonPrimitive(m.enabled));
+        if (m.optId != null) options.put(m.optId, new JsonPrimitive(Boolean.valueOf(m.enabled)));
         save();
     }
-
-    public double getZoomFactor() {
-        return Math.max(2.0, getDouble("cam_zoom_fac", 4.0));
-    }
-
+    public double getZoomFactor() { return Math.max(2.0, getDouble("cam_zoom_fac", 4.0)); }
     public void resetLayout() {
         Map<String, JsonElement> kept = new LinkedHashMap<String, JsonElement>(options);
-        initDefaults();
-        options.putAll(kept);
-        save();
+        initDefaults(); options.putAll(kept); save();
     }
-
-    public void resetAll() {
-        options.clear();
-        initDefaults();
-        save();
-    }
+    public void resetAll() { options.clear(); initDefaults(); save(); }
 }
