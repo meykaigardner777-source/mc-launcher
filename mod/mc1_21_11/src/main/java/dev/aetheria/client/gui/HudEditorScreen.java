@@ -1,4 +1,5 @@
 package dev.aetheria.client.gui;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.aetheria.client.McBridge;
 import dev.aetheria.client.common.SharedHudEditor;
@@ -12,11 +13,16 @@ public class HudEditorScreen extends Screen {
     private final SharedHudEditor editor = new SharedHudEditor();
     public HudEditorScreen() { super(Component.literal("Aetheria HUD Editor")); }
     @Override public boolean isPauseScreen() { return false; }
+
     @Override public void render(GuiGraphics g, int mx, int my, float pt) { Minecraft mc = Minecraft.getInstance(); editor.render(McBridge.draw(g, mc), McBridge.data(mc), this.width, this.height, mx, my); }
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean dbl) {
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
+        int btn = event.button() == InputConstants.MOUSE_BUTTON_LEFT ? 0 : (event.button() == InputConstants.MOUSE_BUTTON_RIGHT ? 1 : -1);
+        if (btn >= 0) {
             Minecraft mc = Minecraft.getInstance();
-            if (editor.mouseClicked(McBridge.draw(null, mc), McBridge.data(mc), this.width, this.height, event.x(), event.y(), () -> mc.setScreen(new ModMenuScreen()))) return true;
+            if (editor.mouseClicked(McBridge.draw(null, mc), McBridge.data(mc), this.width, this.height, event.x(), event.y(), btn, new SharedHudEditor.Actions() {
+                @Override public void backToMenu() { mc.setScreen(new ModMenuScreen()); }
+                @Override public void openModSettings(String modId) { mc.setScreen(new ModMenuScreen(modId)); }
+            })) return true;
         }
         return super.mouseClicked(event, dbl);
     }
