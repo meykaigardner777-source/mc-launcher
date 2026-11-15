@@ -6,6 +6,21 @@ import java.util.Deque;
 public final class ClientState {
     public static final long START_TIME_MS = System.currentTimeMillis();
 
+    // Aetheria Launcher Obsidian Zinc Palette
+    public static final int UI_BACKDROP    = 0x80000000;
+    public static final int UI_PANEL       = 0xEB09090B;
+    public static final int UI_SIDEBAR     = 0xF20D0D10;
+    public static final int UI_CARD        = 0xD4121215;
+    public static final int UI_CARD_HOVER  = 0xEB19191E;
+    public static final int UI_INPUT       = 0xCC0D0D11;
+    public static final int UI_BORDER      = 0xFF27272A;
+    public static final int UI_BORDER_HOV  = 0xFF3F3F46;
+    public static final int UI_TEXT        = 0xFFF4F4F5;
+    public static final int UI_TEXT_MUTED  = 0xFFA1A1AA;
+    public static final int UI_TEXT_DIM    = 0xFF71717A;
+    public static final int UI_DANGER      = 0xFFEF4444;
+    public static final int UI_SUCCESS     = 0xFF10B981;
+
     private static final Deque<Long> LEFT_CLICKS = new ArrayDeque<Long>();
     private static final Deque<Long> RIGHT_CLICKS = new ArrayDeque<Long>();
     private static volatile boolean leftDown = false, rightDown = false, zooming = false;
@@ -15,6 +30,27 @@ public final class ClientState {
     private static double lastReachBlocks = 0.0;
 
     private ClientState() {}
+
+    public static int getAccentColor() {
+        String theme = ClientConfig.get().getString("ui_accent", "white");
+        if ("cyan".equals(theme)) return 0xFF22D3EE;
+        if ("emerald".equals(theme)) return 0xFF10B981;
+        if ("amethyst".equals(theme)) return 0xFFA855F7;
+        if ("crimson".equals(theme)) return 0xFFF43F5E;
+        if ("amber".equals(theme)) return 0xFFF59E0B;
+        if ("lime".equals(theme)) return 0xFF84CC16;
+        return 0xFFFFFFFF;
+    }
+
+    public static int getAccentFg() {
+        String theme = ClientConfig.get().getString("ui_accent", "white");
+        if ("amethyst".equals(theme) || "crimson".equals(theme)) return 0xFFFFFFFF;
+        return 0xFF09090B;
+    }
+
+    public static int withAlpha(int rgbOrArgb, int alpha255) {
+        return ((alpha255 & 0xFF) << 24) | (rgbOrArgb & 0x00FFFFFF);
+    }
 
     public static synchronized void setMouseButton(boolean isLeft, boolean down, boolean inWorld) {
         if (isLeft) {
@@ -82,6 +118,10 @@ public final class ClientState {
         if (hex == null || hex.isEmpty()) return fallback;
         try { return 0xFF000000 | Integer.parseInt(hex.startsWith("#") ? hex.substring(1) : hex, 16); }
         catch (Exception e) { return fallback; }
+    }
+
+    public static String toHexColor(int argb) {
+        return String.format("#%06x", Integer.valueOf(argb & 0x00FFFFFF));
     }
 
     public static int hsbToRgb(float hue, float sat, float bri) {
