@@ -1,4 +1,5 @@
 package dev.aetheria.client;
+
 import dev.aetheria.client.common.*;
 import dev.aetheria.client.gui.HudEditorScreen;
 import net.minecraft.client.MinecraftClient;
@@ -16,16 +17,12 @@ import java.util.*;
 
 public final class McBridge {
     private static int framesThisSecond = 0, measuredFps = 0;
-    private static long lastFpsMs = System.currentTimeMillis();
+    private static long lastFpsMs = System.currentTimeMillis(), lastKeyRefreshMs = 0L;
     private static final Map<String, Integer> KEY_CACHE = new HashMap<String, Integer>();
-    private static long lastKeyRefreshMs = 0L;
 
     public static int getKeyCode(Object opts, String transKey, int fallback) {
         long now = System.currentTimeMillis();
-        if (now - lastKeyRefreshMs > 2000L) {
-            KEY_CACHE.clear();
-            lastKeyRefreshMs = now;
-        }
+        if (now - lastKeyRefreshMs > 2000L) { KEY_CACHE.clear(); lastKeyRefreshMs = now; }
         Integer cached = KEY_CACHE.get(transKey);
         if (cached != null) return cached.intValue();
         if (opts == null) return fallback;
@@ -35,21 +32,20 @@ public final class McBridge {
                 if (val == null || val.getClass().isPrimitive()) continue;
                 String keyName = null;
                 for (String gm : new String[]{"getTranslationKey", "getId", "getKeyDescription"}) {
-                    try { keyName = String.valueOf(val.getClass().getMethod(gm).invoke(val)); break; }
-                    catch (Throwable ignored) {}
+                    try { keyName = String.valueOf(val.getClass().getMethod(gm).invoke(val)); break; } catch (Throwable ignored) {}
                 }
                 if (transKey.equals(keyName)) {
                     for (String cm : new String[]{"getCode", "getKeyCode"}) {
                         try {
                             int code = ((Integer) val.getClass().getMethod(cm).invoke(val)).intValue();
-                            KEY_CACHE.put(transKey, code);
+                            KEY_CACHE.put(transKey, Integer.valueOf(code));
                             return code;
                         } catch (Throwable ignored) {}
                     }
                 }
             }
         } catch (Throwable ignored) {}
-        KEY_CACHE.put(transKey, fallback);
+        KEY_CACHE.put(transKey, Integer.valueOf(fallback));
         return fallback;
     }
 
@@ -58,13 +54,46 @@ public final class McBridge {
             try {
                 Method fn = h.getClass().getMethod(m);
                 Object res = fn.invoke(h);
-                if (res != null) {
-                    String s = String.valueOf(res);
-                    if (!s.isEmpty()) return s;
-                }
+                if (res != null && !String.valueOf(res).isEmpty()) return String.valueOf(res);
             } catch (Throwable ignored) {}
         }
         return "Tool";
+    }
+
+    private static boolean targetInView(MinecraftClient mc, double range, boolean playersOnly) {
+        if (mc.player == null || mc.world == null) return false;
+        if (mc.result != null && "ENTITY".equals(String.valueOf(mc.result.type)) && mc.result.pos != null) {
+            if (mc.player.getCameraPosVec(1.0F).distanceTo(mc.result.pos) <= range) {
+                if (!playersOnly) return true;
+                try {
+                    Object ent = mc.result.getClass().getField("entity").get(mc.result);
+                    if (ent != null && ent.getClass().getSimpleName().contains("Player")) return true;
+                } catch (Throwable ignored) { return true; }
+            }
+        }
+        double yr = Math.toRadians(mc.player.yaw), pr = Math.toRadians(mc.player.pitch);
+        double lx = -Math.sin(yr) * Math.cos(pr), ly = -Math.sin(pr), lz = Math.cos(yr) * Math.cos(pr);
+        double ex = mc.player.x, ey = mc.player.y + 1.62, ez = mc.player.z;
+        String[] fields = playersOnly ? new String[]{"players", "playerEntities"} : new String[]{"entities", "loadedEntityList", "players", "playerEntities"};
+        for (String fn : fields) {
+            try {
+                Object listObj = mc.world.getClass().getField(fn).get(mc.world);
+                if (!(listObj instanceof List<?>)) continue;
+                for (Object e : (List<?>) listObj) {
+                    if (e == null || e == mc.player) continue;
+                    if (playersOnly && !e.getClass().getSimpleName().contains("Player")) continue;
+                    double tx = e.getClass().getField("x").getDouble(e) - ex;
+                    double ty = (e.getClass().getField("y").getDouble(e) + 0.9) - ey;
+                    double tz = e.getClass().getField("z").getDouble(e) - ez;
+                    double proj = tx * lx + ty * ly + tz * lz;
+                    if (proj < 0.3 || proj > range) continue;
+                    double perpSq = (tx * tx + ty * ty + tz * tz) - (proj * proj);
+                    if (perpSq <= 0.36) return true;
+                }
+                return false;
+            } catch (Throwable ignored) {}
+        }
+        return false;
     }
 
     public static void renderInGame() {
@@ -121,10 +150,14 @@ public final class McBridge {
                 return (h != null && h.isDamageable()) ? itemName(h) + ": " + (h.getMaxDamage() - h.getDamage()) + "/" + h.getMaxDamage() : "Tool: --";
             }
             @Override public String armorStatus() {
+                boolean pct = ClientConfig.get().getBool("armor_percent", true);
                 String[] names = {"F", "L", "C", "H"}; List<String> list = new ArrayList<String>();
                 ItemStack[] arm = mc.player.inventory.armor;
                 for (int i = arm.length - 1; i >= 0; i--) {
-                    if (arm[i] != null && arm[i].isDamageable()) list.add(names[i] + ": " + Math.round(100.0 * (arm[i].getMaxDamage() - arm[i].getDamage()) / arm[i].getMaxDamage()) + "%");
+                    if (arm[i] != null && arm[i].isDamageable()) {
+                        int rem = arm[i].getMaxDamage() - arm[i].getDamage();
+                        list.add(pct ? (names[i] + ": " + Math.round(100.0 * rem / arm[i].getMaxDamage()) + "%") : (names[i] + ": " + rem + "/" + arm[i].getMaxDamage()));
+                    }
                 }
                 return list.isEmpty() ? "Armor: None" : String.join(" | ", list);
             }
@@ -133,6 +166,8 @@ public final class McBridge {
             @Override public boolean isMoveS() { return Keyboard.isKeyDown(getKeyCode(mc.options, "key.back", Keyboard.KEY_S)); }
             @Override public boolean isMoveD() { return Keyboard.isKeyDown(getKeyCode(mc.options, "key.right", Keyboard.KEY_D)); }
             @Override public boolean isJumpDown() { return Keyboard.isKeyDown(getKeyCode(mc.options, "key.jump", Keyboard.KEY_SPACE)); }
+            @Override public boolean targetPlayerInView(double range) { return targetInView(mc, range, true); }
+            @Override public boolean targetEntityInView(double range) { return targetInView(mc, range, false); }
         };
     }
 }
