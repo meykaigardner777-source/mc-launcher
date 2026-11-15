@@ -6,8 +6,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.*;
 import java.util.*;
 
 public final class McBridge {
@@ -17,6 +19,29 @@ public final class McBridge {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudEditorScreen) return;
         SharedHudRenderer.renderInGame(draw(g, mc), data(mc), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+    }
+
+    private static boolean targetInView(Minecraft mc, double range, boolean playersOnly) {
+        if (mc.player == null || mc.level == null) return false;
+        if (mc.hitResult instanceof EntityHitResult ehr) {
+            Entity hit = ehr.getEntity();
+            if (hit != null && hit != mc.player && (!playersOnly || hit instanceof Player)) {
+                if (mc.player.distanceTo(hit) <= range) return true;
+            }
+        }
+        Vec3 eye = mc.player.getEyePosition(1.0F);
+        Vec3 look = mc.player.getViewVector(1.0F);
+        Vec3 end = eye.add(look.scale(range));
+        double maxDistSq = range * range;
+        Iterable<? extends Entity> candidates = playersOnly ? mc.level.players() : mc.level.entitiesForRendering();
+        for (Entity e : candidates) {
+            if (e == mc.player || !e.isAlive() || e.isSpectator()) continue;
+            if (playersOnly && !(e instanceof Player)) continue;
+            if (!playersOnly && !(e instanceof LivingEntity)) continue;
+            if (e.distanceToSqr(mc.player) > maxDistSq) continue;
+            if (e.getBoundingBox().inflate(0.18).clip(eye, end).isPresent() && mc.player.hasLineOfSight(e)) return true;
+        }
+        return false;
     }
 
     public static UiBridge.UiDraw draw(GuiGraphicsExtractor g, Minecraft mc) {
@@ -66,10 +91,15 @@ public final class McBridge {
                 return (!h.isEmpty() && h.isDamageableItem()) ? h.getHoverName().getString() + ": " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Tool: --";
             }
             @Override public String armorStatus() {
+                boolean pct = ClientConfig.get().getBool("armor_percent", true);
                 List<String> list = new ArrayList<String>();
                 for (EquipmentSlot s : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
                     ItemStack st = mc.player.getItemBySlot(s);
-                    if (!st.isEmpty() && st.isDamageableItem()) list.add(s.getName().substring(0, 1).toUpperCase() + ": " + Math.round(100.0 * (st.getMaxDamage() - st.getDamageValue()) / st.getMaxDamage()) + "%");
+                    if (!st.isEmpty() && st.isDamageableItem()) {
+                        int rem = st.getMaxDamage() - st.getDamageValue();
+                        String tag = s.getName().substring(0, 1).toUpperCase();
+                        list.add(pct ? (tag + ": " + Math.round(100.0 * rem / st.getMaxDamage()) + "%") : (tag + ": " + rem + "/" + st.getMaxDamage()));
+                    }
                 }
                 return list.isEmpty() ? "Armor: None" : String.join(" | ", list);
             }
@@ -78,6 +108,8 @@ public final class McBridge {
             @Override public boolean isMoveS() { return mc.options.keyDown.isDown(); }
             @Override public boolean isMoveD() { return mc.options.keyRight.isDown(); }
             @Override public boolean isJumpDown() { return mc.options.keyJump.isDown(); }
+            @Override public boolean targetPlayerInView(double range) { return targetInView(mc, range, true); }
+            @Override public boolean targetEntityInView(double range) { return targetInView(mc, range, false); }
         };
     }
 }
