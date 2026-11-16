@@ -19,10 +19,15 @@ public class ClientConfig {
     public final Map<String, JsonElement> options = new LinkedHashMap<String, JsonElement>();
 
     public static class HudModule {
-        public String id, label, optId, color = "#ffffff", anchor = "top-left";
+        public String id, label, optId, anchor = "top-left";
+        public String color = "#ffffff";
+        public String bgColor = "#09090b";
+        public String borderColor = "#27272a";
         public boolean enabled, bg = true, border = true, chroma = false, shadow = true;
-        public double x, y, scale = 1.0, opacity = 0.72;
-        public int borderRadius = 7;
+        public double x, y, scale = 1.0, opacity = 0.75;
+        public int borderRadius = 6;
+        public int paddingX = 6;
+        public int paddingY = 4;
     }
 
     public static ClientConfig get() { return INSTANCE; }
@@ -46,31 +51,35 @@ public class ClientConfig {
 
     private void initDefaults() {
         hudModules.clear();
-        addDefault("fps", "FPS Counter", "hud_fps", true, 0.015, 0.025, "#ffffff", "top-left");
-        addDefault("coords", "Coordinates", "hud_coords", true, 0.015, 0.085, "#ffffff", "top-left");
-        addDefault("biome", "Biome", "hud_biome", true, 0.015, 0.175, "#a5f3fc", "top-left");
-        addDefault("ping", "Live Ping", "pvp_ping_hud", true, 0.015, 0.230, "#86efac", "top-left");
-        addDefault("cps", "CPS Counter", "pvp_cps", true, 0.015, 0.285, "#ffffff", "top-left");
-        addDefault("keystrokes", "Keystrokes", "pvp_keystrokes", true, 0.015, 0.345, "#ffffff", "top-left");
-        addDefault("togglesprint", "ToggleSprint", "pvp_togglesprint", true, 0.015, 0.545, "#fde68a", "top-left");
-        addDefault("potions", "Potion Effects", "pvp_potion_hud", true, 0.015, 0.615, "#c4b5fd", "top-left");
-        addDefault("compass", "Compass Strip", "hud_compass", true, 0.340, 0.020, "#ffffff", "top-center");
-        addDefault("clock", "System Clock", "hud_clock", false, 0.855, 0.025, "#ffffff", "top-right");
-        addDefault("session", "Session Timer", "hud_session", true, 0.835, 0.080, "#ffffff", "top-right");
-        addDefault("server_ip", "Server IP", "hud_srv_ip", false, 0.840, 0.135, "#93c5fd", "top-right");
-        addDefault("day_count", "Day Counter", "hud_day_count", false, 0.875, 0.190, "#fde047", "top-right");
-        addDefault("durability", "Tool Durability", "hud_durability", true, 0.825, 0.650, "#ffffff", "bottom-right");
-        addDefault("armor", "Armor Status", "pvp_armor_hud", true, 0.790, 0.720, "#ffffff", "bottom-right");
-        addDefault("combo", "Combo Counter", "pvp_combo_hud", false, 0.435, 0.600, "#fca5a5", "center");
-        addDefault("reach", "Reach Display", "pvp_reach_hud", false, 0.435, 0.660, "#fca5a5", "center");
+        addDefault("fps", "FPS Counter", "hud_fps", true, 0.015, 0.025);
+        addDefault("coords", "Coordinates", "hud_coords", true, 0.015, 0.085);
+        addDefault("biome", "Biome", "hud_biome", true, 0.015, 0.175);
+        addDefault("ping", "Live Ping", "pvp_ping_hud", true, 0.015, 0.230);
+        addDefault("cps", "CPS Counter", "pvp_cps", true, 0.015, 0.285);
+        addDefault("keystrokes", "Keystrokes", "pvp_keystrokes", true, 0.015, 0.345);
+        addDefault("togglesprint", "ToggleSprint", "pvp_togglesprint", true, 0.015, 0.545);
+        addDefault("potions", "Potion Effects", "pvp_potion_hud", true, 0.015, 0.615);
+        addDefault("compass", "Compass Strip", "hud_compass", true, 0.340, 0.020);
+        addDefault("clock", "System Clock", "hud_clock", false, 0.855, 0.025);
+        addDefault("session", "Session Timer", "hud_session", true, 0.835, 0.080);
+        addDefault("server_ip", "Server IP", "hud_srv_ip", false, 0.840, 0.135);
+        addDefault("day_count", "Day Counter", "hud_day_count", false, 0.875, 0.190);
+        addDefault("durability", "Tool Durability", "hud_durability", true, 0.825, 0.650);
+        addDefault("armor", "Armor Status", "pvp_armor_hud", true, 0.790, 0.720);
+        addDefault("combo", "Combo Counter", "pvp_combo_hud", false, 0.435, 0.600);
+        addDefault("reach", "Reach Display", "pvp_reach_hud", false, 0.435, 0.660);
 
         for (HudModule m : hudModules.values()) if (m.optId != null) setDefaultOpt(m.optId, Boolean.valueOf(m.enabled));
+
+        setDefaultOpt("ui_menu_rounding", Integer.valueOf(8));
         setDefaultOpt("ui_accent", "white");
         setDefaultOpt("ui_animations", Boolean.TRUE);
         setDefaultOpt("hud_snap_grid", Boolean.FALSE);
         setDefaultOpt("hud_shadow", Boolean.TRUE);
+
         setDefaultOpt("pvp_low_fire", Boolean.TRUE);
         setDefaultOpt("pvp_low_fire_offset", Double.valueOf(-0.32));
+
         setDefaultOpt("pvp_xhair_style", "classic");
         setDefaultOpt("pvp_xhair_size", Integer.valueOf(6));
         setDefaultOpt("pvp_xhair_gap", Integer.valueOf(2));
@@ -81,12 +90,14 @@ public class ClientConfig {
         setDefaultOpt("pvp_xhair_target_range", Integer.valueOf(12));
         setDefaultOpt("pvp_xhair_target_style", "same");
         setDefaultOpt("pvp_xhair_target_color", "#ef4444");
+
         setDefaultOpt("cam_zoom", Boolean.TRUE);
         setDefaultOpt("cam_zoom_fac", Integer.valueOf(4));
         setDefaultOpt("cam_zoom_ease", Boolean.TRUE);
         setDefaultOpt("cam_zoom_slow", Boolean.TRUE);
         setDefaultOpt("cam_zoom_key", "C");
         setDefaultOpt("ctl_menu_key", "RSHIFT");
+
         setDefaultOpt("fps_show_label", Boolean.TRUE);
         setDefaultOpt("coords_facing", Boolean.TRUE);
         setDefaultOpt("coords_compact", Boolean.FALSE);
@@ -98,10 +109,11 @@ public class ClientConfig {
         setDefaultOpt("togglesprint_hide_hud", Boolean.FALSE);
     }
 
-    private void addDefault(String id, String label, String optId, boolean en, double x, double y, String col, String anchor) {
+    private void addDefault(String id, String label, String optId, boolean en, double x, double y) {
         HudModule m = new HudModule();
         m.id = id; m.label = label; m.optId = optId; m.enabled = en;
-        m.x = x; m.y = y; m.color = col; m.anchor = anchor;
+        m.x = x; m.y = y; m.color = "#ffffff";
+        m.bgColor = "#09090b"; m.borderColor = "#27272a";
         hudModules.put(id, m);
     }
 
@@ -112,7 +124,10 @@ public class ClientConfig {
         HudModule fresh = hudModules.get(id);
         hudModules.clear();
         hudModules.putAll(snap);
-        if (fresh != null) { if (old != null) fresh.enabled = old.enabled; hudModules.put(id, fresh); }
+        if (fresh != null) {
+            if (old != null) fresh.enabled = old.enabled;
+            hudModules.put(id, fresh);
+        }
         save();
     }
 
@@ -146,12 +161,16 @@ public class ClientConfig {
                     if (o.has("y")) m.y = o.get("y").getAsDouble();
                     if (o.has("scale")) m.scale = o.get("scale").getAsDouble();
                     if (o.has("opacity")) m.opacity = o.get("opacity").getAsDouble();
-                    if (o.has("borderRadius")) m.borderRadius = Math.max(0, Math.min(14, o.get("borderRadius").getAsInt()));
+                    if (o.has("borderRadius")) m.borderRadius = Math.max(0, Math.min(12, o.get("borderRadius").getAsInt()));
+                    if (o.has("paddingX")) m.paddingX = Math.max(2, Math.min(16, o.get("paddingX").getAsInt()));
+                    if (o.has("paddingY")) m.paddingY = Math.max(2, Math.min(16, o.get("paddingY").getAsInt()));
                     if (o.has("bg")) m.bg = o.get("bg").getAsBoolean();
                     if (o.has("border")) m.border = o.get("border").getAsBoolean();
                     if (o.has("chroma")) m.chroma = o.get("chroma").getAsBoolean();
                     if (o.has("shadow")) m.shadow = o.get("shadow").getAsBoolean();
                     if (o.has("color")) m.color = o.get("color").getAsString();
+                    if (o.has("bgColor")) m.bgColor = o.get("bgColor").getAsString();
+                    if (o.has("borderColor")) m.borderColor = o.get("borderColor").getAsString();
                     if (o.has("anchor")) m.anchor = o.get("anchor").getAsString();
                     if (m.optId != null && options.containsKey(m.optId)) m.enabled = getBool(m.optId, m.enabled);
                     hudModules.put(e.getKey(), m);
@@ -184,11 +203,15 @@ public class ClientConfig {
             o.addProperty("scale", Double.valueOf(Math.round(m.scale * 100.0) / 100.0));
             o.addProperty("opacity", Double.valueOf(Math.round(m.opacity * 100.0) / 100.0));
             o.addProperty("borderRadius", Integer.valueOf(m.borderRadius));
+            o.addProperty("paddingX", Integer.valueOf(m.paddingX));
+            o.addProperty("paddingY", Integer.valueOf(m.paddingY));
             o.addProperty("bg", Boolean.valueOf(m.bg));
             o.addProperty("border", Boolean.valueOf(m.border));
             o.addProperty("chroma", Boolean.valueOf(m.chroma));
             o.addProperty("shadow", Boolean.valueOf(m.shadow));
             o.addProperty("color", m.color);
+            o.addProperty("bgColor", m.bgColor);
+            o.addProperty("borderColor", m.borderColor);
             o.addProperty("anchor", m.anchor);
             mods.add(e.getKey(), o);
         }

@@ -25,15 +25,18 @@ public final class SharedHudRenderer {
 
     public static int[] getModulePixelBounds(UiBridge.UiDraw g, UiBridge.HudData d, ClientConfig.HudModule m, int sw, int sh) {
         int w, h;
+        int px = Math.max(2, Math.min(16, m.paddingX));
+        int py = Math.max(2, Math.min(16, m.paddingY));
         if ("keystrokes".equals(m.id)) {
             ClientConfig cfg = ClientConfig.get();
             boolean showCps = cfg.getBool("keystrokes_cps", true), showSpace = cfg.getBool("keystrokes_space", true);
-            w = 76; h = 42 + (showCps ? 16 : 0) + (showSpace ? 14 : 0);
+            w = 76 + (px - 6) * 2;
+            h = 42 + (showCps ? 16 : 0) + (showSpace ? 14 : 0) + (py - 4) * 2;
         } else {
             String[] lines = getModuleLines(d, m);
             int maxW = 0; for (String ln : lines) maxW = Math.max(maxW, g.textWidth(ln));
-            w = Math.max(40, maxW + 12);
-            h = Math.max(16, lines.length * 11 + 8);
+            w = Math.max(34, maxW + px * 2);
+            h = Math.max(14, lines.length * 11 + py * 2);
         }
         return new int[]{(int) Math.round(m.x * sw), (int) Math.round(m.y * sh), (int) Math.round(w * m.scale), (int) Math.round(h * m.scale)};
     }
@@ -42,41 +45,44 @@ public final class SharedHudRenderer {
         int px = (int) Math.round(m.x * sw), py = (int) Math.round(m.y * sh);
         float scale = (float) Math.max(0.5, Math.min(2.5, m.scale));
         int textColor = m.chroma ? ClientState.hsbToRgb((System.currentTimeMillis() % 3000L) / 3000.0f, 0.85f, 1.0f) : ClientState.parseHexColor(m.color, 0xFFFFFFFF);
-        int rad = Math.max(0, Math.min(14, m.borderRadius));
+        int rad = Math.max(0, Math.min(12, m.borderRadius));
+        int padX = Math.max(2, Math.min(16, m.paddingX));
+        int padY = Math.max(2, Math.min(16, m.paddingY));
 
         g.pushTransform((float) px, (float) py, scale);
         if ("keystrokes".equals(m.id)) {
             ClientConfig cfg = ClientConfig.get();
             boolean showCps = cfg.getBool("keystrokes_cps", true), showSpace = cfg.getBool("keystrokes_space", true);
-            int kr = Math.min(6, rad);
-            drawKeyBox(g, 26, 0, 24, 20, kr, "W", d.isMoveW(), m, textColor, shadow);
-            drawKeyBox(g, 0, 22, 24, 20, kr, "A", d.isMoveA(), m, textColor, shadow);
-            drawKeyBox(g, 26, 22, 24, 20, kr, "S", d.isMoveS(), m, textColor, shadow);
-            drawKeyBox(g, 52, 22, 24, 20, kr, "D", d.isMoveD(), m, textColor, shadow);
-            int curY = 44;
+            int kr = Math.min(5, rad);
+            int ox = padX - 6, oy = padY - 4;
+            drawKeyBox(g, ox + 26, oy, 24, 20, kr, "W", d.isMoveW(), m, textColor, shadow);
+            drawKeyBox(g, ox, oy + 22, 24, 20, kr, "A", d.isMoveA(), m, textColor, shadow);
+            drawKeyBox(g, ox + 26, oy + 22, 24, 20, kr, "S", d.isMoveS(), m, textColor, shadow);
+            drawKeyBox(g, ox + 52, oy + 22, 24, 20, kr, "D", d.isMoveD(), m, textColor, shadow);
+            int curY = oy + 44;
             if (showCps) {
-                drawKeyBox(g, 0, curY, 37, 14, Math.min(5, kr), "LMB " + ClientState.getLeftCps(), ClientState.isLeftDown(), m, textColor, shadow);
-                drawKeyBox(g, 39, curY, 37, 14, Math.min(5, kr), "RMB " + ClientState.getRightCps(), ClientState.isRightDown(), m, textColor, shadow);
+                drawKeyBox(g, ox, curY, 37, 14, Math.min(4, kr), "LMB " + ClientState.getLeftCps(), ClientState.isLeftDown(), m, textColor, shadow);
+                drawKeyBox(g, ox + 39, curY, 37, 14, Math.min(4, kr), "RMB " + ClientState.getRightCps(), ClientState.isRightDown(), m, textColor, shadow);
                 curY += 16;
             }
-            if (showSpace) drawKeyBox(g, 0, curY, 76, 12, Math.min(5, kr), "SPACE", d.isJumpDown(), m, textColor, shadow);
+            if (showSpace) drawKeyBox(g, ox, curY, 76, 12, Math.min(4, kr), "SPACE", d.isJumpDown(), m, textColor, shadow);
         } else {
             String[] lines = getModuleLines(d, m);
             int maxW = 0; for (String ln : lines) maxW = Math.max(maxW, g.textWidth(ln));
-            int boxW = Math.max(40, maxW + 12), boxH = Math.max(16, lines.length * 11 + 8);
-            int bgCol = m.bg ? (((int) Math.round(Math.max(0.0, Math.min(1.0, m.opacity)) * 210.0) << 24) | 0x121215) : 0;
-            int brdCol = m.border ? (editorPreview && !m.enabled ? 0x99F59E0B : 0xCC27272A) : 0;
-            g.drawGlassCard(0, 0, boxW, boxH, rad, bgCol, brdCol, m.bg);
-            for (int i = 0; i < lines.length; i++) g.text(lines[i], 6, 5 + i * 11, textColor, shadow);
+            int boxW = Math.max(34, maxW + padX * 2), boxH = Math.max(14, lines.length * 11 + padY * 2);
+            int bgCol = m.bg ? ClientState.withAlpha(ClientState.parseHexColor(m.bgColor, 0xFF09090B), (int) Math.round(Math.max(0.0, Math.min(1.0, m.opacity)) * 255.0)) : 0;
+            int brdCol = m.border ? ClientState.parseHexColor(m.borderColor, 0xFF27272A) : 0;
+            g.drawGlassCard(0, 0, boxW, boxH, rad, bgCol, brdCol);
+            for (int i = 0; i < lines.length; i++) g.text(lines[i], padX, padY + i * 11, textColor, shadow);
         }
         g.popTransform();
     }
 
     private static void drawKeyBox(UiBridge.UiDraw g, int x, int y, int w, int h, int rad, String txt, boolean down, ClientConfig.HudModule m, int col, boolean shadow) {
-        int bgCol = down ? 0xE6F4F4F5 : (m.bg ? (((int) (m.opacity * 200) << 24) | 0x121215) : 0);
+        int bgCol = down ? 0xE6F4F4F5 : (m.bg ? ClientState.withAlpha(ClientState.parseHexColor(m.bgColor, 0xFF09090B), (int) Math.round(m.opacity * 255.0)) : 0);
         int fgCol = down ? 0xFF09090B : col;
-        int brdCol = m.border ? (down ? 0xEEFFFFFF : 0xCC27272A) : 0;
-        g.drawGlassCard(x, y, w, h, rad, bgCol, brdCol, m.bg && !down);
+        int brdCol = m.border ? (down ? 0xEEFFFFFF : ClientState.parseHexColor(m.borderColor, 0xFF27272A)) : 0;
+        g.drawGlassCard(x, y, w, h, rad, bgCol, brdCol);
         g.text(txt, x + (w - g.textWidth(txt)) / 2, y + (h - 8) / 2, fgCol, shadow && !down);
     }
 
