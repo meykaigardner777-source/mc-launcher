@@ -4,12 +4,17 @@ import dev.aetheria.client.McBridge;
 import dev.aetheria.client.common.SharedHudEditor;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
+import org.lwjgl.input.Keyboard;
 
 public class HudEditorScreen extends Screen {
     private final SharedHudEditor editor = new SharedHudEditor();
     @Override public boolean shouldPauseGame() { return false; }
 
-    @Override public void render(int mx, int my, float pt) { MinecraftClient mc = MinecraftClient.getInstance(); editor.render(McBridge.draw(mc), McBridge.data(mc), this.width, this.height, mx, my); }
+    @Override public void render(int mx, int my, float pt) {
+        editor.setShiftHeld(Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT));
+        MinecraftClient mc = MinecraftClient.getInstance();
+        editor.render(McBridge.draw(mc), McBridge.data(mc), this.width, this.height, mx, my);
+    }
     @Override protected void mouseClicked(int mx, int my, int btn) {
         if (btn == 0 || btn == 1) {
             MinecraftClient mc = MinecraftClient.getInstance();

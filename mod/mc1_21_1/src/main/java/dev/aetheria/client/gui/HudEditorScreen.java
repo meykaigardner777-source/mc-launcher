@@ -1,5 +1,6 @@
 package dev.aetheria.client.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.aetheria.client.McBridge;
 import dev.aetheria.client.common.SharedHudEditor;
 import net.minecraft.client.Minecraft;
@@ -12,7 +13,12 @@ public class HudEditorScreen extends Screen {
     public HudEditorScreen() { super(Component.literal("Aetheria HUD Editor")); }
     @Override public boolean isPauseScreen() { return false; }
 
-    @Override public void render(GuiGraphics g, int mx, int my, float pt) { Minecraft mc = Minecraft.getInstance(); editor.render(McBridge.draw(g, mc), McBridge.data(mc), this.width, this.height, mx, my); }
+    @Override public void render(GuiGraphics g, int mx, int my, float pt) {
+        Minecraft mc = Minecraft.getInstance();
+        long win = mc.getWindow().getWindow();
+        editor.setShiftHeld(InputConstants.isKeyDown(win, InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(win, InputConstants.KEY_RSHIFT));
+        editor.render(McBridge.draw(g, mc), McBridge.data(mc), this.width, this.height, mx, my);
+    }
     @Override public boolean mouseClicked(double mx, double my, int btn) {
         if (btn == 0 || btn == 1) {
             Minecraft mc = Minecraft.getInstance();

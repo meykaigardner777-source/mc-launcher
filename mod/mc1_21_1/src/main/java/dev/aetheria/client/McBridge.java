@@ -9,6 +9,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.phys.*;
 import java.util.*;
 
@@ -17,7 +18,7 @@ public final class McBridge {
 
     public static void renderInGame(GuiGraphics g) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.options.hideGui || mc.screen instanceof HudEditorScreen) return;
+        if (mc.player == null || mc.screen instanceof HudEditorScreen) return;
         SharedHudRenderer.renderInGame(draw(g, mc), data(mc), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
     }
 
@@ -59,6 +60,10 @@ public final class McBridge {
             @Override public int x() { return mc.player.blockPosition().getX(); }
             @Override public int y() { return mc.player.blockPosition().getY(); }
             @Override public int z() { return mc.player.blockPosition().getZ(); }
+            @Override public double posX() { return mc.player.getX(); }
+            @Override public double posY() { return mc.player.getY(); }
+            @Override public double posZ() { return mc.player.getZ(); }
+            @Override public float pitch() { return mc.player.getXRot(); }
             @Override public String facing() { String n = mc.player.getDirection().getName(); return n.substring(0, 1).toUpperCase() + n.substring(1); }
             @Override public String biome() {
                 String k = mc.level.getBiome(mc.player.blockPosition()).unwrapKey().map(x -> x.location().getPath()).orElse("unknown");
@@ -68,19 +73,56 @@ public final class McBridge {
             }
             @Override public int pingMs() { PlayerInfo pi = mc.getConnection() != null ? mc.getConnection().getPlayerInfo(mc.player.getUUID()) : null; return pi != null ? pi.getLatency() : 0; }
             @Override public boolean isSprinting() { return mc.player.isSprinting(); }
+            @Override public boolean isSneaking() { return mc.player.isShiftKeyDown(); }
+            @Override public boolean isMoveCtrl() { return mc.options.keySprint.isDown(); }
             @Override public String[] activePotions() {
                 List<String> out = new ArrayList<String>();
                 for (MobEffectInstance eff : mc.player.getActiveEffects()) {
                     String name = eff.getEffect().value().getDisplayName().getString();
                     if (eff.isInfiniteDuration()) out.add(name + " **:**");
-                    else { int s = Math.max(0, eff.getDuration() / 20); out.add(name + " " + (s / 60) + ":" + String.format("%02d", s % 60)); }
+                    else { int s = Math.max(0, eff.getDuration() / 20); out.add(name + " " + (s / 60) + ":" + String.format("%02d", Integer.valueOf(s % 60))); }
                 }
                 return out.isEmpty() ? new String[]{"No Potions"} : out.toArray(new String[0]);
             }
             @Override public float yaw() { return mc.player.getYRot(); }
             @Override public String serverIp() { return mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"; }
             @Override public long dayCount() { return mc.level.getDayTime() / 24000L; }
+            @Override public long worldTime() { return mc.level.getDayTime(); }
+            @Override public int moonPhase() { return mc.level.getMoonPhase(); }
+            @Override public String weather() { return mc.level.isThundering() ? "Thunder" : (mc.level.isRaining() ? "Rain" : "Clear"); }
+            @Override public int blockLight() { return mc.level.getBrightness(LightLayer.BLOCK, mc.player.blockPosition()); }
+            @Override public int skyLight() { return mc.level.getBrightness(LightLayer.SKY, mc.player.blockPosition()); }
+            @Override public float health() { return mc.player.getHealth(); }
+            @Override public float maxHealth() { return mc.player.getMaxHealth(); }
+            @Override public float absorption() { return mc.player.getAbsorptionAmount(); }
+            @Override public int foodLevel() { return mc.player.getFoodData().getFoodLevel(); }
+            @Override public float saturation() { return mc.player.getFoodData().getSaturationLevel(); }
+            @Override public int airSupply() { return mc.player.getAirSupply(); }
+            @Override public int maxAirSupply() { return mc.player.getMaxAirSupply(); }
+            @Override public int onlinePlayers() { return mc.getConnection() != null ? mc.getConnection().getOnlinePlayers().size() : 1; }
+            @Override public String lookingAtBlock() { return mc.hitResult instanceof BlockHitResult bhr ? mc.level.getBlockState(bhr.getBlockPos()).getBlock().getName().getString() : "Air"; }
+            @Override public String lookingAtEntity() { return mc.hitResult instanceof EntityHitResult ehr ? ehr.getEntity().getName().getString() : "None"; }
+            @Override public String targetName() { return mc.hitResult instanceof EntityHitResult ehr ? ehr.getEntity().getName().getString() : ""; }
+            @Override public float targetHealth() { return (mc.hitResult instanceof EntityHitResult ehr && ehr.getEntity() instanceof LivingEntity le) ? le.getHealth() : 0.0F; }
+            @Override public float targetMaxHealth() { return (mc.hitResult instanceof EntityHitResult ehr && ehr.getEntity() instanceof LivingEntity le) ? le.getMaxHealth() : 20.0F; }
+            @Override public int countItem(String kw) {
+                int c = 0; String l = kw.toLowerCase();
+                for (int i = 0; i < 36; i++) { ItemStack s = mc.player.getInventory().getItem(i); if (!s.isEmpty() && s.getItem().toString().toLowerCase().contains(l)) c += s.getCount(); }
+                ItemStack off = mc.player.getOffhandItem(); if (!off.isEmpty() && off.getItem().toString().toLowerCase().contains(l)) c += off.getCount();
+                return c;
+            }
+            @Override public int freeSlots() { int f = 0; for (int i = 0; i < 36; i++) if (mc.player.getInventory().getItem(i).isEmpty()) f++; return f; }
+            @Override public int usedSlots() { return 36 - freeSlots(); }
+            @Override public float attackCooldownPct() { return mc.player.getAttackStrengthScale(0.0F); }
+            @Override public boolean isBlockingOrCooling() { return mc.player.isBlocking(); }
+            @Override public double fovDegrees() { return ((Number) mc.options.fov().get()).doubleValue(); }
+            @Override public double gammaPercent() { return ((Number) mc.options.gamma().get()).doubleValue() * 100.0; }
+            @Override public boolean isF1Hidden() { return mc.options.hideGui; }
+            @Override public boolean isChatOpen() { return mc.screen != null && mc.screen.getClass().getSimpleName().contains("Chat"); }
+            @Override public boolean isInventoryOpen() { return mc.screen != null && !isChatOpen() && !(mc.screen instanceof HudEditorScreen); }
+            @Override public boolean isF3Open() { return mc.getDebugOverlay().showDebugScreen(); }
             @Override public String heldToolDurability() { ItemStack h = mc.player.getMainHandItem(); return (!h.isEmpty() && h.isDamageableItem()) ? h.getHoverName().getString() + ": " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Tool: --"; }
+            @Override public String offhandDurability() { ItemStack h = mc.player.getOffhandItem(); return (!h.isEmpty() && h.isDamageableItem()) ? "Off: " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Offhand: --"; }
             @Override public String armorStatus() {
                 boolean pct = ClientConfig.get().getBool("armor_percent", true);
                 List<String> list = new ArrayList<String>();
