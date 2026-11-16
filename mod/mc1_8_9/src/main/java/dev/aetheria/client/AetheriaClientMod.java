@@ -1,4 +1,5 @@
 package dev.aetheria.client;
+
 import dev.aetheria.client.common.*;
 import dev.aetheria.client.gui.ModMenuScreen;
 import net.fabricmc.api.ClientModInitializer;
@@ -29,10 +30,10 @@ public class AetheriaClientMod implements ClientModInitializer {
                 && Keyboard.isKeyDown(mapKey(cfg.getString("util_freelook_key", "ALT"), Keyboard.KEY_LMENU)));
 
         if (cfg.getBool("util_fullbright", false)) {
-            if (savedGamma < 0) savedGamma = mc.options.gammaSetting;
-            mc.options.gammaSetting = 16.0F;
+            if (savedGamma < 0) savedGamma = mc.options.gamma;
+            mc.options.gamma = 16.0F;
         } else if (savedGamma >= 0) {
-            mc.options.gammaSetting = savedGamma;
+            mc.options.gamma = savedGamma;
             savedGamma = -1.0F;
         }
 
