@@ -22,7 +22,7 @@ public class SharedModMenu {
     private static void ensureMods() {
         if (initialized) return;
         initialized = true;
-        ALL_MODS.add(new ModEntry("crosshair", "Crosshair", "utility", "Dynamic shapes & Player-in-View target switch", false));
+        ALL_MODS.add(new ModEntry("crosshair", "Crosshair", "utility", "Dynamic shapes, pixel editor & Player-in-View switch", false));
         ALL_MODS.add(new ModEntry("zoom", "Optical Zoom", "utility", "Telescopic FOV zoom with smooth easing", false));
         ALL_MODS.add(new ModEntry("fullbright", "Fullbright", "utility", "Clean max gamma night vision boost", false));
         ALL_MODS.add(new ModEntry("freelook", "FreeLook 360", "utility", "Detached 360-degree perspective camera", false));
@@ -44,8 +44,8 @@ public class SharedModMenu {
     private static final String[] BRACKETS = {"none", "square", "paren", "pipe", "angle"};
     private static final String[] DISP_MODES = {"icon_text", "text_only", "icon_only"};
     private static final String[] FONT_WEIGHTS = {"normal", "bold"};
-    private static final String[] XHAIR_STYLES = {"vanilla", "classic", "dot", "circle", "t_shape", "arrows", "x_cross"};
-    private static final String[] TARGET_STYLES = {"same", "classic", "dot", "circle", "t_shape", "arrows", "x_cross"};
+    private static final String[] XHAIR_STYLES = {"vanilla", "classic", "dot", "circle", "t_shape", "arrows", "x_cross", "custom"};
+    private static final String[] TARGET_STYLES = {"same", "classic", "dot", "circle", "t_shape", "arrows", "x_cross", "custom"};
     private static final String[] MENU_LAYOUTS = {"topbar", "sidebar", "grid", "palette"};
     private static final String[] SWITCH_STYLES = {"pill", "ios", "checkbox"};
     private static final String[] ANIM_CURVES = {"smooth", "snappy"};
@@ -62,6 +62,7 @@ public class SharedModMenu {
 
     private String activeMenu = "all", editingModId = null, inspectorTab = "geom", searchQuery = "";
     private boolean searchFocused = false;
+    private boolean editingTargetPixels = false, pixelMirrorX = true, pixelMirrorY = false;
     private float scrollPx = 0.0F, targetScrollPx = 0.0F;
     private int maxScrollPx = 0;
 
@@ -504,7 +505,7 @@ public class SharedModMenu {
         rows.add(profileRow("Survival", "Coords + Nether, Biome, Light Level, Day/Weather, Y-Alert, WAILA & Bag"));
         rows.add(profileRow("SMP", "Coords, Ping, TPS, Server IP, Players, Waypoints, Death Tracker & Totems"));
         rows.add(profileRow("Minimal", "Ultra-clean FPS, Coordinates & Ping only"));
-        rows.add(profileRow("Cinematic", "Zero clutter — hides HUDs except active Zoom badge"));
+        rows.add(profileRow("Cinematic", "Zero clutter - hides HUDs except active Zoom badge"));
         return renderScrollableRows(g, rows, cx, cy + 22, cw - 10, ch - 22, cw, mx, my, click, accent, accentFg, menuRad);
     }
 
@@ -528,15 +529,17 @@ public class SharedModMenu {
 
     private void buildCrosshairRows(List<SettingRow> rows) {
         rows.add(xhairPreviewRow());
-        rows.add(cycleRow("Default Shape", "Crosshair shape on blocks/air", "pvp_xhair_style", XHAIR_STYLES));
-        rows.add(sliderRow("Size", "Arm length or radius", "xhair_size", 2, 16, 1, true));
-        rows.add(sliderRow("Center Gap", "Center spacing", "xhair_gap", 0, 8, 1, true));
-        rows.add(sliderRow("Thickness", "Pixel width (1-3px)", "xhair_thick", 1, 3, 1, true));
+        rows.add(xhairPixelEditorRow());
+        rows.add(cycleRow("Default Shape", "Choose 'CUSTOM' to use your Default Pixel Grid", "pvp_xhair_style", XHAIR_STYLES));
+        rows.add(sliderRow("Custom Pixel Size", "Scale of each pixel (1x-3x) when using CUSTOM", "xhair_pixel_scale", 1, 3, 1, true));
+        rows.add(sliderRow("Size", "Arm length or radius (preset shapes)", "xhair_size", 2, 16, 1, true));
+        rows.add(sliderRow("Center Gap", "Center spacing (preset shapes)", "xhair_gap", 0, 8, 1, true));
+        rows.add(sliderRow("Thickness", "Pixel width (1-3px, preset shapes)", "xhair_thick", 1, 3, 1, true));
         rows.add(colorRow("Crosshair Color", "opt:pvp_xhair_color"));
-        rows.add(boolRow("Player-in-View Switch", "Change shape/color on target", "pvp_xhair_target", true));
+        rows.add(boolRow("Player-in-View Switch", "Change shape/color when aiming at a target", "pvp_xhair_target", true));
         rows.add(boolRow("Players Only", "ON = Players | OFF = All Mobs", "pvp_xhair_target_players_only", true));
         rows.add(sliderRow("Detection Range", "Max distance in blocks", "xhair_range", 3, 32, 1, true));
-        rows.add(cycleRow("In-View Shape", "Shape when aiming at target", "pvp_xhair_target_style", TARGET_STYLES));
+        rows.add(cycleRow("In-View Shape", "Choose 'CUSTOM' to use your Player-in-View Pixel Grid", "pvp_xhair_target_style", TARGET_STYLES));
         rows.add(colorRow("In-View Color", "opt:pvp_xhair_target_color"));
     }
 
@@ -740,20 +743,119 @@ public class SharedModMenu {
                 String baseStyle = cfg.getString("pvp_xhair_style", "classic");
                 int sz = (int) Math.round(cfg.getDouble("pvp_xhair_size", 6)), gap = (int) Math.round(cfg.getDouble("pvp_xhair_gap", 2)), thick = Math.max(1, Math.min(3, (int) Math.round(cfg.getDouble("pvp_xhair_thick", 1))));
                 int baseCol = ClientState.parseHexColor(cfg.getString("pvp_xhair_color", "#ffffff"), 0xFFFFFFFF);
-                String tgtStyle = cfg.getString("pvp_xhair_target_style", "same");
-                if ("same".equalsIgnoreCase(tgtStyle)) tgtStyle = baseStyle;
+                String rawTgtStyle = cfg.getString("pvp_xhair_target_style", "same");
+                boolean tgtUseOwnCustom = "custom".equalsIgnoreCase(rawTgtStyle);
+                String tgtStyle = "same".equalsIgnoreCase(rawTgtStyle) ? baseStyle : rawTgtStyle;
                 int tgtCol = ClientState.parseHexColor(cfg.getString("pvp_xhair_target_color", "#ef4444"), 0xFFEF4444);
                 for (int i = 0; i < 2; i++) {
                     int bx = x + i * (halfW + 8);
                     g.drawGlassCard(bx, y, halfW, 62, 6, 0xCC161A22, ClientState.UI_BORDER);
                     g.text(i == 0 ? "DEFAULT" : "PLAYER IN VIEW", bx + 8, y + 6, ClientState.UI_TEXT_MUTED, false);
                     String st = i == 0 ? baseStyle : tgtStyle;
-                    if (!"vanilla".equalsIgnoreCase(st)) SharedHudRenderer.drawCrosshairShape(g, bx + halfW / 2, y + 36, st, sz, gap, thick, i == 0 ? baseCol : tgtCol);
+                    if (!"vanilla".equalsIgnoreCase(st)) SharedHudRenderer.drawCrosshairShape(g, bx + halfW / 2, y + 36, st, sz, gap, thick, i == 0 ? baseCol : tgtCol, i == 1 && tgtUseOwnCustom);
                     else g.text("Vanilla", bx + halfW / 2 - 14, y + 32, ClientState.UI_TEXT_DIM, false);
                 }
                 return false;
             }
         };
+    }
+
+    private SettingRow xhairPixelEditorRow() {
+        return new SettingRow() {
+            @Override public int height() { return 174; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                ClientConfig cfg = ClientConfig.get();
+                int n = SharedHudRenderer.XHAIR_GRID_SIZE;
+                String optKey = editingTargetPixels ? "pvp_xhair_target_custom_pixels" : "pvp_xhair_custom_pixels";
+                String defVal = editingTargetPixels ? SharedHudRenderer.DEFAULT_TARGET_CUSTOM_PIXELS : SharedHudRenderer.DEFAULT_CUSTOM_PIXELS;
+                String pixels = normalizePixelGrid(cfg.getString(optKey, defVal), n);
+                int drawCol = ClientState.parseHexColor(
+                    cfg.getString(editingTargetPixels ? "pvp_xhair_target_color" : "pvp_xhair_color", editingTargetPixels ? "#ef4444" : "#ffffff"),
+                    editingTargetPixels ? 0xFFEF4444 : 0xFFFFFFFF
+                );
+
+                int cell = 10;
+                int gx = x + 10, gy = y + 19;
+                int gridPx = n * cell;
+
+                if (!click) {
+                    g.drawGlassCard(x, y, w, 174, Math.min(8, menuRad), ClientState.UI_CARD, ClientState.UI_BORDER);
+                    g.text("Custom Pixel Crosshair (15x15)", x + 10, y + 6, ClientState.UI_TEXT, true);
+                    g.drawRoundedRect(gx - 1, gy - 1, gridPx + 2, gridPx + 2, 2, ClientState.UI_BORDER);
+                    for (int r = 0; r < n; r++) {
+                        for (int c = 0; c < n; c++) {
+                            int cx0 = gx + c * cell, cy0 = gy + r * cell;
+                            boolean on = pixels.charAt(r * n + c) == '1';
+                            boolean isCenter = (r == n / 2 && c == n / 2);
+                            boolean cellHov = mx >= cx0 && mx < cx0 + cell && my >= cy0 && my < cy0 + cell;
+                            int bg = on ? drawCol : (isCenter ? 0xFF27272A : ((r + c) % 2 == 0 ? 0xFF141418 : 0xFF101014));
+                            g.fill(cx0, cy0, cx0 + cell - 1, cy0 + cell - 1, bg);
+                            if (cellHov) g.drawBorder(cx0, cy0, cell - 1, cell - 1, accent);
+                        }
+                    }
+                } else if (mx >= gx && mx < gx + gridPx && my >= gy && my < gy + gridPx) {
+                    int col = (mx - gx) / cell;
+                    int row = (my - gy) / cell;
+                    char[] arr = pixels.toCharArray();
+                    char nextVal = arr[row * n + col] == '1' ? '0' : '1';
+                    arr[row * n + col] = nextVal;
+                    if (pixelMirrorX) arr[row * n + (n - 1 - col)] = nextVal;
+                    if (pixelMirrorY) arr[(n - 1 - row) * n + col] = nextVal;
+                    if (pixelMirrorX && pixelMirrorY) arr[(n - 1 - row) * n + (n - 1 - col)] = nextVal;
+                    cfg.setOption(optKey, new String(arr));
+                    return true;
+                }
+
+                int rx = gx + gridPx + 12;
+                int bw = Math.min(136, Math.max(90, w - (rx - x) - 10));
+                int halfBw = (bw - 4) / 2;
+
+                if (drawBtn(g, "px_mode", rx, gy, bw, 19, 5, editingTargetPixels ? "Edit: PLAYER IN VIEW" : "Edit: DEFAULT", editingTargetPixels ? 0xCC7F1D1D : ClientState.withAlpha(accent, 45), ClientState.UI_TEXT, false, mx, my, click)) {
+                    editingTargetPixels = !editingTargetPixels; return true;
+                }
+                if (drawBtn(g, "px_mx", rx, gy + 23, halfBw, 18, 5, "MirX:" + (pixelMirrorX ? "ON" : "OFF"), pixelMirrorX ? ClientState.withAlpha(accent, 42) : ClientState.UI_INPUT, ClientState.UI_TEXT, false, mx, my, click)) {
+                    pixelMirrorX = !pixelMirrorX; return true;
+                }
+                if (drawBtn(g, "px_my", rx + halfBw + 4, gy + 23, bw - halfBw - 4, 18, 5, "MirY:" + (pixelMirrorY ? "ON" : "OFF"), pixelMirrorY ? ClientState.withAlpha(accent, 42) : ClientState.UI_INPUT, ClientState.UI_TEXT, false, mx, my, click)) {
+                    pixelMirrorY = !pixelMirrorY; return true;
+                }
+                if (drawBtn(g, "px_inv", rx, gy + 45, halfBw, 18, 5, "Invert", ClientState.UI_INPUT, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                    char[] arr = pixels.toCharArray();
+                    for (int i = 0; i < arr.length; i++) arr[i] = (arr[i] == '1') ? '0' : '1';
+                    cfg.setOption(optKey, new String(arr)); return true;
+                }
+                if (drawBtn(g, "px_clr", rx + halfBw + 4, gy + 45, bw - halfBw - 4, 18, 5, "Clear", 0xCC3B1A1E, ClientState.UI_TEXT, false, mx, my, click)) {
+                    char[] arr = new char[n * n];
+                    Arrays.fill(arr, '0');
+                    cfg.setOption(optKey, new String(arr)); return true;
+                }
+                if (drawBtn(g, "px_pre1", rx, gy + 67, bw, 18, 5, "Reset Default Cross", ClientState.UI_INPUT, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                    cfg.setOption(optKey, SharedHudRenderer.DEFAULT_CUSTOM_PIXELS); return true;
+                }
+                if (drawBtn(g, "px_pre2", rx, gy + 89, bw, 18, 5, "Reset In-View X", ClientState.UI_INPUT, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                    cfg.setOption(optKey, SharedHudRenderer.DEFAULT_TARGET_CUSTOM_PIXELS); return true;
+                }
+                if (drawBtn(g, "px_use", rx, gy + 111, bw, 19, 5, editingTargetPixels ? "Use for In-View" : "Use for Default", accent, accentFg, true, mx, my, click)) {
+                    cfg.setOption(editingTargetPixels ? "pvp_xhair_target_style" : "pvp_xhair_style", "custom"); return true;
+                }
+                if (!click) {
+                    String activeSt = cfg.getString(editingTargetPixels ? "pvp_xhair_target_style" : "pvp_xhair_style", editingTargetPixels ? "same" : "classic");
+                    g.text("Active: " + activeSt.toUpperCase(), rx, gy + 136, "custom".equalsIgnoreCase(activeSt) ? accent : ClientState.UI_TEXT_DIM, false);
+                }
+                return false;
+            }
+        };
+    }
+
+    private String normalizePixelGrid(String raw, int n) {
+        int len = n * n;
+        char[] out = new char[len];
+        Arrays.fill(out, '0');
+        if (raw != null) {
+            int copy = Math.min(len, raw.length());
+            for (int i = 0; i < copy; i++) if (raw.charAt(i) == '1') out[i] = '1';
+        }
+        return new String(out);
     }
 
     private SettingRow accentRow(final String label) {
@@ -812,6 +914,7 @@ public class SharedModMenu {
         if ("ui_menu_opacity".equals(key)) return cfg.getDouble("ui_menu_opacity", 0.86);
         if ("ui_world_blur".equals(key)) return cfg.getDouble("ui_world_blur", 10);
         if ("ui_anim_speed".equals(key)) return cfg.getDouble("ui_anim_speed", 1.0);
+        if ("xhair_pixel_scale".equals(key)) return cfg.getDouble("pvp_xhair_pixel_scale", 1);
         if ("xhair_size".equals(key)) return cfg.getDouble("pvp_xhair_size", 6);
         if ("xhair_gap".equals(key)) return cfg.getDouble("pvp_xhair_gap", 2);
         if ("xhair_thick".equals(key)) return cfg.getDouble("pvp_xhair_thick", 1);
@@ -855,6 +958,7 @@ public class SharedModMenu {
         else if ("ui_menu_opacity".equals(key)) cfg.setOption("ui_menu_opacity", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
         else if ("ui_world_blur".equals(key)) cfg.setOption("ui_world_blur", Integer.valueOf((int) Math.round(snapped)));
         else if ("ui_anim_speed".equals(key)) cfg.setOption("ui_anim_speed", Double.valueOf(Math.round(snapped * 10.0) / 10.0));
+        else if ("xhair_pixel_scale".equals(key)) cfg.setOption("pvp_xhair_pixel_scale", Integer.valueOf((int) Math.round(snapped)));
         else if ("xhair_size".equals(key)) cfg.setOption("pvp_xhair_size", Integer.valueOf((int) Math.round(snapped)));
         else if ("xhair_gap".equals(key)) cfg.setOption("pvp_xhair_gap", Integer.valueOf((int) Math.round(snapped)));
         else if ("xhair_thick".equals(key)) cfg.setOption("pvp_xhair_thick", Integer.valueOf((int) Math.round(snapped)));

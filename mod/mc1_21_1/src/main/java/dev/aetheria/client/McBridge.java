@@ -88,7 +88,7 @@ public final class McBridge {
             @Override public String serverIp() { return mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"; }
             @Override public long dayCount() { return mc.level.getDayTime() / 24000L; }
             @Override public long worldTime() { return mc.level.getDayTime(); }
-            @Override public int moonPhase() { return mc.level.getMoonPhase(); }
+            @Override public int moonPhase() { return (int) (((worldTime() / 24000L) % 8L + 8L) % 8L); }
             @Override public String weather() { return mc.level.isThundering() ? "Thunder" : (mc.level.isRaining() ? "Rain" : "Clear"); }
             @Override public int blockLight() { return mc.level.getBrightness(LightLayer.BLOCK, mc.player.blockPosition()); }
             @Override public int skyLight() { return mc.level.getBrightness(LightLayer.SKY, mc.player.blockPosition()); }

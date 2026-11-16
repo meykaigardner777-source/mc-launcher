@@ -71,7 +71,7 @@ public final class McBridge {
             @Override public float pitch() { return mc.player.getXRot(); }
             @Override public boolean isSneaking() { return mc.player.isShiftKeyDown(); }
             @Override public boolean isMoveCtrl() { return mc.options.keySprint.isDown(); }
-            @Override public int moonPhase() { return mc.level.getMoonPhase(); }
+            @Override public int moonPhase() { return (int) (((worldTime() / 24000L) % 8L + 8L) % 8L); }
             @Override public String weather() { return mc.level.isThundering() ? "Thunder" : (mc.level.isRaining() ? "Rain" : "Clear"); }
             @Override public int blockLight() { return mc.level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, mc.player.blockPosition()); }
             @Override public int skyLight() { return mc.level.getBrightness(net.minecraft.world.level.LightLayer.SKY, mc.player.blockPosition()); }

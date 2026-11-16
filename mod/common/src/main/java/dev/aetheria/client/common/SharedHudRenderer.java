@@ -4,6 +4,40 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 public final class SharedHudRenderer {
+    public static final int XHAIR_GRID_SIZE = 15;
+    public static final String DEFAULT_CUSTOM_PIXELS =
+        "000000000000000" +
+        "000000000000000" +
+        "000000000000000" +
+        "000000000000000" +
+        "000000010000000" +
+        "000000010000000" +
+        "000000000000000" +
+        "000011000110000" +
+        "000000000000000" +
+        "000000010000000" +
+        "000000010000000" +
+        "000000000000000" +
+        "000000000000000" +
+        "000000000000000" +
+        "000000000000000";
+    public static final String DEFAULT_TARGET_CUSTOM_PIXELS =
+        "000000000000000" +
+        "000000000000000" +
+        "000000000000000" +
+        "000000000000000" +
+        "000010010010000" +
+        "000001010100000" +
+        "000000000000000" +
+        "000011010110000" +
+        "000000000000000" +
+        "000001010100000" +
+        "000010010010000" +
+        "000000000000000" +
+        "000000000000000" +
+        "000000000000000" +
+        "000000000000000";
+
     private static final SimpleDateFormat CLOCK_12 = new SimpleDateFormat("hh:mm a");
     private static final SimpleDateFormat CLOCK_12S = new SimpleDateFormat("hh:mm:ss a");
     private static final SimpleDateFormat CLOCK_24 = new SimpleDateFormat("HH:mm");
@@ -193,9 +227,7 @@ public final class SharedHudRenderer {
             long used = rt.totalMemory() - rt.freeMemory();
             return (float) used / (float) max;
         }
-        if ("saturation".equals(id)) {
-            return Math.max(0.0F, Math.min(1.0F, d.saturation() / 20.0F));
-        }
+        if ("saturation".equals(id)) return Math.max(0.0F, Math.min(1.0F, d.saturation() / 20.0F));
         return Math.max(0.0F, Math.min(1.0F, d.attackCooldownPct()));
     }
 
@@ -260,7 +292,6 @@ public final class SharedHudRenderer {
         int nx = cx + (int) Math.round(Math.cos(rad) * (r - 2));
         int ny = cy + (int) Math.round(Math.sin(rad) * (r - 2));
         g.text("N", nx - 2, ny - 4, 0xFFEF4444, false);
-
         int[] radar = d.nearbyEntityRadar();
         if (radar != null) {
             for (int i = 0; i + 1 < radar.length; i += 2) {
@@ -323,6 +354,7 @@ public final class SharedHudRenderer {
         int gap = Math.max(0, (int) Math.round(cfg.getDouble("pvp_xhair_gap", 2.0)));
         int thick = Math.max(1, Math.min(4, (int) Math.round(cfg.getDouble("pvp_xhair_thick", 1.0))));
         int col = ClientState.parseHexColor(cfg.getString("pvp_xhair_color", "#ffffff"), 0xFFFFFFFF);
+        boolean useTargetCustom = false;
 
         if (cfg.getBool("pvp_xhair_target", true)) {
             double range = Math.max(1.0, cfg.getDouble("pvp_xhair_target_range", 12.0));
@@ -331,15 +363,34 @@ public final class SharedHudRenderer {
             if (hit) {
                 col = ClientState.parseHexColor(cfg.getString("pvp_xhair_target_color", "#ef4444"), 0xFFEF4444);
                 String tStyle = cfg.getString("pvp_xhair_target_style", "same");
-                if (!"same".equalsIgnoreCase(tStyle)) style = tStyle;
+                if ("custom".equalsIgnoreCase(tStyle)) {
+                    style = "custom";
+                    useTargetCustom = true;
+                } else if (!"same".equalsIgnoreCase(tStyle)) {
+                    style = tStyle;
+                }
             }
         }
 
-        drawCrosshairShape(g, sw / 2, sh / 2, style, size, gap, thick, col);
+        drawCrosshairShape(g, sw / 2, sh / 2, style, size, gap, thick, col, useTargetCustom);
     }
 
     public static void drawCrosshairShape(UiBridge.UiDraw g, int cx, int cy, String style, int size, int gap, int thick, int col) {
+        drawCrosshairShape(g, cx, cy, style, size, gap, thick, col, false);
+    }
+
+    public static void drawCrosshairShape(UiBridge.UiDraw g, int cx, int cy, String style, int size, int gap, int thick, int col, boolean useTargetCustom) {
         if ("vanilla".equalsIgnoreCase(style)) return;
+        if ("custom".equalsIgnoreCase(style)) {
+            ClientConfig cfg = ClientConfig.get();
+            String pixels = useTargetCustom
+                ? cfg.getString("pvp_xhair_target_custom_pixels", DEFAULT_TARGET_CUSTOM_PIXELS)
+                : cfg.getString("pvp_xhair_custom_pixels", DEFAULT_CUSTOM_PIXELS);
+            int pScale = Math.max(1, Math.min(3, (int) Math.round(cfg.getDouble("pvp_xhair_pixel_scale", 1.0))));
+            drawCustomPixelCrosshair(g, cx, cy, pixels, pScale, col);
+            return;
+        }
+
         size = Math.max(1, size);
         gap = Math.max(0, gap);
         thick = Math.max(1, Math.min(4, thick));
@@ -353,9 +404,17 @@ public final class SharedHudRenderer {
             g.fill(cx - gap - size, cy - halfT, cx - gap, cy - halfT + thick, col);
             g.fill(cx + gap + 1, cy - halfT, cx + gap + 1 + size, cy - halfT + thick, col);
             g.fill(cx - halfT, cy + gap + 1, cx - halfT + thick, cy + gap + 1 + size, col);
-        } else if ("chevron".equalsIgnoreCase(style)) {
-            g.drawLine(cx - size, cy + size / 2, cx, cy - 1, thick, col);
-            g.drawLine(cx, cy - 1, cx + size, cy + size / 2, thick, col);
+        } else if ("x_cross".equalsIgnoreCase(style)) {
+            g.drawLine(cx - gap - size, cy - gap - size, cx - gap, cy - gap, thick, col);
+            g.drawLine(cx + gap + 1, cy - gap - size, cx + gap + 1 + size, cy - gap, thick, col);
+            g.drawLine(cx - gap - size, cy + gap + 1 + size, cx - gap, cy + gap + 1, thick, col);
+            g.drawLine(cx + gap + 1, cy + gap + 1 + size, cx + gap + 1 + size, cy + gap + 1, thick, col);
+        } else if ("arrows".equalsIgnoreCase(style) || "chevron".equalsIgnoreCase(style)) {
+            int s = Math.max(2, size / 2 + 1);
+            g.drawLine(cx - gap - s, cy - s, cx - gap, cy, thick, col);
+            g.drawLine(cx - gap - s, cy + s, cx - gap, cy, thick, col);
+            g.drawLine(cx + gap + s, cy - s, cx + gap, cy, thick, col);
+            g.drawLine(cx + gap + s, cy + s, cx + gap, cy, thick, col);
         } else {
             g.fill(cx - gap - size, cy - halfT, cx - gap, cy - halfT + thick, col);
             g.fill(cx + gap + 1, cy - halfT, cx + gap + 1 + size, cy - halfT + thick, col);
@@ -367,24 +426,37 @@ public final class SharedHudRenderer {
         }
     }
 
+    public static void drawCustomPixelCrosshair(UiBridge.UiDraw g, int cx, int cy, String pixels, int scale, int col) {
+        if (pixels == null || pixels.isEmpty()) return;
+        int n = XHAIR_GRID_SIZE;
+        int half = n / 2;
+        int sc = Math.max(1, Math.min(3, scale));
+        int off = sc / 2;
+        int len = Math.min(pixels.length(), n * n);
+        for (int idx = 0; idx < len; idx++) {
+            if (pixels.charAt(idx) != '1') continue;
+            int r = idx / n;
+            int c = idx % n;
+            int px = cx + (c - half) * sc - off;
+            int py = cy + (r - half) * sc - off;
+            g.fill(px, py, px + sc, py + sc, col);
+        }
+    }
+
     private static String[] getFormattedLines(UiBridge.HudData d, ClientConfig.HudModule m) {
         ClientConfig cfg = ClientConfig.get();
         String id = m.id;
         String[] raw;
 
         if ("fps".equals(id)) {
-            boolean lbl = cfg.getBool("fps_show_label", true);
-            boolean det = cfg.getBool("fps_detailed", false);
+            boolean lbl = cfg.getBool("fps_show_label", true), det = cfg.getBool("fps_detailed", false);
             String l1 = (lbl ? "FPS: " : "") + d.fps();
-            raw = det
-                ? new String[]{l1, "Min " + ClientState.getMinFps() + " | 1% " + ClientState.getOnePercentLowFps()}
-                : new String[]{l1};
+            raw = det ? new String[]{l1, "Min " + ClientState.getMinFps() + " | 1% " + ClientState.getOnePercentLowFps()} : new String[]{l1};
         } else if ("ram_usage".equals(id)) {
             Runtime rt = Runtime.getRuntime();
             long usedMb = (rt.totalMemory() - rt.freeMemory()) / (1024L * 1024L);
             long maxMb = Math.max(1L, rt.maxMemory() / (1024L * 1024L));
-            int pct = (int) Math.round((usedMb * 100.0) / maxMb);
-            raw = new String[]{"RAM: " + usedMb + "/" + maxMb + "MB (" + pct + "%)"};
+            raw = new String[]{"RAM: " + usedMb + "/" + maxMb + "MB (" + Math.round((usedMb * 100.0) / maxMb) + "%)"};
         } else if ("cpu_load".equals(id)) {
             raw = new String[]{"CPU: " + Runtime.getRuntime().availableProcessors() + " Cores | " + Thread.activeCount() + " Thr"};
         } else if ("ping".equals(id)) {
@@ -449,8 +521,7 @@ public final class SharedHudRenderer {
             double sec = ClientState.getShieldCooldownSec();
             raw = new String[]{sec > 0.0 ? String.format("Shield: %.1fs", Double.valueOf(sec)) : "Shield: Ready"};
         } else if ("attack_charge".equals(id)) {
-            int pct = Math.round(d.attackCooldownPct() * 100.0F);
-            raw = new String[]{"Attack: " + pct + "%"};
+            raw = new String[]{"Attack: " + Math.round(d.attackCooldownPct() * 100.0F) + "%"};
         } else if ("togglesprint".equals(id)) {
             raw = new String[]{d.isSprinting() ? "[Sprinting (Toggled)]" : (d.isSneaking() ? "[Sneaking]" : "[Walking]")};
         } else if ("speedometer".equals(id)) {
@@ -460,16 +531,10 @@ public final class SharedHudRenderer {
             else if ("mph".equalsIgnoreCase(unit)) raw = new String[]{String.format("%.1f mph", Double.valueOf(bps * 2.23694))};
             else raw = new String[]{String.format("%.2f b/s", Double.valueOf(bps))};
         } else if ("coords".equals(id)) {
-            boolean compact = cfg.getBool("coords_compact", false);
-            boolean facing = cfg.getBool("coords_facing", true);
-            boolean nether = cfg.getBool("coords_nether", true);
+            boolean compact = cfg.getBool("coords_compact", false), facing = cfg.getBool("coords_facing", true), nether = cfg.getBool("coords_nether", true);
             String face = facing ? (" [" + d.facing() + "]") : "";
-            String main = compact
-                ? (d.x() + " " + d.y() + " " + d.z() + face)
-                : ("XYZ: " + d.x() + ", " + d.y() + ", " + d.z() + face);
-            raw = nether
-                ? new String[]{main, "Nether: " + (d.x() / 8) + ", " + d.z() / 8}
-                : new String[]{main};
+            String main = compact ? (d.x() + " " + d.y() + " " + d.z() + face) : ("XYZ: " + d.x() + ", " + d.y() + ", " + d.z() + face);
+            raw = nether ? new String[]{main, "Nether: " + (d.x() / 8) + ", " + (d.z() / 8)} : new String[]{main};
         } else if ("chunk_coords".equals(id)) {
             raw = new String[]{"Chunk: " + (d.x() >> 4) + ", " + (d.y() >> 4) + ", " + (d.z() >> 4)};
         } else if ("compass".equals(id)) {
@@ -483,13 +548,11 @@ public final class SharedHudRenderer {
             raw = new String[]{isSlimeChunk(d.x() >> 4, d.z() >> 4) ? "Slime Chunk: YES" : "Slime Chunk: No"};
         } else if ("day_count".equals(id)) {
             long tod = d.worldTime() % 24000L;
-            int hr = (int) (((tod / 1000L) + 6L) % 24L);
-            int min = (int) ((tod % 1000L) * 60L / 1000L);
+            int hr = (int) (((tod / 1000L) + 6L) % 24L), min = (int) ((tod % 1000L) * 60L / 1000L);
             raw = new String[]{"Day " + d.dayCount() + String.format(" (%02d:%02d)", Integer.valueOf(hr), Integer.valueOf(min))};
         } else if ("moon_phase".equals(id)) {
             String[] phases = {"Full", "Waning Gibbous", "Last Qtr", "Waning Cres", "New", "Waxing Cres", "First Qtr", "Waxing Gibbous"};
-            int p = Math.abs(d.moonPhase()) % phases.length;
-            raw = new String[]{"Moon: " + phases[p]};
+            raw = new String[]{"Moon: " + phases[Math.abs(d.moonPhase()) % phases.length]};
         } else if ("weather".equals(id)) {
             raw = new String[]{"Weather: " + d.weather()};
         } else if ("waypoints".equals(id)) {
@@ -500,13 +563,11 @@ public final class SharedHudRenderer {
             raw = new String[]{"Death: " + ClientState.getLastDeathCoords(d.x(), d.z())};
         } else if ("y_alert".equals(id)) {
             int y = d.y();
-            String msg = (y >= -64 && y <= -50) ? "Diamond Zone (Y" + y + ")" : ((y >= 12 && y <= 18) ? "Debris Zone (Y" + y + ")" : "Y-Level: " + y);
-            raw = new String[]{msg};
+            raw = new String[]{(y >= -64 && y <= -50) ? "Diamond Zone (Y" + y + ")" : ((y >= 12 && y <= 18) ? "Debris Zone (Y" + y + ")" : "Y-Level: " + y)};
         } else if ("saturation".equals(id)) {
             raw = new String[]{String.format("Sat: %.1f | Food: %d", Float.valueOf(d.saturation()), Integer.valueOf(d.foodLevel()))};
         } else if ("oxygen".equals(id)) {
-            int sec = Math.max(0, Math.round(d.airSupply() / 20.0F));
-            raw = new String[]{"Air: " + sec + "s"};
+            raw = new String[]{"Air: " + Math.max(0, Math.round(d.airSupply() / 20.0F)) + "s"};
         } else if ("mount_stats".equals(id)) {
             raw = new String[]{d.mountStats()};
         } else if ("elytra_guide".equals(id)) {
@@ -514,9 +575,7 @@ public final class SharedHudRenderer {
         } else if ("villager_timer".equals(id)) {
             long tod = d.worldTime() % 24000L;
             raw = new String[]{(tod >= 2000L && tod <= 9000L) ? "Restock: Window Open" : "Restock: Closed"};
-        } else if ("spawner_info".equals(id)) {
-            raw = new String[]{"Block: " + d.lookingAtBlock()};
-        } else if ("waila_block".equals(id)) {
+        } else if ("spawner_info".equals(id) || "waila_block".equals(id)) {
             raw = new String[]{"Block: " + d.lookingAtBlock()};
         } else if ("waila_entity".equals(id)) {
             raw = new String[]{"Entity: " + d.lookingAtEntity()};
@@ -548,8 +607,7 @@ public final class SharedHudRenderer {
             raw = new String[]{ClientState.getSplitText()};
         } else if ("kdr_tracker".equals(id)) {
             int k = ClientState.getKills(), dt = ClientState.getDeaths();
-            double kdr = dt == 0 ? k : (k / (double) dt);
-            raw = new String[]{String.format("K:%d D:%d (%.2f)", Integer.valueOf(k), Integer.valueOf(dt), Double.valueOf(kdr))};
+            raw = new String[]{String.format("K:%d D:%d (%.2f)", Integer.valueOf(k), Integer.valueOf(dt), Double.valueOf(dt == 0 ? k : (k / (double) dt)))};
         } else if ("autogg_status".equals(id)) {
             raw = new String[]{"AutoGG: Active"};
         } else if ("queue_pos".equals(id)) {
@@ -600,15 +658,15 @@ public final class SharedHudRenderer {
         String suf = m.suffix == null ? "" : m.suffix;
         String[] out = new String[raw.length];
         for (int i = 0; i < raw.length; i++) {
-            String line = pre + (raw[i] == null ? "" : raw[i]) + suf;
-            out[i] = applyBrackets(line, m.bracketStyle);
+            out[i] = applyBrackets(pre + (raw[i] == null ? "" : raw[i]) + suf, m.bracketStyle);
         }
         return out;
     }
 
     private static String applyBrackets(String s, String style) {
         if ("square".equalsIgnoreCase(style)) return "[" + s + "]";
-        if ("round".equalsIgnoreCase(style)) return "(" + s + ")";
+        if ("round".equalsIgnoreCase(style) || "paren".equalsIgnoreCase(style)) return "(" + s + ")";
+        if ("pipe".equalsIgnoreCase(style)) return "| " + s + " |";
         if ("angle".equalsIgnoreCase(style)) return "<" + s + ">";
         if ("curly".equalsIgnoreCase(style)) return "{" + s + "}";
         return s;
@@ -617,9 +675,7 @@ public final class SharedHudRenderer {
     private static String getClockString(boolean use24h, boolean showSec) {
         long sec = System.currentTimeMillis() / 1000L;
         if (sec != lastClockSec || use24h != lastClock24 || showSec != lastClockSecFlag) {
-            lastClockSec = sec;
-            lastClock24 = use24h;
-            lastClockSecFlag = showSec;
+            lastClockSec = sec; lastClock24 = use24h; lastClockSecFlag = showSec;
             SimpleDateFormat fmt = use24h ? (showSec ? CLOCK_24S : CLOCK_24) : (showSec ? CLOCK_12S : CLOCK_12);
             cachedClockStr = fmt.format(new Date(sec * 1000L));
         }
@@ -627,9 +683,7 @@ public final class SharedHudRenderer {
     }
 
     private static String formatDuration(long totalSec) {
-        long h = totalSec / 3600L;
-        long m = (totalSec % 3600L) / 60L;
-        long s = totalSec % 60L;
+        long h = totalSec / 3600L, m = (totalSec % 3600L) / 60L, s = totalSec % 60L;
         if (h > 0L) return String.format("%d:%02d:%02d", Long.valueOf(h), Long.valueOf(m), Long.valueOf(s));
         return String.format("%02d:%02d", Long.valueOf(m), Long.valueOf(s));
     }
@@ -642,16 +696,12 @@ public final class SharedHudRenderer {
 
     private static int textWidthSpaced(UiBridge.UiDraw g, String s, int spacing) {
         if (s == null || s.isEmpty()) return 0;
-        if (spacing <= 0) return g.textWidth(s);
-        return g.textWidth(s) + (s.length() - 1) * spacing;
+        return spacing <= 0 ? g.textWidth(s) : (g.textWidth(s) + (s.length() - 1) * spacing);
     }
 
     private static void drawTextSpaced(UiBridge.UiDraw g, String s, int x, int y, int col, boolean shadow, int spacing) {
         if (s == null || s.isEmpty()) return;
-        if (spacing <= 0) {
-            g.text(s, x, y, col, shadow);
-            return;
-        }
+        if (spacing <= 0) { g.text(s, x, y, col, shadow); return; }
         int cx = x;
         for (int i = 0; i < s.length(); i++) {
             String ch = s.substring(i, i + 1);

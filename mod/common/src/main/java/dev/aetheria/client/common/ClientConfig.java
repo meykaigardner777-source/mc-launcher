@@ -23,7 +23,7 @@ public class ClientConfig {
         public String id, label, category = "system", optId, desc = "";
         public String anchor = "top-left";
         public String color = "#ffffff", bgColor = "#09090b", borderColor = "#27272a", borderColor2 = "#ffffff";
-        public String borderStyle = "solid"; // solid, dashed, gradient
+        public String borderStyle = "solid";
         public String fontFamily = "default", fontWeight = "normal";
         public String prefix = "", suffix = "", bracketStyle = "none", displayMode = "icon_text";
         public String customText = "Aetheria Client";
@@ -35,7 +35,7 @@ public class ClientConfig {
 
         public double x, y, scale = 1.0, opacity = 0.75, textOpacity = 1.0;
         public double chromaSpeed = 1.0, chromaSat = 0.85, chromaAngle = 45.0;
-        public int width = 0, height = 0; // 0 = auto-fit
+        public int width = 0, height = 0;
         public int borderRadius = 6, borderWidth = 1, paddingX = 6, paddingY = 4, margin = 0, blurRadius = 8;
         public int letterSpacing = 0, dropShadowX = 0, dropShadowY = 2, dropShadowBlur = 0;
     }
@@ -174,9 +174,8 @@ public class ClientConfig {
 
         for (HudModule m : hudModules.values()) if (m.optId != null) setDefaultOpt(m.optId, Boolean.valueOf(m.enabled));
 
-        // === GLOBAL UI ENGINE & STYLING ===
-        setDefaultOpt("ui_menu_layout", "topbar");     // topbar, sidebar, grid, palette
-        setDefaultOpt("ui_switch_style", "pill");      // pill, ios, checkbox
+        setDefaultOpt("ui_menu_layout", "topbar");
+        setDefaultOpt("ui_switch_style", "pill");
         setDefaultOpt("ui_card_width", Integer.valueOf(140));
         setDefaultOpt("ui_menu_rounding", Integer.valueOf(8));
         setDefaultOpt("ui_menu_opacity", Double.valueOf(0.86));
@@ -186,7 +185,7 @@ public class ClientConfig {
         setDefaultOpt("ui_accent_custom", "#ff3333");
         setDefaultOpt("ui_animations", Boolean.TRUE);
         setDefaultOpt("ui_anim_speed", Double.valueOf(1.0));
-        setDefaultOpt("ui_anim_curve", "smooth");      // smooth, snappy
+        setDefaultOpt("ui_anim_curve", "smooth");
         setDefaultOpt("ui_font_scale", Double.valueOf(1.0));
         setDefaultOpt("ui_letter_spacing", Integer.valueOf(0));
 
@@ -194,13 +193,11 @@ public class ClientConfig {
         setDefaultOpt("hud_align_guides", Boolean.TRUE);
         setDefaultOpt("hud_shadow", Boolean.TRUE);
 
-        // === ESCAPE MENU & CONTAINER THEMING ===
         setDefaultOpt("esc_overhaul", Boolean.TRUE);
         setDefaultOpt("esc_blur", Integer.valueOf(12));
         setDefaultOpt("container_theme", Boolean.TRUE);
         setDefaultOpt("container_opacity", Double.valueOf(0.80));
 
-        // === CORE LEGIT UTILITY & PVP ===
         setDefaultOpt("pvp_low_fire", Boolean.TRUE);
         setDefaultOpt("pvp_low_fire_offset", Double.valueOf(-0.32));
         setDefaultOpt("pvp_low_shield", Boolean.TRUE);
@@ -220,6 +217,19 @@ public class ClientConfig {
         setDefaultOpt("pvp_xhair_target_range", Integer.valueOf(12));
         setDefaultOpt("pvp_xhair_target_style", "same");
         setDefaultOpt("pvp_xhair_target_color", "#ef4444");
+        setDefaultOpt("pvp_xhair_custom_pixels",
+            "000000000000000" + "000000000000000" + "000000000000000" +
+            "000000000000000" + "000000010000000" + "000000010000000" +
+            "000000000000000" + "000011000110000" + "000000000000000" +
+            "000000010000000" + "000000010000000" + "000000000000000" +
+            "000000000000000" + "000000000000000" + "000000000000000");
+        setDefaultOpt("pvp_xhair_target_custom_pixels",
+            "000000000000000" + "000000000000000" + "000000000000000" +
+            "000000000000000" + "000010010010000" + "000001010100000" +
+            "000000000000000" + "000011010110000" + "000000000000000" +
+            "000001010100000" + "000010010010000" + "000000000000000" +
+            "000000000000000" + "000000000000000" + "000000000000000");
+        setDefaultOpt("pvp_xhair_pixel_scale", Integer.valueOf(1));
 
         setDefaultOpt("cam_zoom", Boolean.TRUE);
         setDefaultOpt("cam_zoom_fac", Integer.valueOf(4));
@@ -229,7 +239,6 @@ public class ClientConfig {
         setDefaultOpt("ctl_menu_key", "RSHIFT");
         setDefaultOpt("ctl_profile_key", "F6");
 
-        // === MODULE-SPECIFIC FORMATTING ===
         setDefaultOpt("fps_show_label", Boolean.TRUE);
         setDefaultOpt("fps_detailed", Boolean.FALSE);
         setDefaultOpt("coords_facing", Boolean.TRUE);
@@ -243,7 +252,7 @@ public class ClientConfig {
         setDefaultOpt("keystrokes_space", Boolean.TRUE);
         setDefaultOpt("keystrokes_mods", Boolean.FALSE);
         setDefaultOpt("togglesprint_hide_hud", Boolean.FALSE);
-        setDefaultOpt("speed_unit", "bps"); // bps, kmh, mph
+        setDefaultOpt("speed_unit", "bps");
     }
 
     private void add(String id, String label, String cat, String optId, boolean en, double x, double y, String desc) {
@@ -265,7 +274,6 @@ public class ClientConfig {
         } else if ("Minimal".equalsIgnoreCase(name)) {
             enableOnly(new String[]{"fps", "coords", "ping"});
         } else if ("Cinematic".equalsIgnoreCase(name)) {
-            // Clean cinematic screen with only zoom badge if zooming
             enableOnly(new String[]{"zoom_indicator"});
         }
         save();
