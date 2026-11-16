@@ -24,10 +24,12 @@ public class SharedModMenu {
         initialized = true;
         ALL_MODS.add(new ModEntry("crosshair", "Crosshair", "utility", "Dynamic shapes, pixel editor & Player-in-View switch", false));
         ALL_MODS.add(new ModEntry("zoom", "Optical Zoom", "utility", "Telescopic FOV zoom with smooth easing", false));
+        ALL_MODS.add(new ModEntry("fov_mod", "FOV Modifier", "utility", "Disable dynamic FOV, sprint/bow zoom & intensity", false));
+        ALL_MODS.add(new ModEntry("hurtcam", "No Hurt Cam", "utility", "Disable or smoothly reduce damage camera shake", false));
         ALL_MODS.add(new ModEntry("fullbright", "Fullbright", "utility", "Clean max gamma night vision boost", false));
         ALL_MODS.add(new ModEntry("freelook", "FreeLook 360", "utility", "Detached 360-degree perspective camera", false));
-        ALL_MODS.add(new ModEntry("low_fire", "Low Fire", "utility", "Lowers first-person fire screen overlay", false));
-        ALL_MODS.add(new ModEntry("low_shield", "Low Shield", "utility", "Lowers off-hand shield blocking viewmodel", false));
+        ALL_MODS.add(new ModEntry("low_fire", "Low Fire", "utility", "Adjust first-person flame height, opacity & preview", false));
+        ALL_MODS.add(new ModEntry("low_shield", "Low Shield", "utility", "Custom shield offset, scale & blocking viewmodel", false));
         ALL_MODS.add(new ModEntry("time_lock", "Client Time", "utility", "Client-side time of day visual override", false));
         ALL_MODS.add(new ModEntry("weather_lock", "Client Weather", "utility", "Client-side clear/rain visual override", false));
         for (ClientConfig.HudModule m : ClientConfig.get().hudModules.values()) {
@@ -46,6 +48,8 @@ public class SharedModMenu {
     private static final String[] FONT_WEIGHTS = {"normal", "bold"};
     private static final String[] XHAIR_STYLES = {"vanilla", "classic", "dot", "circle", "t_shape", "arrows", "x_cross", "custom"};
     private static final String[] TARGET_STYLES = {"same", "classic", "dot", "circle", "t_shape", "arrows", "x_cross", "custom"};
+    private static final String[] SAT_STYLES = {"appleskin", "bar", "text"};
+    private static final String[] POT_STYLES = {"vanilla", "compact", "cards"};
     private static final String[] MENU_LAYOUTS = {"topbar", "sidebar", "grid", "palette"};
     private static final String[] SWITCH_STYLES = {"pill", "ios", "checkbox"};
     private static final String[] ANIM_CURVES = {"smooth", "snappy"};
@@ -404,8 +408,10 @@ public class SharedModMenu {
         List<SettingRow> rows = new ArrayList<SettingRow>();
         if ("crosshair".equals(editingModId)) buildCrosshairRows(rows);
         else if ("zoom".equals(editingModId)) buildZoomRows(rows);
+        else if ("fov_mod".equals(editingModId)) buildFovRows(rows);
+        else if ("hurtcam".equals(editingModId)) buildHurtCamRows(rows);
         else if ("low_fire".equals(editingModId)) buildLowFireRows(rows);
-        else if ("low_shield".equals(editingModId)) rows.add(boolRow("Low Shield Viewmodel", "Lowers off-hand shield while blocking", "pvp_low_shield", true));
+        else if ("low_shield".equals(editingModId)) buildLowShieldRows(rows);
         else if ("fullbright".equals(editingModId)) rows.add(boolRow("Fullbright", "Clean maximum gamma night vision", "util_fullbright", false));
         else if ("freelook".equals(editingModId)) {
             rows.add(boolRow("FreeLook 360", "Allow 360-degree camera detachment", "util_freelook", true));
@@ -443,6 +449,17 @@ public class SharedModMenu {
             rows.add(sliderRow("Chroma Saturation", "Color intensity", "mod_csat:" + m.id, 0.1, 1.0, 0.05, false));
             rows.add(sliderRow("Chroma Angle", "Wave direction in degrees", "mod_cang:" + m.id, 0, 360, 15, true));
         } else if ("text".equals(inspectorTab)) {
+            if ("saturation".equals(m.id)) {
+                rows.add(cycleRow("Saturation Style", "AppleSkin (Golden Outline) / Bar / Text", "saturation_style", SAT_STYLES));
+                rows.add(boolRow("Exhaustion & Flash", "Blink/glint on food saturation", "saturation_glint", true));
+            }
+            if ("potions".equals(m.id)) {
+                rows.add(cycleRow("Potion Display Style", "Vanilla Status Badge, Compact, or Cards", "potions_style", POT_STYLES));
+                rows.add(boolRow("Show Duration Timers", "Display remaining minutes & seconds", "potions_timers", true));
+                rows.add(boolRow("Show Roman Numerals", "E.g. Speed II instead of Speed", "potions_numerals", true));
+                rows.add(boolRow("Show Status Icons", "Render potion effect icons", "potions_show_icon", true));
+                rows.add(boolRow("Blink Low Duration", "Flash when less than 10s left", "potions_blink", true));
+            }
             if ("fps".equals(m.id)) { rows.add(boolRow("Show 'FPS' Label", "Display 'FPS' suffix", "fps_show_label", true)); rows.add(boolRow("Show 1% Low & Min", "Two-line detailed FPS stats", "fps_detailed", false)); }
             if ("coords".equals(m.id)) { rows.add(boolRow("Show Facing", "Include direction", "coords_facing", true)); rows.add(boolRow("Nether 8:1 Coords", "Auto-convert X/Z", "coords_nether", true)); rows.add(boolRow("Compact Line", "Single-line XYZ", "coords_compact", false)); }
             if ("clock".equals(m.id)) { rows.add(boolRow("24-Hour Format", "24h vs AM/PM", "clock_24h", false)); rows.add(boolRow("Show Seconds", "Display :SS", "clock_seconds", false)); }
@@ -543,9 +560,95 @@ public class SharedModMenu {
         rows.add(cycleRow("Zoom Keybind", "Hold key to zoom", "cam_zoom_key", ZOOM_KEYS));
     }
 
+    private void buildFovRows(List<SettingRow> rows) {
+        rows.add(boolRow("Dynamic FOV", "Allow Minecraft FOV to shift based on movement", "cam_fov_dynamic", true));
+        rows.add(sliderRow("FOV Effect Intensity", "Strength multiplier (0.0x = static, 1.0x = vanilla)", "cam_fov_factor", 0.0, 1.5, 0.05, false));
+        rows.add(boolRow("Sprint FOV Shift", "Zoom out slightly when running/speeding", "cam_fov_sprint", true));
+        rows.add(boolRow("Bow Drawing FOV Zoom", "Zoom in when drawing back a bow", "cam_fov_bow", true));
+    }
+
+    private void buildHurtCamRows(List<SettingRow> rows) {
+        rows.add(boolRow("No Hurt Cam", "Completely remove screen tilt when taking damage", "pvp_no_hurtcam", false));
+        rows.add(sliderRow("Hurt Cam Shake Strength", "0% = no camera shake, 100% = normal vanilla", "pvp_hurtcam_factor", 0.0, 1.0, 0.05, false));
+    }
+
     private void buildLowFireRows(List<SettingRow> rows) {
-        rows.add(boolRow("Low Fire Overlay", "Lower first-person flame height", "pvp_low_fire", true));
-        rows.add(sliderRow("Fire Vertical Offset", "Flame height offset", "fire_offset", -0.50, 0.0, 0.02, false));
+        rows.add(lowFirePreviewRow());
+        rows.add(boolRow("Low Fire Overlay", "Lower first-person flame screen overlay", "pvp_low_fire", true));
+        rows.add(sliderRow("Fire Vertical Offset", "Shift flame view downwards", "fire_offset", -0.70, 0.0, 0.02, false));
+        rows.add(sliderRow("Fire Flame Opacity", "Adjust first-person flame alpha", "fire_opacity", 0.10, 1.0, 0.05, false));
+    }
+
+    private void buildLowShieldRows(List<SettingRow> rows) {
+        rows.add(lowShieldPreviewRow());
+        rows.add(boolRow("Low Shield Viewmodel", "Reposition off-hand shield blocking view", "pvp_low_shield", true));
+        rows.add(sliderRow("Shield Scale", "Size multiplier (0.5x to 1.2x)", "shield_scale", 0.50, 1.20, 0.05, false));
+        rows.add(sliderRow("Shield Vertical Offset", "Move shield down on screen", "shield_y", -0.60, 0.20, 0.02, false));
+        rows.add(sliderRow("Shield Horizontal Offset", "Move shield left/right", "shield_x", -0.40, 0.40, 0.02, false));
+    }
+
+    private SettingRow lowFirePreviewRow() {
+        return new SettingRow() {
+            @Override public int height() { return 64; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                if (click) return false;
+                ClientConfig cfg = ClientConfig.get();
+                double offset = cfg.getDouble("pvp_low_fire_offset", -0.32);
+                double opac = cfg.getDouble("pvp_low_fire_opacity", 0.70);
+                boolean en = cfg.getBool("pvp_low_fire", true);
+
+                g.drawGlassCard(x, y, w, 64, menuRad, 0xFF14141B, ClientState.UI_BORDER);
+                g.text("FIRST-PERSON FIRE PREVIEW" + (en ? " (ACTIVE)" : " (OFF)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
+
+                int pw = w - 24, ph = 38, px0 = x + 12, py0 = y + 20;
+                g.drawRoundedRect(px0, py0, pw, ph, 6, 0xFF0D0D14);
+
+                int fireHeight = en ? Math.max(4, (int) Math.round(ph * (0.60 + offset))) : Math.round(ph * 0.90F);
+                int fireAlpha = (int) Math.round(Math.max(0.1, Math.min(1.0, opac)) * 220.0);
+                int fireCol = ClientState.withAlpha(0xFFFF5500, fireAlpha);
+                int fireTip = ClientState.withAlpha(0xFFFFCC00, fireAlpha);
+
+                g.fill(px0, py0 + ph - fireHeight, px0 + pw, py0 + ph, fireCol);
+                g.fill(px0, py0 + ph - fireHeight, px0 + pw, py0 + ph - fireHeight + 3, fireTip);
+
+                String label = String.format("Flame Height: %d%% | Opacity: %d%%", Integer.valueOf(Math.round((fireHeight / (float) ph) * 100)), Integer.valueOf((int) Math.round(opac * 100)));
+                g.text(label, px0 + 8, py0 + 12, 0xFFFFFFFF, true);
+                return false;
+            }
+        };
+    }
+
+    private SettingRow lowShieldPreviewRow() {
+        return new SettingRow() {
+            @Override public int height() { return 64; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                if (click) return false;
+                ClientConfig cfg = ClientConfig.get();
+                double scale = cfg.getDouble("pvp_low_shield_scale", 0.85);
+                double offY = cfg.getDouble("pvp_low_shield_y", -0.25);
+                double offX = cfg.getDouble("pvp_low_shield_x", 0.0);
+                boolean en = cfg.getBool("pvp_low_shield", true);
+
+                g.drawGlassCard(x, y, w, 64, menuRad, 0xFF14141B, ClientState.UI_BORDER);
+                g.text("BLOCKING SHIELD VIEWMODEL PREVIEW" + (en ? " (ACTIVE)" : " (OFF)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
+
+                int pw = w - 24, ph = 38, px0 = x + 12, py0 = y + 20;
+                g.drawRoundedRect(px0, py0, pw, ph, 6, 0xFF0D0D14);
+
+                int sw0 = (int) Math.round(28 * (en ? scale : 1.0));
+                int sh0 = (int) Math.round(34 * (en ? scale : 1.0));
+                int sx = px0 + pw / 2 - sw0 / 2 + (en ? (int) Math.round(offX * 50) : 0);
+                int sy = py0 + ph - sh0 + (en ? (int) Math.round(-offY * 30) : 0);
+
+                g.drawRoundedRect(sx, sy, sw0, sh0, 4, 0xFF5D6470);
+                g.drawRoundedOutline(sx, sy, sw0, sh0, 4, 1, "solid", 0xFF9EACB8, 0xFF9EACB8);
+                g.fill(sx + sw0 / 2 - 2, sy + 3, sx + sw0 / 2 + 2, sy + sh0 - 3, 0xFF8B5A2B);
+
+                String label = String.format("Scale: %.2fx | Y: %.2f | X: %.2f", Double.valueOf(scale), Double.valueOf(offY), Double.valueOf(offX));
+                g.text(label, px0 + 8, py0 + 12, 0xFFFFFFFF, true);
+                return false;
+            }
+        };
     }
 
     private interface SettingRow {
@@ -912,7 +1015,13 @@ public class SharedModMenu {
         if ("xhair_thick".equals(key)) return cfg.getDouble("pvp_xhair_thick", 1);
         if ("xhair_range".equals(key)) return cfg.getDouble("pvp_xhair_target_range", 12);
         if ("zoom_fac".equals(key)) return cfg.getDouble("cam_zoom_fac", 4);
+        if ("cam_fov_factor".equals(key)) return cfg.getDouble("cam_fov_factor", 1.0);
+        if ("pvp_hurtcam_factor".equals(key)) return cfg.getDouble("pvp_hurtcam_factor", 0.0);
         if ("fire_offset".equals(key)) return cfg.getDouble("pvp_low_fire_offset", -0.32);
+        if ("fire_opacity".equals(key)) return cfg.getDouble("pvp_low_fire_opacity", 0.70);
+        if ("shield_scale".equals(key)) return cfg.getDouble("pvp_low_shield_scale", 0.85);
+        if ("shield_y".equals(key)) return cfg.getDouble("pvp_low_shield_y", -0.25);
+        if ("shield_x".equals(key)) return cfg.getDouble("pvp_low_shield_x", 0.0);
         if (key.startsWith("mod_")) {
             ClientConfig.HudModule m = cfg.hudModules.get(key.substring(key.indexOf(':') + 1));
             if (m == null) return 0;
@@ -951,7 +1060,13 @@ public class SharedModMenu {
         else if ("xhair_thick".equals(key)) cfg.setOption("pvp_xhair_thick", Integer.valueOf((int) Math.round(snapped)));
         else if ("xhair_range".equals(key)) cfg.setOption("pvp_xhair_target_range", Integer.valueOf((int) Math.round(snapped)));
         else if ("zoom_fac".equals(key)) cfg.setOption("cam_zoom_fac", Integer.valueOf((int) Math.round(snapped)));
+        else if ("cam_fov_factor".equals(key)) cfg.setOption("cam_fov_factor", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if ("pvp_hurtcam_factor".equals(key)) cfg.setOption("pvp_hurtcam_factor", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
         else if ("fire_offset".equals(key)) cfg.setOption("pvp_low_fire_offset", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if ("fire_opacity".equals(key)) cfg.setOption("pvp_low_fire_opacity", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if ("shield_scale".equals(key)) cfg.setOption("pvp_low_shield_scale", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if ("shield_y".equals(key)) cfg.setOption("pvp_low_shield_y", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if ("shield_x".equals(key)) cfg.setOption("pvp_low_shield_x", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
         else if (key.startsWith("mod_")) {
             ClientConfig.HudModule m = cfg.hudModules.get(key.substring(key.indexOf(':') + 1));
             if (m != null) {
@@ -1002,6 +1117,8 @@ public class SharedModMenu {
         ClientConfig cfg = ClientConfig.get();
         if ("crosshair".equals(id)) return !"vanilla".equalsIgnoreCase(cfg.getString("pvp_xhair_style", "classic"));
         if ("zoom".equals(id)) return cfg.getBool("cam_zoom", true);
+        if ("fov_mod".equals(id)) return !cfg.getBool("cam_fov_dynamic", true) || cfg.getDouble("cam_fov_factor", 1.0) != 1.0;
+        if ("hurtcam".equals(id)) return cfg.getBool("pvp_no_hurtcam", false) || cfg.getDouble("pvp_hurtcam_factor", 0.0) < 1.0;
         if ("low_fire".equals(id)) return cfg.getBool("pvp_low_fire", true);
         if ("low_shield".equals(id)) return cfg.getBool("pvp_low_shield", true);
         if ("fullbright".equals(id)) return cfg.getBool("util_fullbright", false);
@@ -1016,6 +1133,8 @@ public class SharedModMenu {
         ClientConfig cfg = ClientConfig.get();
         if ("crosshair".equals(id)) cfg.setOption("pvp_xhair_style", "vanilla".equalsIgnoreCase(cfg.getString("pvp_xhair_style", "classic")) ? "classic" : "vanilla");
         else if ("zoom".equals(id)) cfg.setOption("cam_zoom", Boolean.valueOf(!cfg.getBool("cam_zoom", true)));
+        else if ("fov_mod".equals(id)) cfg.setOption("cam_fov_dynamic", Boolean.valueOf(!cfg.getBool("cam_fov_dynamic", true)));
+        else if ("hurtcam".equals(id)) cfg.setOption("pvp_no_hurtcam", Boolean.valueOf(!cfg.getBool("pvp_no_hurtcam", false)));
         else if ("low_fire".equals(id)) cfg.setOption("pvp_low_fire", Boolean.valueOf(!cfg.getBool("pvp_low_fire", true)));
         else if ("low_shield".equals(id)) cfg.setOption("pvp_low_shield", Boolean.valueOf(!cfg.getBool("pvp_low_shield", true)));
         else if ("fullbright".equals(id)) cfg.setOption("util_fullbright", Boolean.valueOf(!cfg.getBool("util_fullbright", false)));
