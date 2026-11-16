@@ -3,6 +3,18 @@ package dev.aetheria.client.common;
 public final class UiBridge {
     private UiBridge() {}
 
+    // Precomputed circle corner insets (r = 0..32). Computed once at startup!
+    private static final int[][] INSET_LUT = new int[33][];
+    static {
+        for (int r = 1; r <= 32; r++) {
+            INSET_LUT[r] = new int[r];
+            for (int dy = 0; dy < r; dy++) {
+                double py = r - dy - 0.5;
+                INSET_LUT[r][dy] = (int) Math.round(r - Math.sqrt(Math.max(0.0, r * r - py * py)));
+            }
+        }
+    }
+
     public interface UiDraw {
         void fill(int x1, int y1, int x2, int y2, int argb);
         void text(String txt, int x, int y, int argb, boolean shadow);
@@ -17,33 +29,66 @@ public final class UiBridge {
             fill(x + w - 1, y + 1, x + w, y + h - 1, col);
         }
 
-        // ULTRA-FAST 3-box rounded rect (0 CPU Math.sqrt, 3 draw calls total)
+        // True rounded corners powered by LUT (ultra-smooth and zero CPU sqrt overhead)
         default void drawRoundedRect(int x, int y, int w, int h, int r, int argb) {
             if (w <= 0 || h <= 0 || ((argb >>> 24) & 0xFF) == 0) return;
-            r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+            r = Math.max(0, Math.min(Math.min(r, 32), Math.min(w, h) / 2));
             if (r <= 1) { fill(x, y, x + w, y + h, argb); return; }
-            fill(x + r, y, x + w - r, y + h, argb);
-            fill(x, y + r, x + r, y + h - r, argb);
-            fill(x + w - r, y + r, x + w, y + h - r, argb);
+
+            int[] insets = INSET_LUT[r];
+            // Center slab (fills 80-90% of the rect in 1 single draw call)
+            if (h > r * 2) {
+                fill(x, y + r, x + w, y + h - r, argb);
+            }
+            // Top and bottom curved slices
+            for (int dy = 0; dy < r; dy++) {
+                int in = insets[dy];
+                fill(x + in, y + dy, x + w - in, y + dy + 1, argb);
+                fill(x + in, y + h - 1 - dy, x + w - in, y + h - dy, argb);
+            }
         }
 
-        // Fast outline (4 border bars, no loops)
         default void drawRoundedOutline(int x, int y, int w, int h, int r, int argb) {
             drawRoundedOutline(x, y, w, h, r, 1, "solid", argb, argb);
         }
 
         default void drawRoundedOutline(int x, int y, int w, int h, int r, int thickness, String style, int argb, int argb2) {
             if (w <= 1 || h <= 1 || thickness <= 0 || ((argb >>> 24) & 0xFF) == 0) return;
-            int t = Math.max(1, Math.min(3, thickness));
-            fill(x, y, x + w, y + t, argb);
-            fill(x, y + h - t, x + w, y + h, argb2);
-            fill(x, y + t, x + t, y + h - t, argb);
-            fill(x + w - t, y + t, x + w, y + h - t, argb2);
+            int t = Math.max(1, Math.min(4, thickness));
+            r = Math.max(0, Math.min(Math.min(r, 32), Math.min(w, h) / 2));
+
+            if (r <= 1) {
+                fill(x, y, x + w, y + t, argb);
+                fill(x, y + h - t, x + w, y + h, argb2);
+                fill(x, y + t, x + t, y + h - t, argb);
+                fill(x + w - t, y + t, x + w, y + h - t, argb2);
+                return;
+            }
+
+            int[] insets = INSET_LUT[r];
+            // Top & bottom flat spans
+            fill(x + r, y, x + w - r, y + t, argb);
+            fill(x + r, y + h - t, x + w - r, y + h, argb2);
+            // Left & right flat spans
+            if (h > r * 2) {
+                fill(x, y + r, x + t, y + h - r, argb);
+                fill(x + w - t, y + r, x + w, y + h - r, argb2);
+            }
+            // Smooth rounded corners
+            for (int dy = 0; dy < r; dy++) {
+                int outer = insets[dy];
+                int inner = dy >= t ? insets[dy - t] : r;
+                int span = Math.max(1, inner - outer);
+                fill(x + outer, y + dy, x + outer + span, y + dy + 1, argb);
+                fill(x + w - outer - span, y + dy, x + w - outer, y + dy + 1, argb2);
+                fill(x + outer, y + h - 1 - dy, x + outer + span, y + h - dy, argb);
+                fill(x + w - outer - span, y + h - 1 - dy, x + w - outer, y + h - dy, argb2);
+            }
         }
 
         default void drawGlassCard(int x, int y, int w, int h, int radius, int bgArgb, int borderArgb) {
             drawRoundedRect(x, y, w, h, radius, bgArgb);
-            if (((borderArgb >>> 24) & 0xFF) > 0) drawBorder(x, y, w, h, borderArgb);
+            if (((borderArgb >>> 24) & 0xFF) > 0) drawRoundedOutline(x, y, w, h, radius, borderArgb);
         }
 
         default void drawGlassCard(int x, int y, int w, int h, int radius, int borderThick, String borderStyle, int bgArgb, int borderArgb, int borderArgb2) {
@@ -53,23 +98,26 @@ public final class UiBridge {
             }
         }
 
-        // Fast single-pass shadow
         default void drawSoftShadow(int x, int y, int w, int h, int radius) {
-            fill(x - 2, y - 1, x + w + 2, y + h + 2, 0x22000000);
+            drawRoundedRect(x - 2, y - 1, w + 4, h + 4, radius + 2, 0x1A000000);
         }
 
         default void drawSoftShadow(int x, int y, int w, int h, int radius, int offX, int offY, int blur, int col) {
             int a = (col >>> 24) & 0xFF;
             if (a == 0) return;
-            fill(x + offX - 2, y + offY - 2, x + offX + w + 2, y + offY + h + 2, ClientState.withAlpha(col, Math.min(a, 40)));
+            int b = Math.max(1, Math.min(4, blur));
+            for (int i = b; i >= 1; i--) {
+                int layerAlpha = Math.max(4, (a * (b - i + 1)) / 10);
+                drawRoundedRect(x + offX - i, y + offY - i, w + i * 2, h + i * 2, radius + i, ClientState.withAlpha(col, layerAlpha));
+            }
         }
 
         default void drawCircleFilled(int cx, int cy, int r, int argb) {
-            fill(cx - r, cy - r, cx + r, cy + r, argb);
+            drawRoundedRect(cx - r, cy - r, r * 2, r * 2, r, argb);
         }
 
         default void drawCircle(int cx, int cy, int r, int t, int col) {
-            drawBorder(cx - r, cy - r, r * 2, r * 2, col);
+            drawRoundedOutline(cx - r, cy - r, r * 2, r * 2, r, t, "solid", col, col);
         }
 
         default void drawLine(int x0, int y0, int x1, int y1, int t, int col) {
@@ -99,9 +147,9 @@ public final class UiBridge {
         }
 
         default void drawProgressBar(int x, int y, int w, int h, int r, float pct, int bgCol, int fgCol) {
-            fill(x, y, x + w, y + h, bgCol);
+            drawRoundedRect(x, y, w, h, r, bgCol);
             int fw = Math.round(w * Math.max(0.0F, Math.min(1.0F, pct)));
-            if (fw >= 1) fill(x, y, x + fw, y + h, fgCol);
+            if (fw >= 2) drawRoundedRect(x, y, fw, h, Math.min(r, fw / 2), fgCol);
         }
 
         default void drawProgressRing(int cx, int cy, int r, float pct, int bgCol, int fgCol) {
