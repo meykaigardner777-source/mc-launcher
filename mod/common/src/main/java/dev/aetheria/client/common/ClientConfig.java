@@ -36,7 +36,7 @@ public class ClientConfig {
         public double x, y, scale = 1.0, opacity = 0.75, textOpacity = 1.0;
         public double chromaSpeed = 1.0, chromaSat = 0.85, chromaAngle = 45.0;
         public int width = 0, height = 0;
-        public int borderRadius = 6, borderWidth = 1, paddingX = 6, paddingY = 4, margin = 0, blurRadius = 8;
+        public int borderRadius = 10, borderWidth = 1, paddingX = 6, paddingY = 4, margin = 0, blurRadius = 8;
         public int letterSpacing = 0, dropShadowX = 0, dropShadowY = 2, dropShadowBlur = 0;
     }
 
@@ -174,11 +174,14 @@ public class ClientConfig {
 
         for (HudModule m : hudModules.values()) if (m.optId != null) setDefaultOpt(m.optId, Boolean.valueOf(m.enabled));
 
+        // === GLOBAL UI ENGINE & MASTER SLIDERS ===
+        setDefaultOpt("global_hud_rounding", Integer.valueOf(-1)); // -1 = per-hud, 0 = sharp, 12 = round
+        setDefaultOpt("global_hud_opacity", Double.valueOf(-1.0)); // -1 = per-hud, 0.10 to 1.00
         setDefaultOpt("ui_menu_layout", "topbar");
         setDefaultOpt("ui_switch_style", "pill");
         setDefaultOpt("ui_card_width", Integer.valueOf(140));
-        setDefaultOpt("ui_menu_rounding", Integer.valueOf(8));
-        setDefaultOpt("ui_menu_opacity", Double.valueOf(0.86));
+        setDefaultOpt("ui_menu_rounding", Integer.valueOf(12));
+        setDefaultOpt("ui_menu_opacity", Double.valueOf(0.95));
         setDefaultOpt("ui_menu_blur", Integer.valueOf(14));
         setDefaultOpt("ui_world_blur", Integer.valueOf(10));
         setDefaultOpt("ui_accent", "white");
@@ -198,15 +201,30 @@ public class ClientConfig {
         setDefaultOpt("container_theme", Boolean.TRUE);
         setDefaultOpt("container_opacity", Double.valueOf(0.80));
 
+        // === LOW FIRE & LOW SHIELD VIEWMODEL ===
         setDefaultOpt("pvp_low_fire", Boolean.TRUE);
         setDefaultOpt("pvp_low_fire_offset", Double.valueOf(-0.32));
+        setDefaultOpt("pvp_low_fire_opacity", Double.valueOf(0.70));
         setDefaultOpt("pvp_low_shield", Boolean.TRUE);
+        setDefaultOpt("pvp_low_shield_scale", Double.valueOf(0.85));
+        setDefaultOpt("pvp_low_shield_x", Double.valueOf(0.0));
+        setDefaultOpt("pvp_low_shield_y", Double.valueOf(-0.25));
+
+        // === NO HURT CAM & DYNAMIC FOV ===
+        setDefaultOpt("pvp_no_hurtcam", Boolean.FALSE);
+        setDefaultOpt("pvp_hurtcam_factor", Double.valueOf(0.0)); // 0.0 = completely off, 1.0 = vanilla
+        setDefaultOpt("cam_fov_dynamic", Boolean.TRUE);
+        setDefaultOpt("cam_fov_factor", Double.valueOf(1.0));
+        setDefaultOpt("cam_fov_sprint", Boolean.TRUE);
+        setDefaultOpt("cam_fov_bow", Boolean.TRUE);
+
         setDefaultOpt("util_fullbright", Boolean.FALSE);
         setDefaultOpt("util_freelook", Boolean.TRUE);
         setDefaultOpt("util_freelook_key", "ALT");
         setDefaultOpt("util_time_lock", "off");
         setDefaultOpt("util_weather_lock", "off");
 
+        // === CROSSHAIR & CUSTOM PIXELS ===
         setDefaultOpt("pvp_xhair_style", "classic");
         setDefaultOpt("pvp_xhair_size", Integer.valueOf(6));
         setDefaultOpt("pvp_xhair_gap", Integer.valueOf(2));
@@ -230,6 +248,15 @@ public class ClientConfig {
             "000001010100000" + "000010010010000" + "000000000000000" +
             "000000000000000" + "000000000000000" + "000000000000000");
         setDefaultOpt("pvp_xhair_pixel_scale", Integer.valueOf(1));
+
+        // === SATURATION & POTIONS CUSTOMIZATION ===
+        setDefaultOpt("saturation_style", "appleskin"); // appleskin, bar, text
+        setDefaultOpt("saturation_glint", Boolean.TRUE);
+        setDefaultOpt("potions_style", "vanilla");      // vanilla, compact, cards
+        setDefaultOpt("potions_timers", Boolean.TRUE);
+        setDefaultOpt("potions_numerals", Boolean.TRUE);
+        setDefaultOpt("potions_show_icon", Boolean.TRUE);
+        setDefaultOpt("potions_blink", Boolean.TRUE);
 
         setDefaultOpt("cam_zoom", Boolean.TRUE);
         setDefaultOpt("cam_zoom_fac", Integer.valueOf(4));
