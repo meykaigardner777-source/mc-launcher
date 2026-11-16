@@ -169,20 +169,25 @@ public class SharedModMenu {
     private boolean handleFrame(UiBridge.UiDraw g, int sw, int sh, int mx, int my, boolean click, Actions actions) {
         ClientConfig cfg = ClientConfig.get();
         int accent = ClientState.getAccentColor(), accentFg = ClientState.getAccentFg();
-        int menuRad = 12;
-        int panelBg = 0xFA0D0D11;
-        String layout = cfg.getString("ui_menu_layout", "topbar");
 
+        double gRad = cfg.getDouble("global_hud_rounding", -1.0);
+        int menuRad = gRad >= 0 ? (int) Math.round(gRad) : 12;
+
+        double gOpac = cfg.getDouble("global_hud_opacity", -1.0);
+        double activeOpac = gOpac >= 0 ? gOpac : cfg.getDouble("ui_menu_opacity", 0.95);
+        int panelBg = ClientState.withAlpha(0xFF0D0D11, (int) Math.round(Math.max(0.1, Math.min(1.0, activeOpac)) * 255.0));
+
+        String layout = cfg.getString("ui_menu_layout", "topbar");
         int panelW = Math.min(640, sw - 16), panelH = Math.min(390, sh - 16);
         int px = (sw - panelW) / 2, py = (sh - panelH) / 2;
         int topH = 38;
 
         if (!click) {
             g.drawGlassCard(px, py, panelW, panelH, menuRad, panelBg, ClientState.UI_BORDER);
-            g.drawRoundedRect(px + 1, py + 1, panelW - 2, topH - 1, menuRad - 1, 0xFF14141A);
+            g.drawRoundedRect(px + 1, py + 1, panelW - 2, topH - 1, Math.max(0, menuRad - 1), 0xFF14141A);
             g.fill(px + 1, py + topH, px + panelW - 1, py + topH + 1, ClientState.UI_BORDER);
             g.text("AETHERIA", px + 12, py + 15, ClientState.UI_TEXT, false);
-            g.drawRoundedRect(px + 64, py + 11, 44, 15, 7, ClientState.withAlpha(accent, 40));
+            g.drawRoundedRect(px + 64, py + 11, 46, 16, menuRad / 2, ClientState.withAlpha(accent, 45));
             g.text(cfg.activeProfile.toUpperCase(), px + 69, py + 15, accent, false);
         }
 
@@ -191,18 +196,18 @@ public class SharedModMenu {
         if (!click) {
             float ht = animHover("win_close", closeHov);
             int cBg = ClientState.lerpColor(0x00000000, ClientState.UI_DANGER, ht);
-            if ((cBg >>> 24) > 4) g.drawRoundedRect(closeX, closeY, 20, 20, 10, cBg);
+            if ((cBg >>> 24) > 4) g.drawRoundedRect(closeX, closeY, 20, 20, menuRad / 2, cBg);
             g.text("x", closeX + 7, closeY + 6, closeHov ? 0xFFFFFFFF : ClientState.UI_TEXT_MUTED, false);
         } else if (closeHov) {
             cfg.save(); if (actions != null) actions.closeMenu(); return true;
         }
 
         int ehW = 62, ehX = closeX - ehW - 6;
-        if (drawBtn(g, "btn_edithud", ehX, py + 9, ehW, 20, 10, "Edit HUD", accent, accentFg, true, mx, my, click)) {
+        if (drawBtn(g, "btn_edithud", ehX, py + 9, ehW, 20, menuRad / 2, "Edit HUD", accent, accentFg, true, mx, my, click)) {
             if (actions != null) actions.openHudEditor(); return true;
         }
         int layW = 54, layX = ehX - layW - 5;
-        if (drawBtn(g, "btn_lay", layX, py + 9, layW, 20, 10, layout.toUpperCase(), 0xFF1A1A22, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+        if (drawBtn(g, "btn_lay", layX, py + 9, layW, 20, menuRad / 2, layout.toUpperCase(), 0xFF1A1A22, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
             int next = 0; for (int i = 0; i < MENU_LAYOUTS.length; i++) if (MENU_LAYOUTS[i].equalsIgnoreCase(layout)) next = (i + 1) % MENU_LAYOUTS.length;
             cfg.setOption("ui_menu_layout", MENU_LAYOUTS[next]); return true;
         }
@@ -217,7 +222,7 @@ public class SharedModMenu {
                 int by = py + topH + 8 + i * 24;
                 if (by + 20 > py + panelH - 6) break;
                 boolean sel = editingModId == null && activeMenu.equals(cats[i][0]);
-                if (drawBtn(g, "sb_" + cats[i][0], px + 10, by, sideW - 6, 20, 10, cats[i][1], sel ? ClientState.withAlpha(accent, 45) : 0x00000000, sel ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                if (drawBtn(g, "sb_" + cats[i][0], px + 10, by, sideW - 6, 20, menuRad / 2, cats[i][1], sel ? ClientState.withAlpha(accent, 45) : 0x00000000, sel ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
                     activeMenu = cats[i][0]; editingModId = null; searchFocused = false; resetScroll(); return true;
                 }
             }
@@ -234,7 +239,7 @@ public class SharedModMenu {
                     float ht = animHover("nav_" + id, hov);
                     int bg = sel ? ClientState.withAlpha(accent, 40) : ClientState.lerpColor(0x00000000, 0x22FFFFFF, ht);
                     int brd = sel ? accent : ClientState.lerpColor(0x00000000, ClientState.UI_BORDER, ht);
-                    if ((bg >>> 24) > 4 || (brd >>> 24) > 4) g.drawGlassCard(navX, py + 9, bw, 20, 10, bg, brd);
+                    if ((bg >>> 24) > 4 || (brd >>> 24) > 4) g.drawGlassCard(navX, py + 9, bw, 20, menuRad / 2, bg, brd);
                     g.text(lbl, navX + 6, py + 15, sel || hov ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false);
                 } else if (hov) {
                     activeMenu = id; editingModId = null; searchFocused = false; resetScroll(); return true;
@@ -253,7 +258,7 @@ public class SharedModMenu {
         int sbW = isPalette ? Math.min(240, cw - 110) : Math.min(165, cw / 2), sbX = cx + cw - sbW, sbY = cy;
         boolean sHov = mx >= sbX && mx <= sbX + sbW && my >= sbY && my <= sbY + 20;
         if (!click) {
-            g.drawGlassCard(sbX, sbY, sbW, 20, 10, ClientState.UI_INPUT, searchFocused ? accent : (sHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
+            g.drawGlassCard(sbX, sbY, sbW, 20, menuRad / 2, ClientState.UI_INPUT, searchFocused ? accent : (sHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
             String disp = searchQuery.isEmpty() ? (searchFocused ? "_" : "Search 100+ HUDs...") : (searchQuery + (searchFocused ? "_" : ""));
             g.text(disp, sbX + 8, sbY + 6, searchQuery.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
             if (!searchQuery.isEmpty()) g.text("x", sbX + sbW - 12, sbY + 6, ClientState.UI_TEXT_MUTED, false);
@@ -291,11 +296,11 @@ public class SharedModMenu {
                 if (ry < cy || ry + rowH > cy + ch) continue;
                 boolean en = isModEnabled(m.id);
                 if (!click) {
-                    g.drawGlassCard(cx, ry, rw, rowH, 8, ClientState.UI_CARD, en ? accent : ClientState.UI_BORDER);
+                    g.drawGlassCard(cx, ry, rw, rowH, menuRad / 2, ClientState.UI_CARD, en ? accent : ClientState.UI_BORDER);
                     g.text(m.name + "  [" + m.category.toUpperCase() + "]", cx + 10, ry + 7, ClientState.UI_TEXT, false);
                     g.text(trimToWidth(g, m.desc, rw - 150), cx + 10, ry + 19, ClientState.UI_TEXT_MUTED, false);
                 }
-                if (drawBtn(g, "pcfg_" + m.id, cx + rw - 118, ry + 8, 58, 18, 9, "Config", ClientState.UI_INPUT, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                if (drawBtn(g, "pcfg_" + m.id, cx + rw - 118, ry + 8, 58, 18, menuRad / 2, "Config", ClientState.UI_INPUT, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
                     editingModId = m.id; resetScroll(); return true;
                 }
                 if (drawSwitch(g, "ptog_" + m.id, cx + rw - 54, ry + 8, 44, 18, en, accent, accentFg, mx, my, click)) {
@@ -329,13 +334,12 @@ public class SharedModMenu {
             ClientConfig.HudModule hm = ClientConfig.get().hudModules.get(m.id);
             boolean fav = hm != null && hm.favorite;
             boolean hov = mx >= bx && mx <= bx + cardW && my >= topVis && my <= botVis;
-            int cardRad = 10;
 
             if (!click) {
                 float ht = animHover("card_" + m.id, hov);
                 int bg = ClientState.lerpColor(0xFF131319, 0xFF191921, ht);
                 int brd = enabled ? accent : ClientState.lerpColor(ClientState.UI_BORDER, ClientState.UI_BORDER_HOV, ht);
-                g.drawGlassCard(bx, topVis, cardW, botVis - topVis, cardRad, bg, brd);
+                g.drawGlassCard(bx, topVis, cardW, botVis - topVis, menuRad, bg, brd);
 
                 if (by + 8 >= cy && by + 18 <= cy + ch) {
                     g.drawCircleFilled(bx + 9, by + 13, 3, enabled ? accent : ClientState.UI_TEXT_DIM);
@@ -354,7 +358,7 @@ public class SharedModMenu {
             }
             if (by + 76 >= cy && by + 120 <= cy + ch) {
                 int btnW = cardW - 14;
-                if (drawBtn(g, "cfg_" + m.id, bx + 7, by + 76, btnW, 18, 9, "Configure", 0xFF1B1B24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                if (drawBtn(g, "cfg_" + m.id, bx + 7, by + 76, btnW, 18, menuRad / 2, "Configure", 0xFF1B1B24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
                     editingModId = m.id; resetScroll(); return true;
                 }
                 if (drawSwitch(g, "tog_" + m.id, bx + 7, by + 98, btnW, 18, enabled, accent, accentFg, mx, my, click)) {
@@ -370,11 +374,11 @@ public class SharedModMenu {
         ClientConfig cfg = ClientConfig.get();
         boolean isHud = cfg.hudModules.containsKey(editingModId), enabled = isModEnabled(editingModId);
 
-        if (drawBtn(g, "set_back", cx, cy, 52, 20, 10, "< Back", 0xFF191922, ClientState.UI_TEXT, false, mx, my, click)) {
+        if (drawBtn(g, "set_back", cx, cy, 52, 20, menuRad / 2, "< Back", 0xFF191922, ClientState.UI_TEXT, false, mx, my, click)) {
             editingModId = null; resetScroll(); return true;
         }
         if (!click) g.text(getModTitle(editingModId), cx + 60, cy + 6, ClientState.UI_TEXT, false);
-        if (isHud && drawBtn(g, "set_rst", cx + cw - 110, cy, 56, 20, 10, "Reset", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+        if (isHud && drawBtn(g, "set_rst", cx + cw - 110, cy, 56, 20, menuRad / 2, "Reset", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
             cfg.resetModule(editingModId); return true;
         }
         if (drawSwitch(g, "set_tog_" + editingModId, cx + cw - 46, cy + 1, 46, 18, enabled, accent, accentFg, mx, my, click)) {
@@ -388,7 +392,7 @@ public class SharedModMenu {
             for (int i = 0; i < tabs.length; i++) {
                 int tw = g.textWidth(tabs[i][1]) + 16;
                 boolean sel = inspectorTab.equals(tabs[i][0]);
-                if (drawBtn(g, "itab_" + tabs[i][0], tx, listTop, tw, 18, 9, tabs[i][1], sel ? ClientState.withAlpha(accent, 45) : 0xFF16161E, sel ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                if (drawBtn(g, "itab_" + tabs[i][0], tx, listTop, tw, 18, menuRad / 2, tabs[i][1], sel ? ClientState.withAlpha(accent, 45) : 0xFF16161E, sel ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
                     inspectorTab = tabs[i][0]; resetScroll(); return true;
                 }
                 tx += tw + 4;
@@ -467,6 +471,8 @@ public class SharedModMenu {
     private boolean renderUiEnginePage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         if (!click) g.text("Global UI Engine & Theme", cx + 2, cy + 4, ClientState.UI_TEXT, false);
         List<SettingRow> rows = new ArrayList<SettingRow>();
+        rows.add(sliderRow("Global Corner Rounding", "Set rounding for ALL HUDs & menus (-1 = per-hud, 0 = sharp, 24 = round)", "global_hud_rounding", -1, 24, 1, true));
+        rows.add(sliderRow("Global Background Opacity", "Set background opacity for ALL HUDs & menus (-1 = per-hud, 10% to 100%)", "global_hud_opacity", -1.0, 1.0, 0.05, false));
         rows.add(cycleRow("Menu Layout Mode", "Topbar, Sidebar, Grid, or Command Palette", "ui_menu_layout", MENU_LAYOUTS));
         rows.add(cycleRow("Toggle Switch Style", "Pill, iOS Switch, or Checkbox", "ui_switch_style", SWITCH_STYLES));
         rows.add(sliderRow("Module Card Width", "Grid card width (105-200px)", "ui_card_width", 105, 200, 5, true));
@@ -553,11 +559,11 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 boolean active = name.equalsIgnoreCase(ClientConfig.get().activeProfile);
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 38, 10, 0xFF14141B, active ? accent : ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, active ? accent : ClientState.UI_BORDER);
                     g.text(name + " Profile", x + 12, y + 8, ClientState.UI_TEXT, false);
                     g.text(trimToWidth(g, desc, w - 105), x + 12, y + 21, ClientState.UI_TEXT_MUTED, false);
                 }
-                if (drawBtn(g, "prof_" + name, x + w - 76, y + 9, 66, 20, 10, active ? "ACTIVE" : "Apply", active ? accent : 0xFF1E1E28, active ? accentFg : ClientState.UI_TEXT, active, mx, my, click)) {
+                if (drawBtn(g, "prof_" + name, x + w - 76, y + 9, 66, 20, menuRad / 2, active ? "ACTIVE" : "Apply", active ? accent : 0xFF1E1E28, active ? accentFg : ClientState.UI_TEXT, active, mx, my, click)) {
                     ClientConfig.get().applyProfilePreset(name); return true;
                 }
                 return false;
@@ -571,7 +577,7 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 boolean val = ClientConfig.get().getBool(optId, def);
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 36, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
                     g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
                 }
@@ -591,7 +597,7 @@ public class SharedModMenu {
                 if (m == null) return false;
                 boolean val = "bg".equals(field) ? m.bg : "border".equals(field) ? m.border : "chroma".equals(field) ? m.chroma : "hideInF1".equals(field) ? m.hideInF1 : "hideInChat".equals(field) ? m.hideInChat : "hideInInventory".equals(field) ? m.hideInInventory : "hideInF3".equals(field) ? m.hideInF3 : m.shadow;
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 36, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
                     g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
                 }
@@ -615,11 +621,11 @@ public class SharedModMenu {
                 if (m == null) return false;
                 String cur = "anchor".equals(field) ? m.anchor : "borderStyle".equals(field) ? m.borderStyle : "bracketStyle".equals(field) ? m.bracketStyle : "displayMode".equals(field) ? m.displayMode : m.fontWeight;
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 36, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
                     g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
                 }
-                if (drawBtn(g, "mc_" + modId + "_" + field, x + w - 102, y + 8, 92, 20, 10, cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+                if (drawBtn(g, "mc_" + modId + "_" + field, x + w - 102, y + 8, 92, 20, menuRad / 2, cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
                     int next = 0; for (int i = 0; i < vals.length; i++) if (vals[i].equalsIgnoreCase(cur)) next = (i + 1) % vals.length;
                     if ("anchor".equals(field)) m.anchor = vals[next]; else if ("borderStyle".equals(field)) m.borderStyle = vals[next];
                     else if ("bracketStyle".equals(field)) m.bracketStyle = vals[next]; else if ("displayMode".equals(field)) m.displayMode = vals[next];
@@ -637,11 +643,11 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 String cur = ClientConfig.get().getString(optId, values[0]);
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 36, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
                     g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
                 }
-                if (drawBtn(g, "cyc_" + optId, x + w - 94, y + 8, 84, 20, 10, cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+                if (drawBtn(g, "cyc_" + optId, x + w - 94, y + 8, 84, 20, menuRad / 2, cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
                     int next = 0; for (int i = 0; i < values.length; i++) if (values[i].equalsIgnoreCase(cur)) next = (i + 1) % values.length;
                     ClientConfig.get().setOption(optId, values[next]); return true;
                 }
@@ -658,7 +664,7 @@ public class SharedModMenu {
                 double pct = Math.max(0.0, Math.min(1.0, (val - min) / Math.max(0.0001, max - min)));
                 int trackX = x + 12, trackY = y + 31, trackW = w - 24;
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 44, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 44, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
                     String valStr = isInt ? String.valueOf(Math.round(val)) : (sliderKey.contains("opacity") || sliderKey.contains("topac") || sliderKey.contains("mod_x:") || sliderKey.contains("mod_y:") ? (Math.round(val * 100) + "%") : String.format("%.2f", Double.valueOf(val)));
                     g.text(valStr, x + w - g.textWidth(valStr) - 12, y + 8, accent, false);
@@ -683,7 +689,7 @@ public class SharedModMenu {
                 int curArgb = readColorTarget(target);
                 String hex = ClientState.toHexColor(curArgb);
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 60, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 60, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text(label + "  " + hex.toUpperCase(), x + 12, y + 7, ClientState.UI_TEXT, false);
                     g.drawCircleFilled(x + w - 16, y + 11, 5, curArgb);
                 }
@@ -736,7 +742,7 @@ public class SharedModMenu {
                 int tgtCol = ClientState.parseHexColor(cfg.getString("pvp_xhair_target_color", "#ef4444"), 0xFFEF4444);
                 for (int i = 0; i < 2; i++) {
                     int bx = x + i * (halfW + 8);
-                    g.drawGlassCard(bx, y, halfW, 62, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(bx, y, halfW, 62, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text(i == 0 ? "DEFAULT" : "PLAYER IN VIEW", bx + 10, y + 6, ClientState.UI_TEXT_MUTED, false);
                     String st = i == 0 ? baseStyle : tgtStyle;
                     if (!"vanilla".equalsIgnoreCase(st)) SharedHudRenderer.drawCrosshairShape(g, bx + halfW / 2, y + 36, st, sz, gap, thick, i == 0 ? baseCol : tgtCol, i == 1 && tgtUseOwnCustom);
@@ -766,7 +772,7 @@ public class SharedModMenu {
                 int gridPx = n * cell;
 
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 174, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 174, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text("Custom Pixel Crosshair (15x15)", x + 12, y + 6, ClientState.UI_TEXT, false);
                     g.drawRoundedRect(gx - 1, gy - 1, gridPx + 2, gridPx + 2, 4, ClientState.UI_BORDER);
                     for (int r = 0; r < n; r++) {
@@ -797,32 +803,32 @@ public class SharedModMenu {
                 int bw = Math.min(136, Math.max(90, w - (rx - x) - 12));
                 int halfBw = (bw - 4) / 2;
 
-                if (drawBtn(g, "px_mode", rx, gy, bw, 20, 10, editingTargetPixels ? "Edit: IN VIEW" : "Edit: DEFAULT", editingTargetPixels ? 0xFF7F1D1D : ClientState.withAlpha(accent, 45), ClientState.UI_TEXT, false, mx, my, click)) {
+                if (drawBtn(g, "px_mode", rx, gy, bw, 20, menuRad / 2, editingTargetPixels ? "Edit: IN VIEW" : "Edit: DEFAULT", editingTargetPixels ? 0xFF7F1D1D : ClientState.withAlpha(accent, 45), ClientState.UI_TEXT, false, mx, my, click)) {
                     editingTargetPixels = !editingTargetPixels; return true;
                 }
-                if (drawBtn(g, "px_mx", rx, gy + 24, halfBw, 18, 9, "MirX:" + (pixelMirrorX ? "ON" : "OFF"), pixelMirrorX ? ClientState.withAlpha(accent, 42) : 0xFF1A1A24, ClientState.UI_TEXT, false, mx, my, click)) {
+                if (drawBtn(g, "px_mx", rx, gy + 24, halfBw, 18, menuRad / 2, "MirX:" + (pixelMirrorX ? "ON" : "OFF"), pixelMirrorX ? ClientState.withAlpha(accent, 42) : 0xFF1A1A24, ClientState.UI_TEXT, false, mx, my, click)) {
                     pixelMirrorX = !pixelMirrorX; return true;
                 }
-                if (drawBtn(g, "px_my", rx + halfBw + 4, gy + 24, bw - halfBw - 4, 18, 9, "MirY:" + (pixelMirrorY ? "ON" : "OFF"), pixelMirrorY ? ClientState.withAlpha(accent, 42) : 0xFF1A1A24, ClientState.UI_TEXT, false, mx, my, click)) {
+                if (drawBtn(g, "px_my", rx + halfBw + 4, gy + 24, bw - halfBw - 4, 18, menuRad / 2, "MirY:" + (pixelMirrorY ? "ON" : "OFF"), pixelMirrorY ? ClientState.withAlpha(accent, 42) : 0xFF1A1A24, ClientState.UI_TEXT, false, mx, my, click)) {
                     pixelMirrorY = !pixelMirrorY; return true;
                 }
-                if (drawBtn(g, "px_inv", rx, gy + 46, halfBw, 18, 9, "Invert", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                if (drawBtn(g, "px_inv", rx, gy + 46, halfBw, 18, menuRad / 2, "Invert", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
                     char[] arr = pixels.toCharArray();
                     for (int i = 0; i < arr.length; i++) arr[i] = (arr[i] == '1') ? '0' : '1';
                     cfg.setOption(optKey, new String(arr)); return true;
                 }
-                if (drawBtn(g, "px_clr", rx + halfBw + 4, gy + 46, bw - halfBw - 4, 18, 9, "Clear", 0xFF3B1A1E, ClientState.UI_TEXT, false, mx, my, click)) {
+                if (drawBtn(g, "px_clr", rx + halfBw + 4, gy + 46, bw - halfBw - 4, 18, menuRad / 2, "Clear", 0xFF3B1A1E, ClientState.UI_TEXT, false, mx, my, click)) {
                     char[] arr = new char[n * n];
                     Arrays.fill(arr, '0');
                     cfg.setOption(optKey, new String(arr)); return true;
                 }
-                if (drawBtn(g, "px_pre1", rx, gy + 68, bw, 18, 9, "Preset: Cross", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                if (drawBtn(g, "px_pre1", rx, gy + 68, bw, 18, menuRad / 2, "Preset: Cross", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
                     cfg.setOption(optKey, SharedHudRenderer.DEFAULT_CUSTOM_PIXELS); return true;
                 }
-                if (drawBtn(g, "px_pre2", rx, gy + 90, bw, 18, 9, "Preset: Dot-X", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                if (drawBtn(g, "px_pre2", rx, gy + 90, bw, 18, menuRad / 2, "Preset: Dot-X", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
                     cfg.setOption(optKey, SharedHudRenderer.DEFAULT_TARGET_CUSTOM_PIXELS); return true;
                 }
-                if (drawBtn(g, "px_use", rx, gy + 112, bw, 20, 10, editingTargetPixels ? "Use for In-View" : "Use for Default", accent, accentFg, true, mx, my, click)) {
+                if (drawBtn(g, "px_use", rx, gy + 112, bw, 20, menuRad / 2, editingTargetPixels ? "Use for In-View" : "Use for Default", accent, accentFg, true, mx, my, click)) {
                     cfg.setOption(editingTargetPixels ? "pvp_xhair_target_style" : "pvp_xhair_style", "custom"); return true;
                 }
                 if (!click) {
@@ -851,7 +857,7 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 String cur = ClientConfig.get().getString("ui_accent", "white");
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 46, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 46, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text(label, x + 12, y + 7, ClientState.UI_TEXT, false);
                 }
                 int bx = x + 18, by = y + 28;
@@ -877,11 +883,11 @@ public class SharedModMenu {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 36, 10, 0xFF14141B, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                     g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
                     g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
                 }
-                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, 10, "Run", 0xFF3B1A1E, ClientState.UI_TEXT, false, mx, my, click)) {
+                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, menuRad / 2, "Run", 0xFF3B1A1E, ClientState.UI_TEXT, false, mx, my, click)) {
                     if ("reset_layout".equals(actId)) ClientConfig.get().resetLayout();
                     else if ("reset_all".equals(actId)) ClientConfig.get().resetAll();
                     else if ("sw_toggle".equals(actId)) ClientState.toggleStopwatch();
@@ -896,6 +902,8 @@ public class SharedModMenu {
 
     private double readSliderValue(String key) {
         ClientConfig cfg = ClientConfig.get();
+        if ("global_hud_rounding".equals(key)) return cfg.getDouble("global_hud_rounding", -1.0);
+        if ("global_hud_opacity".equals(key)) return cfg.getDouble("global_hud_opacity", -1.0);
         if ("ui_card_width".equals(key)) return cfg.getDouble("ui_card_width", 140);
         if ("ui_anim_speed".equals(key)) return cfg.getDouble("ui_anim_speed", 1.0);
         if ("xhair_pixel_scale".equals(key)) return cfg.getDouble("pvp_xhair_pixel_scale", 1);
@@ -933,7 +941,9 @@ public class SharedModMenu {
         double raw = sliderMin + pct * (sliderMax - sliderMin);
         double snapped = Math.max(sliderMin, Math.min(sliderMax, Math.round(raw / sliderStep) * sliderStep));
         ClientConfig cfg = ClientConfig.get();
-        if ("ui_card_width".equals(key)) cfg.setOption("ui_card_width", Integer.valueOf((int) Math.round(snapped)));
+        if ("global_hud_rounding".equals(key)) cfg.setOption("global_hud_rounding", Integer.valueOf((int) Math.round(snapped)));
+        else if ("global_hud_opacity".equals(key)) cfg.setOption("global_hud_opacity", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if ("ui_card_width".equals(key)) cfg.setOption("ui_card_width", Integer.valueOf((int) Math.round(snapped)));
         else if ("ui_anim_speed".equals(key)) cfg.setOption("ui_anim_speed", Double.valueOf(Math.round(snapped * 10.0) / 10.0));
         else if ("xhair_pixel_scale".equals(key)) cfg.setOption("pvp_xhair_pixel_scale", Integer.valueOf((int) Math.round(snapped)));
         else if ("xhair_size".equals(key)) cfg.setOption("pvp_xhair_size", Integer.valueOf((int) Math.round(snapped)));
