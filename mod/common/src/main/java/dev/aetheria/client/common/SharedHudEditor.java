@@ -22,15 +22,16 @@ public class SharedHudEditor {
             SharedHudRenderer.renderModule(g, d, m, sw, sh, true, true);
             int[] b = SharedHudRenderer.getModulePixelBounds(g, d, m, sw, sh);
             int bx = b[0], by = b[1], bw = b[2], bh = b[3];
-            int rad = Math.max(0, Math.min(12, m.borderRadius));
+            int rad = Math.max(0, Math.min(16, m.borderRadius));
             boolean sel = m.id.equals(selectedId), hov = mx >= bx && mx <= bx + bw && my >= by && my <= by + bh;
 
             if (sel) {
-                g.drawRoundedOutline(bx - 2, by - 2, bw + 4, bh + 4, rad + 2, accent);
+                g.drawRoundedOutline(bx - 2, by - 2, bw + 4, bh + 4, rad + 2, 1, accent);
+                // Corner drag resize handle
                 g.drawCircleFilled(bx + bw + 1, by + bh + 1, 5, 0xFF09090B);
                 g.drawCircleFilled(bx + bw + 1, by + bh + 1, 4, accent);
             } else if (hov) {
-                g.drawRoundedOutline(bx - 1, by - 1, bw + 2, bh + 2, rad + 1, ClientState.UI_BORDER_HOV);
+                g.drawRoundedOutline(bx - 1, by - 1, bw + 2, bh + 2, rad + 1, 1, ClientState.UI_BORDER_HOV);
             }
         }
 
@@ -41,7 +42,7 @@ public class SharedHudEditor {
             int tw = g.textWidth(tag) + 14;
             int ty = b[1] > 24 ? b[1] - 20 : b[1] + b[3] + 6;
             int tx = Math.max(8, Math.min(sw - tw - 8, b[0]));
-            g.drawGlassCard(tx, ty, tw, 16, 6, ClientState.UI_PANEL, ClientState.UI_BORDER_HOV);
+            g.drawGlassCard(tx, ty, tw, 16, 6, 1, ClientState.UI_PANEL, ClientState.UI_BORDER_HOV);
             g.text(tag, tx + 7, ty + 4, ClientState.UI_TEXT, false);
         }
 
@@ -71,7 +72,7 @@ public class SharedHudEditor {
         List<ClientConfig.HudModule> list = new ArrayList<ClientConfig.HudModule>(cfg.hudModules.values());
         for (int i = list.size() - 1; i >= 0; i--) {
             ClientConfig.HudModule m = list.get(i);
-            if (!m.enabled) continue; // Only pick enabled modules
+            if (!m.enabled) continue;
             int[] b = SharedHudRenderer.getModulePixelBounds(g, d, m, sw, sh);
             if (mx >= b[0] - 2 && mx <= b[0] + b[2] + 4 && my >= b[1] - 2 && my <= b[1] + b[3] + 4) {
                 selectedId = m.id;
@@ -89,7 +90,7 @@ public class SharedHudEditor {
             if (rm == null) return false;
             double dx = mx - resizeStartX, dy = my - resizeStartY;
             double nextScale = Math.abs(dx) >= Math.abs(dy) ? (resizeStartScale + dx / resizeOrigW) : (resizeStartScale + dy / resizeOrigH);
-            rm.scale = Math.max(0.5, Math.min(2.5, Math.round(nextScale * 20.0) / 20.0));
+            rm.scale = Math.max(0.25, Math.min(4.0, Math.round(nextScale * 20.0) / 20.0));
             return true;
         }
         if (draggingId != null) {
@@ -118,7 +119,7 @@ public class SharedHudEditor {
 
         if (!click) {
             g.drawSoftShadow(dockX, dockY, dockW, dockH, 10);
-            g.drawGlassCard(dockX, dockY, dockW, dockH, 10, ClientState.UI_PANEL, ClientState.UI_BORDER_HOV);
+            g.drawGlassCard(dockX, dockY, dockW, dockH, 10, 1, ClientState.UI_PANEL, ClientState.UI_BORDER_HOV);
         }
         if (sel == null || !sel.enabled) {
             if (!click) g.text("Click any active HUD to move or drag corner to resize", dockX + 14, dockY + 12, ClientState.UI_TEXT_MUTED, false);
@@ -146,7 +147,7 @@ public class SharedHudEditor {
     private boolean btn(UiBridge.UiDraw g, int x, int y, int w, int h, String txt, int bg, int fg, int mx, int my, boolean click) {
         boolean hov = mx >= x && mx <= x + w && my >= y && my <= y + h;
         if (!click) {
-            g.drawGlassCard(x, y, w, h, 6, hov ? ClientState.brightenArgb(bg, 18) : bg, ClientState.UI_BORDER_HOV);
+            g.drawGlassCard(x, y, w, h, 6, 1, hov ? ClientState.brightenArgb(bg, 18) : bg, ClientState.UI_BORDER_HOV);
             g.text(txt, x + (w - g.textWidth(txt)) / 2, y + (h - 8) / 2, fg, false);
         }
         return hov && click;

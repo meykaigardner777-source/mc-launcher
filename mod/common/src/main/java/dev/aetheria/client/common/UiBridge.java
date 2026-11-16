@@ -27,7 +27,6 @@ public final class UiBridge {
                 fill(x + 1, y + h - 1, x + w - 1, y + h, argb);
                 return;
             }
-            // Fast 0-lag 3-slice rounded box (Level 3-12 supported instantly)
             fill(x + 2, y, x + w - 2, y + 1, argb);
             fill(x + 1, y + 1, x + w - 1, y + 2, argb);
             fill(x, y + 2, x + w, y + h - 2, argb);
@@ -35,24 +34,28 @@ public final class UiBridge {
             fill(x + 2, y + h - 1, x + w - 2, y + h, argb);
         }
 
-        default void drawRoundedOutline(int x, int y, int w, int h, int r, int argb) {
-            if (w <= 1 || h <= 1 || ((argb >>> 24) & 0xFF) == 0) return;
+        default void drawRoundedOutline(int x, int y, int w, int h, int r, int th, int argb) {
+            if (w <= 1 || h <= 1 || th <= 0 || ((argb >>> 24) & 0xFF) == 0) return;
             r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
-            if (r <= 1) { drawBorder(x, y, w, h, argb); return; }
-            fill(x + 2, y, x + w - 2, y + 1, argb);
-            fill(x + 2, y + h - 1, x + w - 2, y + h, argb);
-            fill(x, y + 2, x + 1, y + h - 2, argb);
-            fill(x + w - 1, y + 2, x + w, y + h - 2, argb);
-            fill(x + 1, y + 1, x + 2, y + 2, argb);
-            fill(x + w - 2, y + 1, x + w - 1, y + 2, argb);
-            fill(x + 1, y + h - 2, x + 2, y + h - 1, argb);
-            fill(x + w - 2, y + h - 2, x + w - 1, y + h - 1, argb);
+            for (int t = 0; t < th; t++) {
+                int ox = x + t, oy = y + t, ow = w - t * 2, oh = h - t * 2, or = Math.max(0, r - t);
+                if (or <= 1) { drawBorder(ox, oy, ow, oh, argb); continue; }
+                fill(ox + 2, oy, ox + ow - 2, oy + 1, argb);
+                fill(ox + 2, oy + oh - 1, ox + ow - 2, oy + oh, argb);
+                fill(ox, oy + 2, ox + 1, oy + oh - 2, argb);
+                fill(ox + ow - 1, oy + 2, ox + ow, oy + oh - 2, argb);
+                fill(ox + 1, oy + 1, ox + 2, oy + 2, argb);
+                fill(ox + ow - 2, oy + 1, ox + ow - 1, oy + 2, argb);
+                fill(ox + 1, oy + oh - 2, ox + 2, oy + oh - 1, argb);
+                fill(ox + ow - 2, oy + oh - 2, ox + ow - 1, oy + oh - 1, argb);
+            }
         }
 
-        // Clean flat Obsidian glass card — NO reflective sheen lines
-        default void drawGlassCard(int x, int y, int w, int h, int radius, int bgArgb, int borderArgb) {
+        default void drawGlassCard(int x, int y, int w, int h, int radius, int thickness, int bgArgb, int borderArgb) {
             drawRoundedRect(x, y, w, h, radius, bgArgb);
-            if (((borderArgb >>> 24) & 0xFF) > 0) drawRoundedOutline(x, y, w, h, radius, borderArgb);
+            if (((borderArgb >>> 24) & 0xFF) > 0 && thickness > 0) {
+                drawRoundedOutline(x, y, w, h, radius, thickness, borderArgb);
+            }
         }
 
         default void drawSoftShadow(int x, int y, int w, int h, int radius) {
@@ -64,7 +67,8 @@ public final class UiBridge {
         }
 
         default void drawCircle(int cx, int cy, int r, int t, int col) {
-            drawRoundedOutline(cx - r, cy - r, r * 2, r * 2, r, col);
+            int d = r * 2;
+            drawRoundedOutline(cx - r, cy - r, d, d, r, t, col);
         }
 
         default void drawLine(int x0, int y0, int x1, int y1, int t, int col) {
@@ -78,14 +82,30 @@ public final class UiBridge {
                 }
             }
         }
+
+        default String formatBracketed(String text, String style, String prefix, String suffix) {
+            String p = (prefix != null && !prefix.isEmpty()) ? prefix + " " : "";
+            String s = (suffix != null && !suffix.isEmpty()) ? " " + suffix : "";
+            if ("brackets".equals(style)) return p + "[" + text + "]" + s;
+            if ("parentheses".equals(style)) return p + "(" + text + ")" + s;
+            if ("pipes".equals(style)) return p + "|" + text + "|" + s;
+            return p + text + s;
+        }
     }
 
     public interface HudData {
-        boolean hasWorld(); int fps(); int x(); int y(); int z();
+        boolean hasWorld();
+        boolean isF1();
+        boolean isChatOpen();
+        boolean isInventoryOpen();
+        boolean isF3();
+        int fps(); int x(); int y(); int z();
         String facing(); String biome(); int pingMs(); boolean isSprinting();
         String[] activePotions(); float yaw(); String serverIp(); long dayCount();
         String heldToolDurability(); String armorStatus();
         boolean isMoveW(); boolean isMoveA(); boolean isMoveS(); boolean isMoveD(); boolean isJumpDown();
         boolean targetPlayerInView(double range); boolean targetEntityInView(double range);
+        long usedRamMb(); long maxRamMb(); float cpuPercent(); float tps();
+        int packetsPerSec(); float bpsSpeed(); int totalArrows(); int saturation(); int airSeconds();
     }
 }
