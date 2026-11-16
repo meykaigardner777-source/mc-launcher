@@ -587,4 +587,76 @@ public final class SharedHudRenderer {
         } else if ("arraylist".equals(id)) {
             raw = new String[]{"Aetheria Client"};
         } else if ("watermark".equals(id)) {
-            raw = new String[]{m.customText == null || m.customText.isEmpty() ? "Aetheria Clie
+            raw = new String[]{m.customText == null || m.customText.isEmpty() ? "Aetheria Client" : m.customText};
+        } else if ("custom_image".equals(id)) {
+            raw = new String[]{m.customText == null || m.customText.isEmpty() ? "Custom Overlay" : m.customText};
+        } else if ("notebook".equals(id)) {
+            raw = new String[]{m.customText == null || m.customText.isEmpty() ? "Notes" : m.customText};
+        } else {
+            raw = new String[]{m.label != null ? m.label : id};
+        }
+
+        String pre = m.prefix == null ? "" : m.prefix;
+        String suf = m.suffix == null ? "" : m.suffix;
+        String[] out = new String[raw.length];
+        for (int i = 0; i < raw.length; i++) {
+            String line = pre + (raw[i] == null ? "" : raw[i]) + suf;
+            out[i] = applyBrackets(line, m.bracketStyle);
+        }
+        return out;
+    }
+
+    private static String applyBrackets(String s, String style) {
+        if ("square".equalsIgnoreCase(style)) return "[" + s + "]";
+        if ("round".equalsIgnoreCase(style)) return "(" + s + ")";
+        if ("angle".equalsIgnoreCase(style)) return "<" + s + ">";
+        if ("curly".equalsIgnoreCase(style)) return "{" + s + "}";
+        return s;
+    }
+
+    private static String getClockString(boolean use24h, boolean showSec) {
+        long sec = System.currentTimeMillis() / 1000L;
+        if (sec != lastClockSec || use24h != lastClock24 || showSec != lastClockSecFlag) {
+            lastClockSec = sec;
+            lastClock24 = use24h;
+            lastClockSecFlag = showSec;
+            SimpleDateFormat fmt = use24h ? (showSec ? CLOCK_24S : CLOCK_24) : (showSec ? CLOCK_12S : CLOCK_12);
+            cachedClockStr = fmt.format(new Date(sec * 1000L));
+        }
+        return cachedClockStr;
+    }
+
+    private static String formatDuration(long totalSec) {
+        long h = totalSec / 3600L;
+        long m = (totalSec % 3600L) / 60L;
+        long s = totalSec % 60L;
+        if (h > 0L) return String.format("%d:%02d:%02d", Long.valueOf(h), Long.valueOf(m), Long.valueOf(s));
+        return String.format("%02d:%02d", Long.valueOf(m), Long.valueOf(s));
+    }
+
+    private static boolean isSlimeChunk(int cx, int cz) {
+        long seed = ((long) cx * cx * 0x4c1906L) + ((long) cx * 0x5ac0dbL)
+            + ((long) cz * cz * 0x4307a7L) + ((long) cz * 0x5f24fL) ^ 0x3ad8025fL;
+        return new Random(seed).nextInt(10) == 0;
+    }
+
+    private static int textWidthSpaced(UiBridge.UiDraw g, String s, int spacing) {
+        if (s == null || s.isEmpty()) return 0;
+        if (spacing <= 0) return g.textWidth(s);
+        return g.textWidth(s) + (s.length() - 1) * spacing;
+    }
+
+    private static void drawTextSpaced(UiBridge.UiDraw g, String s, int x, int y, int col, boolean shadow, int spacing) {
+        if (s == null || s.isEmpty()) return;
+        if (spacing <= 0) {
+            g.text(s, x, y, col, shadow);
+            return;
+        }
+        int cx = x;
+        for (int i = 0; i < s.length(); i++) {
+            String ch = s.substring(i, i + 1);
+            g.text(ch, cx, y, col, shadow);
+            cx += g.textWidth(ch) + spacing;
+        }
+    }
+}
