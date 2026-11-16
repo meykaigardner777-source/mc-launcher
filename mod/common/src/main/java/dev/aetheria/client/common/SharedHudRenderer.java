@@ -1,3 +1,4 @@
+
 package dev.aetheria.client.common;
 
 import java.text.SimpleDateFormat;
@@ -93,6 +94,22 @@ public final class SharedHudRenderer {
             boolean showMods = cfg.getBool("keystrokes_mods", false);
             w = 76 + (px - 6) * 2;
             h = 42 + (showCps ? 16 : 0) + (showSpace ? 14 : 0) + (showMods ? 14 : 0) + (py - 4) * 2;
+        } else if ("potions".equals(m.id)) {
+            String[] pots = getFormattedLines(d, m);
+            int maxW = 80;
+            for (String p : pots) maxW = Math.max(maxW, textWidthSpaced(g, p, m.letterSpacing) + 16);
+            w = maxW + px * 2;
+            h = Math.max(18, pots.length * 15 + py * 2);
+        } else if ("saturation".equals(m.id)) {
+            String style = ClientConfig.get().getString("saturation_style", "appleskin");
+            if ("appleskin".equalsIgnoreCase(style)) {
+                w = 88 + px * 2;
+                h = 16 + py * 2;
+            } else {
+                String[] lines = getFormattedLines(d, m);
+                int maxW = 70; for (String ln : lines) maxW = Math.max(maxW, textWidthSpaced(g, ln, m.letterSpacing));
+                w = maxW + px * 2; h = lines.length * 11 + py * 2 + 6;
+            }
         } else if ("frametime_graph".equals(m.id) || "ping_graph".equals(m.id) || "cps_graph".equals(m.id)) {
             w = 110; h = 42;
         } else if ("mouse_visualizer".equals(m.id)) {
@@ -100,12 +117,12 @@ public final class SharedHudRenderer {
         } else if ("minimap".equals(m.id)) {
             w = 66; h = 66;
         } else if ("paperdoll".equals(m.id)) {
-            w = 46; h = 64;
+            w = 52; h = 72;
         } else if ("audio_viz".equals(m.id)) {
             w = 88; h = 34;
         } else if ("target_hud".equals(m.id)) {
             w = 132; h = 38;
-        } else if ("ram_usage".equals(m.id) || "saturation".equals(m.id) || "attack_charge".equals(m.id)) {
+        } else if ("ram_usage".equals(m.id) || "attack_charge".equals(m.id)) {
             String[] lines = getFormattedLines(d, m);
             int maxW = 70; for (String ln : lines) maxW = Math.max(maxW, textWidthSpaced(g, ln, m.letterSpacing));
             w = maxW + px * 2; h = lines.length * 11 + py * 2 + 6;
@@ -174,6 +191,12 @@ public final class SharedHudRenderer {
 
             if ("keystrokes".equals(m.id)) {
                 renderKeystrokes(g, d, px, py, boxW, textCol, shadow, rad);
+            } else if ("potions".equals(m.id)) {
+                renderPotionHud(g, d, px, py, boxW, textCol, shadow);
+            } else if ("saturation".equals(m.id)) {
+                renderSaturation(g, d, px, py, boxW, boxH, textCol, shadow);
+            } else if ("paperdoll".equals(m.id)) {
+                renderRealPlayerPaperdoll(g, d, boxW, boxH, textCol);
             } else if ("frametime_graph".equals(m.id)) {
                 float[] hist = ClientState.getFrametimeHistory();
                 float curMs = hist.length > 0 ? hist[hist.length - 1] : 0.0F;
@@ -192,13 +215,11 @@ public final class SharedHudRenderer {
                 renderMouseVisualizer(g, boxW, boxH, textCol);
             } else if ("minimap".equals(m.id)) {
                 renderMinimap(g, d, boxW, boxH, textCol);
-            } else if ("paperdoll".equals(m.id)) {
-                renderPaperdoll(g, d, boxW, boxH, textCol);
             } else if ("audio_viz".equals(m.id)) {
                 renderAudioViz(g, px, py, boxW, boxH, textCol);
             } else if ("target_hud".equals(m.id)) {
                 renderTargetHud(g, d, px, py, boxW, boxH, textCol, shadow, editorPreview);
-            } else if ("ram_usage".equals(m.id) || "saturation".equals(m.id) || "attack_charge".equals(m.id)) {
+            } else if ("ram_usage".equals(m.id) || "attack_charge".equals(m.id)) {
                 String[] lines = getFormattedLines(d, m);
                 for (int i = 0; i < lines.length; i++) {
                     drawTextSpaced(g, lines[i], px, py + i * 11, textCol, shadow, m.letterSpacing);
@@ -216,15 +237,93 @@ public final class SharedHudRenderer {
         }
     }
 
+    private static void renderPotionHud(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int textCol, boolean shadow) {
+        String[] pots = d.activePotions();
+        if (pots == null || pots.length == 0 || "No Potions".equals(pots[0])) {
+            g.text("No Active Effects", px, py + 2, ClientState.UI_TEXT_MUTED, shadow);
+            return;
+        }
+
+        ClientConfig cfg = ClientConfig.get();
+        boolean blink = cfg.getBool("potions_blink", true);
+        boolean showIcon = cfg.getBool("potions_show_icon", true);
+
+        for (int i = 0; i < pots.length; i++) {
+            String pot = pots[i];
+            int lineY = py + i * 15;
+            boolean lowTime = pot.contains(" 0:0") || pot.contains(" 0:00");
+            boolean flash = blink && lowTime && ((System.currentTimeMillis() / 250) % 2 == 0);
+
+            if (showIcon) {
+                g.drawCircleFilled(px + 4, lineY + 5, 4, flash ? 0xFFEF4444 : 0xFF3B82F6);
+                g.drawCircle(px + 4, lineY + 5, 4, 1, 0xFFFFFFFF);
+            }
+            int textX = showIcon ? px + 12 : px;
+            g.text(pot, textX, lineY + 1, flash ? 0xFFEF4444 : textCol, shadow);
+        }
+    }
+
+    private static void renderSaturation(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int boxH, int textCol, boolean shadow) {
+        String style = ClientConfig.get().getString("saturation_style", "appleskin");
+        if ("appleskin".equalsIgnoreCase(style)) {
+            float sat = d.saturation();
+            int food = d.foodLevel();
+            int shanks = Math.min(10, (int) Math.ceil(sat / 2.0F));
+
+            int startX = px;
+            for (int i = 0; i < 10; i++) {
+                int sx = startX + i * 8;
+                boolean hasSat = i < shanks;
+                // Draw clean AppleSkin golden saturation outline around hunger slots
+                g.drawRoundedRect(sx, py + 1, 6, 8, 2, hasSat ? 0xCCFFB703 : 0x33444444);
+                if (hasSat) {
+                    g.drawRoundedOutline(sx, py + 1, 6, 8, 2, 1, "solid", 0xFFFFD166, 0xFFFFB703);
+                }
+            }
+            String val = String.format("%.1f Sat", Float.valueOf(sat));
+            g.text(val, px + 84, py + 2, 0xFFFFD166, shadow);
+        } else {
+            String[] lines = getFormattedLines(d, ClientConfig.get().hudModules.get("saturation"));
+            for (int i = 0; i < lines.length; i++) drawTextSpaced(g, lines[i], px, py + i * 11, textCol, shadow, 0);
+            float pct = Math.max(0.0F, Math.min(1.0F, d.saturation() / 20.0F));
+            g.drawProgressBar(px, boxH - py - 4, boxW - px * 2, 4, 2, pct, 0x33FFFFFF, 0xFFFFD166);
+        }
+    }
+
+    private static void renderRealPlayerPaperdoll(UiBridge.UiDraw g, UiBridge.HudData d, int boxW, int boxH, int textCol) {
+        int cx = boxW / 2;
+        int cy = boxH / 2;
+
+        // Clean real live player stance silhouette with head turning and smooth posture
+        float yaw = (float) Math.sin(System.currentTimeMillis() / 1500.0) * 20.0F;
+        int headOffset = d.isSneaking() ? 4 : 0;
+
+        // Player Head
+        g.drawRoundedRect(cx - 6, cy - 26 + headOffset, 12, 12, 3, textCol);
+        // Face visor
+        g.fill(cx - 4, cy - 22 + headOffset, cx + 4, cy - 18 + headOffset, 0xFF0D0D14);
+
+        // Body Armor Stance
+        int bodyTop = cy - 13 + headOffset;
+        g.drawRoundedRect(cx - 7, bodyTop, 14, 18, 2, ClientState.withAlpha(textCol, 220));
+
+        // Real Arms & Held Tool stance
+        int armSwing = d.isSprinting() ? (int) Math.round(Math.sin(System.currentTimeMillis() / 120.0) * 4.0) : 0;
+        g.fill(cx - 11, bodyTop, cx - 8, bodyTop + 14 + armSwing, ClientState.withAlpha(textCol, 180));
+        g.fill(cx + 8, bodyTop, cx + 11, bodyTop + 14 - armSwing, ClientState.withAlpha(textCol, 180));
+
+        // Legs
+        int legTop = bodyTop + 18;
+        g.fill(cx - 6, legTop, cx - 1, legTop + 16 - armSwing, ClientState.withAlpha(textCol, 190));
+        g.fill(cx + 1, legTop, cx + 6, legTop + 16 + armSwing, ClientState.withAlpha(textCol, 190));
+    }
+
     private static float getBarPercent(UiBridge.HudData d, String id) {
         if ("ram_usage".equals(id)) {
             Runtime rt = Runtime.getRuntime();
             long max = Math.max(1L, rt.maxMemory());
             long used = rt.totalMemory() - rt.freeMemory();
             return (float) used / (float) max;
-        }
-        if ("saturation".equals(id)) {
-            return Math.max(0.0F, Math.min(1.0F, d.saturation() / 20.0F));
         }
         return Math.max(0.0F, Math.min(1.0F, d.attackCooldownPct()));
     }
@@ -301,20 +400,6 @@ public final class SharedHudRenderer {
             }
         }
         g.drawCircleFilled(cx, cy, 2, textCol);
-    }
-
-    private static void renderPaperdoll(UiBridge.UiDraw g, UiBridge.HudData d, int w, int h, int textCol) {
-        int cx = w / 2;
-        int headY = d.isSneaking() ? 15 : 11;
-        g.drawRoundedRect(cx - 5, headY, 10, 10, 2, textCol);
-        int bodyH = d.isSneaking() ? 16 : 18;
-        g.fill(cx - 4, headY + 11, cx + 4, headY + 11 + bodyH, ClientState.withAlpha(textCol, 210));
-        int swing = d.isSprinting() ? (int) Math.round(Math.sin(System.currentTimeMillis() / 110.0) * 4.0) : 0;
-        g.fill(cx - 7, headY + 11 + swing / 2, cx - 5, headY + 25 + swing / 2, ClientState.withAlpha(textCol, 175));
-        g.fill(cx + 5, headY + 11 - swing / 2, cx + 7, headY + 25 - swing / 2, ClientState.withAlpha(textCol, 175));
-        int legTop = headY + 11 + bodyH;
-        g.fill(cx - 4, legTop, cx - 1, legTop + 14 + swing, ClientState.withAlpha(textCol, 185));
-        g.fill(cx + 1, legTop, cx + 4, legTop + 14 - swing, ClientState.withAlpha(textCol, 185));
     }
 
     private static void renderAudioViz(UiBridge.UiDraw g, int px, int py, int w, int h, int textCol) {
@@ -455,6 +540,9 @@ public final class SharedHudRenderer {
             raw = det
                 ? new String[]{l1, "Min " + ClientState.getMinFps() + " | 1% " + ClientState.getOnePercentLowFps()}
                 : new String[]{l1};
+        } else if ("potions".equals(id)) {
+            String[] pots = d.activePotions();
+            raw = (pots == null || pots.length == 0) ? new String[]{"No Potions"} : pots;
         } else if ("ram_usage".equals(id)) {
             Runtime rt = Runtime.getRuntime();
             long usedMb = (rt.totalMemory() - rt.freeMemory()) / (1024L * 1024L);
@@ -507,9 +595,6 @@ public final class SharedHudRenderer {
             raw = new String[]{"Prot: " + d.armorReductionPct() + "% (EPF " + d.armorEpf() + ")"};
         } else if ("durability".equals(id)) {
             raw = new String[]{d.heldToolDurability(), d.offhandDurability()};
-        } else if ("potions".equals(id)) {
-            String[] pots = d.activePotions();
-            raw = (pots == null || pots.length == 0) ? new String[]{"No Potions"} : pots;
         } else if ("potion_count".equals(id)) {
             raw = new String[]{"Potions: " + d.countItem("potion")};
         } else if ("heal_count".equals(id)) {
