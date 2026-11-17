@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemInHandRenderer.class)
 public class ItemInHandRendererMixin {
     @Inject(method = "renderArmWithItem", at = @At("HEAD"))
-    private void aetheria$lowShield(net.minecraft.client.player.AbstractClientPlayer player, float partialTicks, float pitch, InteractionHand hand, float swingProgress, ItemStack stack, float equipProgress, PoseStack ps, net.minecraft.client.renderer.MultiBufferSource buffers, int light, CallbackInfo ci) {
+    private void aetheria$lowShield(net.minecraft.client.player.AbstractClientPlayer player, float partialTicks, float pitch, InteractionHand hand, float swingProgress, ItemStack stack, float equipProgress, PoseStack ps, Object buffers, int light, CallbackInfo ci) {
         if (stack.is(Items.SHIELD) && ClientConfig.get().getBool("pvp_low_shield", true)) {
             ClientConfig cfg = ClientConfig.get();
             double scale = cfg.getDouble("pvp_low_shield_scale", 0.85);
