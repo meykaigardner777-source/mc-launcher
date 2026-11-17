@@ -1,17 +1,58 @@
 package dev.aetheria.client.mixin;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import dev.aetheria.client.common.ClientConfig;
 import dev.aetheria.client.common.ClientState;
 import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(Camera.class)
+@Mixin(GameRenderer.class)
 public class GameRendererMixin {
-    @Inject(method = "calculateFov", at = @At("RETURN"), cancellable = true)
-    private void aetheria$applyZoomFov(float partialTicks, CallbackInfoReturnable<Float> cir) {
-        float div = ClientState.getSmoothedZoomDivisor();
-        if (div > 1.01f) cir.setReturnValue(cir.getReturnValue() / div);
+    // 1. NO HURT CAM
+    @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)
+    private void aetheria$noHurtCam(PoseStack poseStack, float partialTicks, CallbackInfo ci) {
+        ClientConfig cfg = ClientConfig.get();
+        if (cfg.getBool("pvp_no_hurtcam", false)) {
+            ci.cancel();
+            return;
+        }
+        double factor = cfg.getDouble("pvp_hurtcam_factor", 1.0);
+        if (factor <= 0.01) {
+            ci.cancel();
+        } else if (factor < 0.99) {
+            poseStack.scale((float) factor, (float) factor, (float) factor);
+        }
+    }
+
+    // 2. FOV MODIFIER & ZOOM
+    @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
+    private void aetheria$modifyFov(Camera camera, float partialTicks, boolean useFovSetting, CallbackInfoReturnable<Float> cir) {
+        ClientConfig cfg = ClientConfig.get();
+        float fov = cir.getReturnValue();
+
+        // Dynamic FOV intensity
+        if (!cfg.getBool("cam_fov_dynamic", true)) {
+            // Lock to base static FOV
+            fov = (float) cfg.getDouble("cam_fov_base", 70.0);
+        } else {
+            double factor = cfg.getDouble("cam_fov_factor", 1.0);
+            if (factor != 1.0) {
+                float base = (float) cfg.getDouble("cam_fov_base", 70.0);
+                fov = base + (float) ((fov - base) * factor);
+            }
+        }
+
+        // Telescopic Zoom
+        float zoomDiv = ClientState.getSmoothedZoomDivisor();
+        if (zoomDiv > 1.01f) {
+            fov /= zoomDiv;
+        }
+
+        cir.setReturnValue(fov);
     }
 }
