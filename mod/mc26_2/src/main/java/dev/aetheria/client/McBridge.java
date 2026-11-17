@@ -73,6 +73,19 @@ public final class McBridge {
             @Override public int textWidth(String txt) { return mc.font.width(txt); }
             @Override public void pushTransform(float tx, float ty, float scale) { if (g != null) { g.pose().pushMatrix(); g.pose().translate(tx, ty); g.pose().scale(scale, scale); } }
             @Override public void popTransform() { if (g != null) g.pose().popMatrix(); }
+            @Override public boolean supportsItemIcons() { return true; }
+
+            @Override
+            public void drawArmorSlot(int slotIndex, int x, int y) {
+                if (g == null || mc.player == null) return;
+                EquipmentSlot[] slots = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET, EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND};
+                if (slotIndex < 0 || slotIndex >= slots.length) return;
+                ItemStack st = mc.player.getItemBySlot(slots[slotIndex]);
+                if (!st.isEmpty()) {
+                    g.item(st, x, y);
+                    g.itemDecorations(mc.font, st, x, y);
+                }
+            }
 
             @Override
             public void drawRoundedRect(int x, int y, int w, int h, int r, int argb) {
@@ -143,6 +156,8 @@ public final class McBridge {
     public static UiBridge.HudData data(Minecraft mc) {
         return new UiBridge.HudData() {
             @Override public boolean hasWorld() { return mc.player != null && mc.level != null; }
+            @Override public boolean isSingleplayer() { return mc.getSingleplayerServer() != null; }
+            @Override public boolean showSurvivalBars() { return mc.player != null && !mc.player.getAbilities().instabuild && !mc.player.isSpectator(); }
             @Override public int fps() { return mc.getFps(); }
             @Override public int x() { return mc.player.blockPosition().getX(); }
             @Override public int y() { return mc.player.blockPosition().getY(); }
@@ -154,7 +169,12 @@ public final class McBridge {
                 for (String p : k.replace('_', ' ').split(" ")) if (!p.isEmpty()) sb.append(Character.toUpperCase(p.charAt(0))).append(p.substring(1)).append(' ');
                 return sb.toString().trim();
             }
-            @Override public int pingMs() { PlayerInfo pi = mc.getConnection() != null ? mc.getConnection().getPlayerInfo(mc.player.getUUID()) : null; return pi != null ? pi.getLatency() : 0; }
+            @Override public int pingMs() {
+                if (mc.getConnection() == null || mc.player == null) return 0;
+                PlayerInfo pi = mc.getConnection().getPlayerInfo(mc.player.getUUID());
+                if (pi == null && mc.getUser() != null) pi = mc.getConnection().getPlayerInfo(mc.getUser().getProfileId());
+                return pi != null ? pi.getLatency() : 0;
+            }
             @Override public boolean isSprinting() { return mc.player.isSprinting(); }
             @Override public String[] activePotions() {
                 List<String> out = new ArrayList<String>();
@@ -185,6 +205,21 @@ public final class McBridge {
             @Override public String offhandDurability() {
                 ItemStack h = mc.player.getOffhandItem();
                 return (!h.isEmpty() && h.isDamageableItem()) ? "Off: " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Off: --";
+            }
+            @Override public String[] armorSlotReadouts() {
+                boolean pct = ClientConfig.get().getBool("armor_percent", true);
+                EquipmentSlot[] slots = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+                String[] out = new String[4];
+                for (int i = 0; i < 4; i++) {
+                    ItemStack st = mc.player.getItemBySlot(slots[i]);
+                    if (st.isEmpty()) out[i] = null;
+                    else if (!st.isDamageableItem()) out[i] = "";
+                    else {
+                        int rem = st.getMaxDamage() - st.getDamageValue();
+                        out[i] = pct ? (Math.round(100.0 * rem / st.getMaxDamage()) + "%") : (rem + "/" + st.getMaxDamage());
+                    }
+                }
+                return out;
             }
             @Override public String armorStatus() {
                 boolean pct = ClientConfig.get().getBool("armor_percent", true);

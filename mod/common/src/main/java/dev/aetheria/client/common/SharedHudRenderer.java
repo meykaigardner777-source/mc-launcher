@@ -36,7 +36,10 @@ public final class SharedHudRenderer {
         }
         ClientConfig cfg = ClientConfig.get();
         renderLowHpVignette(g, d, cfg, sw, sh);
-        if (!d.isF1Hidden()) renderCrosshair(g, d, sw, sh);
+        if (!d.isF1Hidden()) {
+            renderCrosshair(g, d, sw, sh);
+            renderAppleSkinHungerOverlay(g, d, cfg, sw, sh);
+        }
 
         boolean globalShadow = cfg.getBool("hud_shadow", true);
         for (ClientConfig.HudModule m : cfg.hudModules.values()) {
@@ -47,7 +50,37 @@ public final class SharedHudRenderer {
             if (m.hideInF3 && d.isF3Open()) continue;
             if ("togglesprint".equals(m.id) && cfg.getBool("togglesprint_hide_hud", false)) continue;
             if ("low_hp_vignette".equals(m.id)) continue;
+            if ("saturation".equals(m.id) && "appleskin".equalsIgnoreCase(cfg.getString("saturation_style", "appleskin"))) continue;
             renderModule(g, d, m, sw, sh, globalShadow && m.shadow, false);
+        }
+    }
+
+    private static void renderAppleSkinHungerOverlay(UiBridge.UiDraw g, UiBridge.HudData d, ClientConfig cfg, int sw, int sh) {
+        ClientConfig.HudModule m = cfg.hudModules.get("saturation");
+        if (m == null || !m.enabled || !d.hasWorld() || !d.showSurvivalBars()) return;
+        if (!"appleskin".equalsIgnoreCase(cfg.getString("saturation_style", "appleskin"))) return;
+
+        float sat = d.saturation();
+        if (sat <= 0.01F) return;
+
+        boolean glint = cfg.getBool("saturation_glint", true);
+        int alpha = glint ? (175 + Math.round(65.0F * (0.5F + 0.5F * (float) Math.sin(System.currentTimeMillis() / 220.0)))) : 235;
+        int gold = ClientState.withAlpha(0xFFFFD166, alpha);
+
+        int rightEdge = sw / 2 + 91;
+        int y = sh - 39;
+        for (int i = 0; i < 10; i++) {
+            float rem = sat - i * 2.0F;
+            if (rem <= 0.0F) break;
+            int sx = rightEdge - i * 8 - 9;
+            if (rem >= 2.0F) {
+                g.drawBorder(sx, y, 9, 9, gold);
+            } else {
+                // Half drumstick outline on right half
+                g.fill(sx + 4, y, sx + 9, y + 1, gold);
+                g.fill(sx + 4, y + 8, sx + 9, y + 9, gold);
+                g.fill(sx + 8, y + 1, sx + 9, y + 8, gold);
+            }
         }
     }
 
@@ -71,29 +104,45 @@ public final class SharedHudRenderer {
             ClientConfig cfg = ClientConfig.get();
             boolean showCps = cfg.getBool("keystrokes_cps", true), showSpace = cfg.getBool("keystrokes_space", true);
             boolean showMods = cfg.getBool("keystrokes_mods", false);
-            w = 76 + (px - 6) * 2;
-            h = 42 + (showCps ? 16 : 0) + (showSpace ? 14 : 0) + (showMods ? 14 : 0) + (py - 4) * 2;
+            w = 64 + px * 2;
+            h = 38 + (showCps ? 16 : 0) + (showSpace ? 14 : 0) + (showMods ? 14 : 0) + py * 2;
+        } else if ("armor".equals(m.id) && g.supportsItemIcons() && !ClientConfig.get().getBool("armor_text_mode", false)) {
+            String[] slots = d.armorSlotReadouts();
+            boolean horiz = ClientConfig.get().getBool("armor_horizontal", false);
+            boolean showTxt = ClientConfig.get().getBool("armor_show_text", true);
+            int count = 0, maxTxtW = 0;
+            for (int i = 0; i < slots.length; i++) {
+                if (slots[i] != null) {
+                    count++;
+                    if (showTxt && !slots[i].isEmpty()) maxTxtW = Math.max(maxTxtW, g.textWidth(slots[i]));
+                }
+            }
+            if (count == 0) return new int[]{0, 0};
+            if (horiz) {
+                int cellW = showTxt && maxTxtW > 0 ? Math.max(18, maxTxtW + 4) : 18;
+                w = count * cellW - 2 + px * 2;
+                h = (showTxt && maxTxtW > 0 ? 25 : 16) + py * 2;
+            } else {
+                w = 16 + (showTxt && maxTxtW > 0 ? (4 + maxTxtW) : 0) + px * 2;
+                h = count * 17 - 1 + py * 2;
+            }
         } else if ("potions".equals(m.id)) {
             String[] pots = d.activePotions();
             if (ClientConfig.get().getBool("potions_auto_hide", true) && (pots == null || pots.length == 0 || "No Potions".equals(pots[0]))) {
                 return new int[]{0, 0};
             }
-            int maxW = 80;
-            for (String p : pots) maxW = Math.max(maxW, textWidthSpaced(g, p, m.letterSpacing) + 16);
+            boolean showIcon = ClientConfig.get().getBool("potions_show_icon", true);
+            int maxW = 60;
+            for (String p : pots) maxW = Math.max(maxW, textWidthSpaced(g, p, m.letterSpacing) + (showIcon ? 12 : 0));
             w = maxW + px * 2;
-            h = Math.max(18, pots.length * 15 + py * 2);
+            h = (pots.length - 1) * 14 + 9 + py * 2;
         } else if ("pearl_cd".equals(m.id) && ClientConfig.get().getBool("pearl_auto_hide", true) && ClientState.getPearlCooldownSec() <= 0.0) {
             return new int[]{0, 0};
-        } else if ("saturation".equals(m.id)) {
-            String style = ClientConfig.get().getString("saturation_style", "appleskin");
-            if ("appleskin".equalsIgnoreCase(style)) {
-                w = 88 + px * 2;
-                h = 16 + py * 2;
-            } else {
-                String[] lines = getFormattedLines(d, m);
-                int maxW = 70; for (String ln : lines) maxW = Math.max(maxW, textWidthSpaced(g, ln, m.letterSpacing));
-                w = maxW + px * 2; h = lines.length * 11 + py * 2 + 6;
-            }
+        } else if ("ping".equals(m.id)) {
+            String[] lines = getFormattedLines(d, m);
+            int maxW = textWidthSpaced(g, lines[0], m.letterSpacing) + 10;
+            w = maxW + px * 2;
+            h = 7 + py * 2;
         } else if ("frametime_graph".equals(m.id) || "ping_graph".equals(m.id) || "cps_graph".equals(m.id)) {
             w = 110; h = 42;
         } else if ("mouse_visualizer".equals(m.id)) {
@@ -104,18 +153,18 @@ public final class SharedHudRenderer {
             w = 52; h = 72;
         } else if ("target_hud".equals(m.id)) {
             w = 132; h = 38;
-        } else if ("ram_usage".equals(m.id) || "attack_charge".equals(m.id)) {
+        } else if ("ram_usage".equals(m.id) || "attack_charge".equals(m.id) || ("saturation".equals(m.id) && "bar".equalsIgnoreCase(ClientConfig.get().getString("saturation_style", "appleskin")))) {
             String[] lines = getFormattedLines(d, m);
             int maxW = 70; for (String ln : lines) maxW = Math.max(maxW, textWidthSpaced(g, ln, m.letterSpacing));
-            w = maxW + px * 2; h = lines.length * 11 + py * 2 + 6;
+            w = maxW + px * 2; h = (lines.length - 1) * 10 + 7 + 8 + py * 2;
         } else {
             String[] lines = getFormattedLines(d, m);
             int maxW = 0; for (String ln : lines) maxW = Math.max(maxW, textWidthSpaced(g, ln, m.letterSpacing));
-            w = Math.max(30, maxW + px * 2);
-            h = Math.max(14, lines.length * 11 + py * 2);
+            w = Math.max(24, maxW + px * 2);
+            h = Math.max(11, (lines.length - 1) * 10 + 7 + py * 2);
         }
         if (m.width > 0) w = Math.max(24, m.width);
-        if (m.height > 0) h = Math.max(14, m.height);
+        if (m.height > 0) h = Math.max(12, m.height);
         return new int[]{w, h};
     }
 
@@ -139,9 +188,17 @@ public final class SharedHudRenderer {
     public static void renderModule(UiBridge.UiDraw g, UiBridge.HudData d, ClientConfig.HudModule m, int sw, int sh, boolean shadow, boolean editorPreview) {
         int[] base = getBaseBoxSize(g, d, m);
         if (!editorPreview && (base[0] <= 0 || base[1] <= 0)) return;
+        if (editorPreview && (base[0] <= 0 || base[1] <= 0)) {
+            base = new int[]{88, 17};
+        }
         if ("target_hud".equals(m.id) && !editorPreview && (d.targetName() == null || d.targetName().isEmpty() || d.targetHealth() <= 0.0F)) return;
 
         int[] bounds = getModulePixelBounds(g, d, m, sw, sh);
+        if (editorPreview && (bounds[2] <= 0 || bounds[3] <= 0)) {
+            int ax = (int) Math.round(m.x * sw);
+            int ay = (int) Math.round(m.y * sh);
+            bounds = new int[]{ax, ay, base[0], base[1]};
+        }
         int boxW = base[0], boxH = base[1];
         float scale = (float) Math.max(0.25, Math.min(4.0, m.scale));
 
@@ -173,10 +230,14 @@ public final class SharedHudRenderer {
 
             if ("keystrokes".equals(m.id)) {
                 renderKeystrokes(g, d, px, py, boxW, textCol, shadow, rad);
+            } else if ("armor".equals(m.id) && g.supportsItemIcons() && !ClientConfig.get().getBool("armor_text_mode", false)) {
+                renderArmorIcons(g, d, px, py, boxW, boxH, textCol, shadow, editorPreview);
             } else if ("potions".equals(m.id)) {
                 renderPotionHud(g, d, px, py, boxW, textCol, shadow);
-            } else if ("saturation".equals(m.id)) {
-                renderSaturation(g, d, px, py, boxW, boxH, textCol, shadow);
+            } else if ("ping".equals(m.id)) {
+                renderPingHud(g, d, m, px, py, textCol, shadow);
+            } else if ("saturation".equals(m.id) && editorPreview && "appleskin".equalsIgnoreCase(ClientConfig.get().getString("saturation_style", "appleskin"))) {
+                g.text("AppleSkin (On Hunger)", px, py, 0xFFFFD166, shadow);
             } else if ("paperdoll".equals(m.id)) {
                 g.drawEntity(boxW / 2, boxH - 8, Math.min(boxW, boxH) / 2, 0.0F, 0.0F);
             } else if ("frametime_graph".equals(m.id)) {
@@ -199,16 +260,73 @@ public final class SharedHudRenderer {
                 renderMinimap(g, d, boxW, boxH, textCol);
             } else if ("target_hud".equals(m.id)) {
                 renderTargetHud(g, d, px, py, boxW, boxH, textCol, shadow, editorPreview);
-            } else if ("ram_usage".equals(m.id) || "attack_charge".equals(m.id)) {
+            } else if ("ram_usage".equals(m.id) || "attack_charge".equals(m.id) || ("saturation".equals(m.id) && "bar".equalsIgnoreCase(ClientConfig.get().getString("saturation_style", "appleskin")))) {
                 String[] lines = getFormattedLines(d, m);
-                for (int i = 0; i < lines.length; i++) drawTextSpaced(g, lines[i], px, py + i * 11, textCol, shadow, m.letterSpacing);
-                g.drawProgressBar(px, boxH - py - 4, boxW - px * 2, 4, 2, getBarPercent(d, m.id), 0x33FFFFFF, textCol);
+                for (int i = 0; i < lines.length; i++) drawTextSpaced(g, lines[i], px, py + i * 10, textCol, shadow, m.letterSpacing);
+                g.drawProgressBar(px, boxH - py - 4, boxW - px * 2, 4, 2, getBarPercent(d, m.id), 0x33FFFFFF, "saturation".equals(m.id) ? 0xFFFFD166 : textCol);
             } else {
                 String[] lines = getFormattedLines(d, m);
-                for (int i = 0; i < lines.length; i++) drawTextSpaced(g, lines[i], px, py + i * 11, textCol, shadow, m.letterSpacing);
+                for (int i = 0; i < lines.length; i++) {
+                    int lw = textWidthSpaced(g, lines[i], m.letterSpacing);
+                    int tx = (boxW - lw) / 2;
+                    drawTextSpaced(g, lines[i], tx, py + i * 10, textCol, shadow, m.letterSpacing);
+                }
             }
         } finally {
             g.popTransform();
+        }
+    }
+
+    private static void renderPingHud(UiBridge.UiDraw g, UiBridge.HudData d, ClientConfig.HudModule m, int px, int py, int textCol, boolean shadow) {
+        int ms = d.pingMs();
+        boolean sp = d.isSingleplayer() && ms == 0;
+        int dotCol = sp ? 0xFF10B981 : (ms < 80 ? 0xFF10B981 : (ms < 160 ? 0xFFF59E0B : 0xFFEF4444));
+        g.drawCircleFilled(px + 3, py + 3, 3, dotCol);
+        String txt = getFormattedLines(d, m)[0];
+        drawTextSpaced(g, txt, px + 10, py, textCol, shadow, m.letterSpacing);
+    }
+
+    private static void renderArmorIcons(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int boxH, int textCol, boolean shadow, boolean editorPreview) {
+        String[] slots = d.armorSlotReadouts();
+        boolean horiz = ClientConfig.get().getBool("armor_horizontal", false);
+        boolean showTxt = ClientConfig.get().getBool("armor_show_text", true);
+
+        int maxTxtW = 0;
+        int count = 0;
+        for (int i = 0; i < slots.length; i++) {
+            if (slots[i] != null) {
+                count++;
+                if (showTxt && !slots[i].isEmpty()) maxTxtW = Math.max(maxTxtW, g.textWidth(slots[i]));
+            }
+        }
+        if (count == 0) {
+            if (editorPreview) g.text("Armor HUD", px, py, textCol, shadow);
+            return;
+        }
+
+        int idx = 0;
+        if (horiz) {
+            int cellW = showTxt && maxTxtW > 0 ? Math.max(18, maxTxtW + 4) : 18;
+            for (int i = 0; i < slots.length; i++) {
+                if (slots[i] == null) continue;
+                int ix = px + idx * cellW + (cellW - 16) / 2;
+                g.drawArmorSlot(i, ix, py);
+                if (showTxt && !slots[i].isEmpty()) {
+                    int tw = g.textWidth(slots[i]);
+                    g.text(slots[i], px + idx * cellW + (cellW - tw) / 2, py + 18, textCol, shadow);
+                }
+                idx++;
+            }
+        } else {
+            for (int i = 0; i < slots.length; i++) {
+                if (slots[i] == null) continue;
+                int iy = py + idx * 17;
+                g.drawArmorSlot(i, px, iy);
+                if (showTxt && !slots[i].isEmpty()) {
+                    g.text(slots[i], px + 20, iy + 5, textCol, shadow);
+                }
+                idx++;
+            }
         }
     }
 
@@ -219,54 +337,34 @@ public final class SharedHudRenderer {
             long used = rt.totalMemory() - rt.freeMemory();
             return (float) used / (float) max;
         }
+        if ("saturation".equals(id)) {
+            return Math.max(0.0F, Math.min(1.0F, d.saturation() / 20.0F));
+        }
         return Math.max(0.0F, Math.min(1.0F, d.attackCooldownPct()));
     }
 
     private static void renderPotionHud(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int textCol, boolean shadow) {
         String[] pots = d.activePotions();
         if (pots == null || pots.length == 0 || "No Potions".equals(pots[0])) {
-            g.text("Potions: Empty", px, py + 2, ClientState.UI_TEXT_MUTED, shadow);
+            g.text("Potions: Empty", px, py + 1, ClientState.UI_TEXT_MUTED, shadow);
             return;
         }
         ClientConfig cfg = ClientConfig.get();
         boolean blink = cfg.getBool("potions_blink", true);
         boolean showIcon = cfg.getBool("potions_show_icon", true);
-        String style = cfg.getString("potions_style", "vanilla");
-        boolean cards = "cards".equalsIgnoreCase(style);
+        boolean cards = "cards".equalsIgnoreCase(cfg.getString("potions_style", "vanilla"));
 
         for (int i = 0; i < pots.length; i++) {
             String pot = pots[i];
-            int lineY = py + i * 15;
+            int lineY = py + i * 14;
             boolean lowTime = pot.contains(" 0:0") || pot.contains(" 0:00");
             boolean flash = blink && lowTime && ((System.currentTimeMillis() / 250) % 2 == 0);
-            if (cards) {
-                g.drawRoundedRect(px - 2, lineY - 1, boxW - px * 2 + 4, 13, 4, 0x33FFFFFF);
-            }
+            if (cards) g.drawRoundedRect(px - 2, lineY - 1, boxW - px * 2 + 4, 12, 4, 0x28FFFFFF);
             if (showIcon) {
-                g.drawCircleFilled(px + 4, lineY + 5, 4, flash ? 0xFFEF4444 : 0xFF3B82F6);
-                g.drawCircle(px + 4, lineY + 5, 4, 1, 0xFFFFFFFF);
+                g.drawCircleFilled(px + 4, lineY + 4, 4, flash ? 0xFFEF4444 : 0xFF3B82F6);
+                g.drawCircle(px + 4, lineY + 4, 4, 1, 0xFFFFFFFF);
             }
             g.text(pot, showIcon ? px + 12 : px, lineY + 1, flash ? 0xFFEF4444 : textCol, shadow);
-        }
-    }
-
-    private static void renderSaturation(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int boxH, int textCol, boolean shadow) {
-        String style = ClientConfig.get().getString("saturation_style", "appleskin");
-        if ("appleskin".equalsIgnoreCase(style)) {
-            float sat = d.saturation();
-            int shanks = Math.min(10, (int) Math.ceil(sat / 2.0F));
-            for (int i = 0; i < 10; i++) {
-                int sx = px + i * 8;
-                boolean hasSat = i < shanks;
-                g.drawRoundedRect(sx, py + 1, 6, 8, 2, hasSat ? 0xCCFFB703 : 0x33444444);
-                if (hasSat) g.drawRoundedOutline(sx, py + 1, 6, 8, 2, 1, "solid", 0xFFFFD166, 0xFFFFB703);
-            }
-            g.text(String.format("%.1f", Float.valueOf(sat)), px + 82, py + 2, 0xFFFFD166, shadow);
-        } else {
-            String[] lines = getFormattedLines(d, ClientConfig.get().hudModules.get("saturation"));
-            for (int i = 0; i < lines.length; i++) drawTextSpaced(g, lines[i], px, py + i * 11, textCol, shadow, 0);
-            float pct = Math.max(0.0F, Math.min(1.0F, d.saturation() / 20.0F));
-            g.drawProgressBar(px, boxH - py - 4, boxW - px * 2, 4, 2, pct, 0x33FFFFFF, 0xFFFFD166);
         }
     }
 
@@ -303,7 +401,7 @@ public final class SharedHudRenderer {
         int bg = pressed ? ClientState.withAlpha(textCol, 195) : 0x44000000;
         int fg = pressed ? 0xFF09090B : textCol;
         g.drawGlassCard(x, y, w, h, rad, bg, pressed ? textCol : 0x33FFFFFF);
-        g.text(label, x + (w - g.textWidth(label)) / 2, y + (h - 8) / 2, fg, shadow && !pressed);
+        g.text(label, x + (w - g.textWidth(label)) / 2, y + (h - 7) / 2, fg, shadow && !pressed);
     }
 
     private static void renderMouseVisualizer(UiBridge.UiDraw g, int w, int h, int textCol) {
@@ -337,7 +435,7 @@ public final class SharedHudRenderer {
         float maxHp = Math.max(1.0F, (d.targetName() != null && !d.targetName().isEmpty()) ? d.targetMaxHealth() : 20.0F);
         double dist = (d.targetName() != null && !d.targetName().isEmpty()) ? d.targetDistance() : 3.2;
         g.text(name, px, py, textCol, shadow);
-        g.text(String.format("%.1f HP  %.1fm", Float.valueOf(hp), Double.valueOf(dist)), px, py + 11, ClientState.UI_TEXT_MUTED, shadow);
+        g.text(String.format("%.1f HP  %.1fm", Float.valueOf(hp), Double.valueOf(dist)), px, py + 10, ClientState.UI_TEXT_MUTED, shadow);
         float pct = Math.max(0.0F, Math.min(1.0F, hp / maxHp));
         g.drawProgressBar(px, boxH - py - 5, boxW - px * 2, 5, 2, pct, 0x33FFFFFF, pct > 0.5F ? 0xFF10B981 : (pct > 0.25F ? 0xFFF59E0B : 0xFFEF4444));
     }
@@ -363,7 +461,25 @@ public final class SharedHudRenderer {
                 else if (!"same".equalsIgnoreCase(tStyle)) style = tStyle;
             }
         }
-        drawCrosshairShape(g, sw / 2, sh / 2, style, size, gap, thick, col, useTargetCustom);
+        int cx = sw / 2, cy = sh / 2;
+        drawCrosshairShape(g, cx, cy, style, size, gap, thick, col, useTargetCustom);
+
+        // Customizable Crosshair Attack Cooldown Indicator
+        String atkMode = cfg.getString("pvp_xhair_atk_ind", "bar");
+        if (!"none".equalsIgnoreCase(atkMode) && d.hasWorld()) {
+            float atkPct = Math.max(0.0F, Math.min(1.0F, d.attackCooldownPct()));
+            boolean always = cfg.getBool("pvp_xhair_atk_always", false);
+            if (always || atkPct < 0.99F) {
+                int atkCol = ClientState.parseHexColor(cfg.getString("pvp_xhair_atk_color", "#ffffff"), 0xFFFFFFFF);
+                int ay = cy + gap + size + 5;
+                if ("dot".equalsIgnoreCase(atkMode)) {
+                    int r = Math.max(1, Math.round(atkPct * 3.0F));
+                    g.drawCircleFilled(cx, ay + 2, r, atkPct >= 0.99F ? 0xFF10B981 : atkCol);
+                } else {
+                    g.drawProgressBar(cx - 8, ay, 16, 2, 1, atkPct, 0x55000000, atkPct >= 0.99F ? 0xFF10B981 : atkCol);
+                }
+            }
+        }
     }
 
     public static void drawCrosshairShape(UiBridge.UiDraw g, int cx, int cy, String style, int size, int gap, int thick, int col) {
@@ -446,7 +562,7 @@ public final class SharedHudRenderer {
         } else if ("cpu_load".equals(id)) {
             raw = new String[]{"CPU: " + Runtime.getRuntime().availableProcessors() + " Cores | " + Thread.activeCount() + " Thr"};
         } else if ("ping".equals(id)) {
-            raw = new String[]{"Ping: " + d.pingMs() + "ms"};
+            raw = new String[]{(d.isSingleplayer() && d.pingMs() == 0) ? "Ping: Local" : ("Ping: " + d.pingMs() + "ms")};
         } else if ("server_tps".equals(id)) {
             raw = new String[]{String.format("TPS: %.1f (%.0fms)", Double.valueOf(ClientState.getEstimatedTps()), Double.valueOf(ClientState.getEstimatedTickMs()))};
         } else if ("packet_counter".equals(id)) {

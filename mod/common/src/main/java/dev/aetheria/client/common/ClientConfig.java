@@ -191,7 +191,14 @@ public class ClientConfig {
             "000000000000000" + "000011010110000" + "000000000000000" +
             "000001010100000" + "000010010010000" + "000000000000000" +
             "000000000000000" + "000000000000000" + "000000000000000");
-        setDefaultOpt("pvp_xhair_pixel_scale", Integer.valueOf(1));
+                setDefaultOpt("pvp_xhair_pixel_scale", Integer.valueOf(1));
+        setDefaultOpt("pvp_xhair_atk_ind", "bar");
+        setDefaultOpt("pvp_xhair_atk_always", Boolean.FALSE);
+        setDefaultOpt("pvp_xhair_atk_color", "#ffffff");
+        setDefaultOpt("potions_hide_vanilla", Boolean.TRUE);
+        setDefaultOpt("armor_horizontal", Boolean.FALSE);
+        setDefaultOpt("armor_show_text", Boolean.TRUE);
+        setDefaultOpt("saturation_glint", Boolean.TRUE);
 
         setDefaultOpt("saturation_style", "appleskin");
         setDefaultOpt("potions_timers", Boolean.TRUE);

@@ -11,6 +11,8 @@ public final class UiBridge {
         void popTransform();
 
         default void drawEntity(int x, int y, int size, float mouseX, float mouseY) {}
+        default boolean supportsItemIcons() { return false; }
+        default void drawArmorSlot(int slotIndex, int x, int y) {}
 
         default void drawBorder(int x, int y, int w, int h, int col) {
             fill(x, y, x + w, y + 1, col);
@@ -114,6 +116,9 @@ public final class UiBridge {
         boolean isMoveW(); boolean isMoveA(); boolean isMoveS(); boolean isMoveD(); boolean isJumpDown();
         boolean targetPlayerInView(double range); boolean targetEntityInView(double range);
 
+        default boolean isSingleplayer() { return false; }
+        default boolean showSurvivalBars() { return true; }
+        default String[] armorSlotReadouts() { return new String[0]; }
         default float pitch() { return 0.0F; }
         default boolean isSneaking() { return false; }
         default boolean isMoveCtrl() { return false; }
