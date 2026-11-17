@@ -13,8 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(GameRenderer.class)
 public class GameRendererMixin {
-    // 1. NO HURT CAM
-    @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "bobHurt", at = @At("HEAD"), cancellable = true, require = 0)
     private void aetheria$noHurtCam(PoseStack poseStack, float partialTicks, CallbackInfo ci) {
         ClientConfig cfg = ClientConfig.get();
         if (cfg.getBool("pvp_no_hurtcam", false)) {
@@ -29,15 +28,12 @@ public class GameRendererMixin {
         }
     }
 
-    // 2. FOV MODIFIER & ZOOM
-    @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "getFov", at = @At("RETURN"), cancellable = true, require = 0)
     private void aetheria$modifyFov(Camera camera, float partialTicks, boolean useFovSetting, CallbackInfoReturnable<Float> cir) {
         ClientConfig cfg = ClientConfig.get();
         float fov = cir.getReturnValue();
 
-        // Dynamic FOV intensity
         if (!cfg.getBool("cam_fov_dynamic", true)) {
-            // Lock to base static FOV
             fov = (float) cfg.getDouble("cam_fov_base", 70.0);
         } else {
             double factor = cfg.getDouble("cam_fov_factor", 1.0);
@@ -47,7 +43,6 @@ public class GameRendererMixin {
             }
         }
 
-        // Telescopic Zoom
         float zoomDiv = ClientState.getSmoothedZoomDivisor();
         if (zoomDiv > 1.01f) {
             fov /= zoomDiv;
