@@ -50,10 +50,16 @@ public final class McBridge {
             public void drawEntity(int x, int y, int size, float mouseX, float mouseY) {
                 if (mc.player != null) {
                     try {
-                        net.minecraft.client.gui.screens.inventory.InventoryScreen.renderEntityInInventoryFollowsMouse(
-                            g, x, y, size, mouseX, mouseY, mc.player
+                        net.minecraft.client.gui.screens.inventory.InventoryScreen.renderEntityInInventory(
+                            g, x - size, y - size * 2, x + size, y, size, 0.0625f, mouseX, mouseY, mc.player
                         );
-                    } catch (Throwable ignored) {}
+                    } catch (Throwable t1) {
+                        try {
+                            net.minecraft.client.gui.screens.inventory.InventoryScreen.renderEntityInInventory(
+                                g, x, y, size, 0.0f, 0.0f, mc.player
+                            );
+                        } catch (Throwable ignored) {}
+                    }
                 }
             }
         };
