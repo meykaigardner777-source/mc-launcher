@@ -30,13 +30,14 @@ public class ClientConfig {
         public String dropShadowColor = "#000000";
 
         public boolean enabled, favorite = false;
-        public boolean bg = true, border = true, chroma = false, shadow = true;
+        public boolean bg = true, border = false, chroma = false, shadow = true;
         public boolean hideInF1 = true, hideInChat = false, hideInInventory = false, hideInF3 = true;
+        public boolean hideWhenEmpty = true;
 
-        public double x, y, scale = 1.0, opacity = 0.75, textOpacity = 1.0;
+        public double x, y, scale = 1.0, opacity = 0.35, textOpacity = 1.0;
         public double chromaSpeed = 1.0, chromaSat = 0.85, chromaAngle = 45.0;
         public int width = 0, height = 0;
-        public int borderRadius = 10, borderWidth = 1, paddingX = 6, paddingY = 4, margin = 0, blurRadius = 8;
+        public int borderRadius = 4, borderWidth = 1, paddingX = 6, paddingY = 4, margin = 0, blurRadius = 8;
         public int letterSpacing = 0, dropShadowX = 0, dropShadowY = 2, dropShadowBlur = 0;
     }
 
@@ -63,125 +64,125 @@ public class ClientConfig {
         hudModules.clear();
 
         // === A. SYSTEM, PERFORMANCE & NETWORK (18) ===
-        add("fps", "FPS Counter", "system", "hud_fps", true, 0.015, 0.025, "Current, Min, Max & 1% Low FPS");
-        add("frametime_graph", "Frametime Graph", "system", "hud_ft_graph", false, 0.015, 0.075, "Live rolling frame ms spike chart");
-        add("ram_usage", "RAM / Memory", "system", "hud_ram", false, 0.015, 0.145, "JVM heap MB/GB used & % bar");
-        add("cpu_load", "CPU / Threads", "system", "hud_cpu", false, 0.015, 0.205, "Available cores & active threads");
-        add("ping", "Ping / Latency", "system", "pvp_ping_hud", true, 0.015, 0.230, "Live ms latency with quality dot");
-        add("ping_graph", "Ping Graph", "system", "hud_ping_graph", false, 0.015, 0.275, "Rolling latency stability line");
-        add("server_tps", "Server TPS", "system", "hud_tps", false, 0.015, 0.335, "Server ticks per second & tick ms");
-        add("packet_counter", "Packet Counter", "system", "hud_packets", false, 0.015, 0.385, "Tick & IO activity rate");
-        add("bandwidth", "Bandwidth Rate", "system", "hud_bandwidth", false, 0.015, 0.435, "Estimated KB/s session rate");
-        add("session", "Session Playtime", "system", "hud_session", true, 0.835, 0.080, "Current launch duration timer");
-        add("total_playtime", "Total Playtime", "system", "hud_total_time", false, 0.835, 0.125, "Cumulative world/session hours");
-        add("clock", "Real-World Clock", "system", "hud_clock", false, 0.855, 0.025, "12h/24h local time + seconds");
-        add("stopwatch", "Stopwatch Timer", "system", "hud_stopwatch", false, 0.855, 0.170, "Start/Pause/Reset lap stopwatch");
-        add("countdown", "Countdown Timer", "system", "hud_countdown", false, 0.855, 0.215, "Event/pot/pearl alert timer");
-        add("battery", "Battery Status", "system", "hud_battery", false, 0.855, 0.260, "System power & runtime status");
-        add("gc_monitor", "Java / GC Monitor", "system", "hud_gc", false, 0.855, 0.305, "Garbage collection pause tracker");
-        add("chunk_updates", "Chunk Updates", "system", "hud_chunks_upd", false, 0.855, 0.350, "Active world render region updates");
-        add("entity_counter", "Entity Counter", "system", "hud_entities", false, 0.855, 0.395, "Rendered vs total entities");
+        add("fps", "FPS Counter", "system", "hud_fps", true, 0.012, 0.020, "top-left", "Current, Min, Max & 1% Low FPS");
+        add("frametime_graph", "Frametime Graph", "system", "hud_ft_graph", false, 0.012, 0.065, "top-left", "Live rolling frame ms spike chart");
+        add("ram_usage", "RAM / Memory", "system", "hud_ram", false, 0.012, 0.140, "top-left", "JVM heap MB/GB used & % bar");
+        add("cpu_load", "CPU / Threads", "system", "hud_cpu", false, 0.012, 0.200, "top-left", "Available cores & active threads");
+        add("ping", "Ping / Latency", "system", "pvp_ping_hud", true, 0.012, 0.165, "top-left", "Live ms latency with quality dot");
+        add("ping_graph", "Ping Graph", "system", "hud_ping_graph", false, 0.012, 0.215, "top-left", "Rolling latency stability line");
+        add("server_tps", "Server TPS", "system", "hud_tps", false, 0.012, 0.295, "top-left", "Server ticks per second & tick ms");
+        add("packet_counter", "Packet Counter", "system", "hud_packets", false, 0.012, 0.345, "top-left", "Tick & IO activity rate");
+        add("bandwidth", "Bandwidth Rate", "system", "hud_bandwidth", false, 0.012, 0.395, "top-left", "Estimated KB/s session rate");
+        add("session", "Session Playtime", "system", "hud_session", true, 0.988, 0.020, "top-right", "Current launch duration timer");
+        add("total_playtime", "Total Playtime", "system", "hud_total_time", false, 0.988, 0.065, "top-right", "Cumulative world/session hours");
+        add("clock", "Real-World Clock", "system", "hud_clock", false, 0.988, 0.110, "top-right", "12h/24h local time + seconds");
+        add("stopwatch", "Stopwatch Timer", "system", "hud_stopwatch", false, 0.988, 0.155, "top-right", "Start/Pause/Reset lap stopwatch");
+        add("countdown", "Countdown Timer", "system", "hud_countdown", false, 0.988, 0.200, "top-right", "Event/pot/pearl alert timer");
+        add("battery", "Battery Status", "system", "hud_battery", false, 0.988, 0.245, "top-right", "System power & runtime status");
+        add("gc_monitor", "Java / GC Monitor", "system", "hud_gc", false, 0.988, 0.290, "top-right", "Garbage collection pause tracker");
+        add("chunk_updates", "Chunk Updates", "system", "hud_chunks_upd", false, 0.988, 0.335, "top-right", "Active world render region updates");
+        add("entity_counter", "Entity Counter", "system", "hud_entities", false, 0.988, 0.380, "top-right", "Rendered vs total entities");
 
         // === B. PVP, COMBAT & MOVEMENT MECHANICS (22) ===
-        add("cps", "CPS Counter", "pvp", "pvp_cps", true, 0.015, 0.285, "LMB & RMB clicks per second");
-        add("cps_graph", "CPS Graph", "pvp", "pvp_cps_graph", false, 0.015, 0.335, "Live click-speed waveform");
-        add("keystrokes", "Keystrokes", "pvp", "pvp_keystrokes", true, 0.015, 0.395, "WASD, Space, Shift, Ctrl, LMB, RMB");
-        add("mouse_visualizer", "Mouse Visualizer", "pvp", "pvp_mouse_viz", false, 0.115, 0.395, "Live cursor velocity/strafe pad");
-        add("combo", "Combo Counter", "pvp", "pvp_combo_hud", false, 0.435, 0.600, "Consecutive melee hits & timer");
-        add("reach", "Reach Display", "pvp", "pvp_reach_hud", false, 0.435, 0.660, "Last melee hit distance in blocks");
-        add("hit_accuracy", "Hit Accuracy %", "pvp", "pvp_accuracy", false, 0.435, 0.715, "Swings landed vs missed ratio");
-        add("sprint_reset", "Crit / W-Tap", "pvp", "pvp_sprint_reset", false, 0.435, 0.770, "Visual sprint-reset / hit flash");
-        add("target_hud", "Target HUD", "pvp", "pvp_target_hud", false, 0.540, 0.560, "Opponent HP bar, distance & name");
-        add("armor", "Armor Status", "pvp", "pvp_armor_hud", true, 0.790, 0.720, "Equipped armor durability readout");
-        add("armor_prot", "Armor Protection", "pvp", "pvp_armor_prot", false, 0.790, 0.775, "Total damage reduction % & EPF");
-        add("durability", "Held Durability", "pvp", "hud_durability", true, 0.825, 0.650, "Main-hand & off-hand uses left");
-        add("potions", "Potion Effects", "pvp", "pvp_potion_hud", true, 0.015, 0.615, "Active buffs/debuffs with timers");
-        add("potion_count", "Potion Counter", "pvp", "pvp_pot_count", false, 0.150, 0.615, "Splash/healing potions in bag");
-        add("heal_count", "GApple / Soup", "pvp", "pvp_heal_count", false, 0.150, 0.665, "Golden apples & soups in inventory");
-        add("arrow_count", "Arrow Counter", "pvp", "pvp_arrow_count", false, 0.150, 0.715, "Arrows & projectiles in bag");
-        add("totem_count", "Totem Counter", "pvp", "pvp_totem_count", false, 0.150, 0.765, "Totems of Undying in inventory");
-        add("pearl_cd", "Pearl Cooldown", "pvp", "pvp_pearl_cd", false, 0.540, 0.650, "Ender pearl throw recovery timer");
-        add("shield_cd", "Shield Cooldown", "pvp", "pvp_shield_cd", false, 0.540, 0.700, "Axe-disable recovery countdown");
-        add("attack_charge", "Attack / Bow Bar", "pvp", "pvp_atk_bar", false, 0.455, 0.545, "1.9+ recharge & bow draw %");
-        add("togglesprint", "ToggleSprint", "pvp", "pvp_togglesprint", true, 0.015, 0.545, "Current sprint/sneak state badge");
-        add("speedometer", "Speedometer", "pvp", "pvp_speed", false, 0.015, 0.785, "Blocks/sec, km/h or mph velocity");
+        add("cps", "CPS Counter", "pvp", "pvp_cps", true, 0.012, 0.210, "top-left", "LMB & RMB clicks per second");
+        add("cps_graph", "CPS Graph", "pvp", "pvp_cps_graph", false, 0.012, 0.255, "top-left", "Live click-speed waveform");
+        add("keystrokes", "Keystrokes", "pvp", "pvp_keystrokes", true, 0.012, 0.335, "top-left", "WASD, Space, Shift, Ctrl, LMB, RMB");
+        add("mouse_visualizer", "Mouse Visualizer", "pvp", "pvp_mouse_viz", false, 0.115, 0.335, "top-left", "Live cursor velocity/strafe pad");
+        add("combo", "Combo Counter", "pvp", "pvp_combo_hud", false, 0.500, 0.620, "top-center", "Consecutive melee hits & timer");
+        add("reach", "Reach Display", "pvp", "pvp_reach_hud", false, 0.500, 0.665, "top-center", "Last melee hit distance in blocks");
+        add("hit_accuracy", "Hit Accuracy %", "pvp", "pvp_accuracy", false, 0.500, 0.710, "top-center", "Swings landed vs missed ratio");
+        add("sprint_reset", "Crit / W-Tap", "pvp", "pvp_sprint_reset", false, 0.500, 0.755, "top-center", "Visual sprint-reset / hit flash");
+        add("target_hud", "Target HUD", "pvp", "pvp_target_hud", false, 0.500, 0.545, "top-center", "Opponent HP bar, distance & name");
+        add("armor", "Armor Status", "pvp", "pvp_armor_hud", true, 0.988, 0.760, "bottom-right", "Equipped armor durability readout");
+        add("armor_prot", "Armor Protection", "pvp", "pvp_armor_prot", false, 0.988, 0.840, "bottom-right", "Total damage reduction % & EPF");
+        add("durability", "Held Durability", "pvp", "hud_durability", true, 0.988, 0.650, "bottom-right", "Main-hand & off-hand uses left");
+        add("potions", "Potion Effects", "pvp", "pvp_potion_hud", true, 0.012, 0.620, "mid-left", "Active buffs/debuffs with timers");
+        add("potion_count", "Potion Counter", "pvp", "pvp_pot_count", false, 0.150, 0.620, "top-left", "Splash/healing potions in bag");
+        add("heal_count", "GApple / Soup", "pvp", "pvp_heal_count", false, 0.150, 0.665, "top-left", "Golden apples & soups in inventory");
+        add("arrow_count", "Arrow Counter", "pvp", "pvp_arrow_count", false, 0.150, 0.710, "top-left", "Arrows & projectiles in bag");
+        add("totem_count", "Totem Counter", "pvp", "pvp_totem_count", false, 0.150, 0.755, "top-left", "Totems of Undying in inventory");
+        add("pearl_cd", "Pearl Cooldown", "pvp", "pvp_pearl_cd", false, 0.500, 0.795, "top-center", "Ender pearl throw recovery timer");
+        add("shield_cd", "Shield Cooldown", "pvp", "pvp_shield_cd", false, 0.500, 0.840, "top-center", "Axe-disable recovery countdown");
+        add("attack_charge", "Attack / Bow Bar", "pvp", "pvp_atk_bar", false, 0.500, 0.530, "top-center", "1.9+ recharge & bow draw %");
+        add("togglesprint", "ToggleSprint", "pvp", "pvp_togglesprint", true, 0.012, 0.530, "top-left", "Current sprint/sneak state badge");
+        add("speedometer", "Speedometer", "pvp", "pvp_speed", false, 0.012, 0.800, "top-left", "Blocks/sec, km/h or mph velocity");
 
         // === C. WORLD, NAVIGATION & SURVIVAL (24) ===
-        add("coords", "Coordinates XYZ", "world", "hud_coords", true, 0.015, 0.085, "Overworld + Nether 8:1 conversion");
-        add("chunk_coords", "Chunk Coords", "world", "hud_chunk_xyz", false, 0.015, 0.135, "Current Chunk X/Z & section Y");
-        add("compass", "Compass Strip", "world", "hud_compass", true, 0.340, 0.020, "Top scrolling N/E/S/W + degrees");
-        add("biome", "Biome Display", "world", "hud_biome", true, 0.015, 0.175, "Current world biome name");
-        add("light_level", "Light Level", "world", "hud_light", false, 0.180, 0.085, "Block & sky light (spawn-proofing)");
-        add("slime_chunk", "Slime Chunk", "world", "hud_slime", false, 0.180, 0.135, "Slime chunk detector status");
-        add("day_count", "Day & Time", "world", "hud_day_count", false, 0.875, 0.190, "World day count & 24h game time");
-        add("moon_phase", "Moon Phase", "world", "hud_moon", false, 0.875, 0.240, "Moon phase & slime spawn rate");
-        add("weather", "Weather Forecast", "world", "hud_weather", false, 0.875, 0.290, "Clear / Rain / Thunder state");
-        add("minimap", "Radar Minimap", "world", "hud_minimap", false, 0.855, 0.445, "Live terrain & entity radar");
-        add("waypoints", "Waypoints HUD", "world", "hud_waypoints", false, 0.720, 0.025, "Nearest saved waypoint & distance");
-        add("spawn_dist", "Spawn Distance", "world", "hud_spawn_dist", false, 0.720, 0.075, "Distance & direction to spawn/bed");
-        add("death_loc", "Death Tracker", "world", "hud_death_loc", false, 0.720, 0.125, "Last death coordinates & distance");
-        add("y_alert", "Y-Level Ore Alert", "world", "hud_y_alert", false, 0.180, 0.185, "Optimal Diamond / Debris Y alert");
-        add("saturation", "Saturation Bar", "world", "hud_saturation", false, 0.540, 0.750, "Food saturation & exhaustion");
-        add("oxygen", "Oxygen Timer", "world", "hud_oxygen", false, 0.540, 0.800, "Seconds of air remaining");
-        add("mount_stats", "Mount Stats", "world", "hud_mount", false, 0.720, 0.175, "Speed, jump & HP of ridden mount");
-        add("elytra_guide", "Elytra Guide", "world", "hud_elytra", false, 0.440, 0.415, "Optimal 40/-40 deg glide pitch");
-        add("villager_timer", "Villager Restock", "world", "hud_villager", false, 0.720, 0.225, "Workstation day-cycle restock");
-        add("spawner_info", "Local Block Info", "world", "hud_spawner", false, 0.720, 0.275, "Nearby hive/spawner state");
-        add("waila_block", "Looking-At Block", "world", "hud_waila_blk", false, 0.415, 0.075, "WAILA targeted block name");
-        add("waila_entity", "Looking-At Entity", "world", "hud_waila_ent", false, 0.415, 0.125, "Targeted mob name & distance");
-        add("inv_space", "Inventory Space", "world", "hud_inv_space", false, 0.790, 0.830, "Occupied vs free bag slots");
-        add("mini_inventory", "Mini Inventory", "world", "hud_mini_inv", false, 0.750, 0.880, "Compact backpack item summary");
+        add("coords", "Coordinates XYZ", "world", "hud_coords", true, 0.012, 0.065, "top-left", "Overworld + Nether 8:1 conversion");
+        add("chunk_coords", "Chunk Coords", "world", "hud_chunk_xyz", false, 0.012, 0.120, "top-left", "Current Chunk X/Z & section Y");
+        add("compass", "Compass Strip", "world", "hud_compass", true, 0.500, 0.018, "top-center", "Top scrolling N/E/S/W + degrees");
+        add("biome", "Biome Display", "world", "hud_biome", true, 0.012, 0.125, "top-left", "Current world biome name");
+        add("light_level", "Light Level", "world", "hud_light", false, 0.180, 0.065, "top-left", "Block & sky light (spawn-proofing)");
+        add("slime_chunk", "Slime Chunk", "world", "hud_slime", false, 0.180, 0.115, "top-left", "Slime chunk detector status");
+        add("day_count", "Day & Time", "world", "hud_day_count", false, 0.988, 0.190, "top-right", "World day count & 24h game time");
+        add("moon_phase", "Moon Phase", "world", "hud_moon", false, 0.988, 0.240, "top-right", "Moon phase & slime spawn rate");
+        add("weather", "Weather Forecast", "world", "hud_weather", false, 0.988, 0.290, "top-right", "Clear / Rain / Thunder state");
+        add("minimap", "Radar Minimap", "world", "hud_minimap", false, 0.988, 0.445, "top-right", "Live terrain & entity radar");
+        add("waypoints", "Waypoints HUD", "world", "hud_waypoints", false, 0.780, 0.020, "top-right", "Nearest saved waypoint & distance");
+        add("spawn_dist", "Spawn Distance", "world", "hud_spawn_dist", false, 0.780, 0.065, "top-right", "Distance & direction to spawn/bed");
+        add("death_loc", "Death Tracker", "world", "hud_death_loc", false, 0.780, 0.110, "top-right", "Last death coordinates & distance");
+        add("y_alert", "Y-Level Ore Alert", "world", "hud_y_alert", false, 0.180, 0.165, "top-left", "Optimal Diamond / Debris Y alert");
+        add("saturation", "Saturation Bar", "world", "hud_saturation", false, 0.500, 0.780, "top-center", "Food saturation & exhaustion");
+        add("oxygen", "Oxygen Timer", "world", "hud_oxygen", false, 0.500, 0.825, "top-center", "Seconds of air remaining");
+        add("mount_stats", "Mount Stats", "world", "hud_mount", false, 0.780, 0.155, "top-right", "Speed, jump & HP of ridden mount");
+        add("elytra_guide", "Elytra Guide", "world", "hud_elytra", false, 0.500, 0.415, "top-center", "Optimal 40/-40 deg glide pitch");
+        add("villager_timer", "Villager Restock", "world", "hud_villager", false, 0.780, 0.200, "top-right", "Workstation day-cycle restock");
+        add("spawner_info", "Local Block Info", "world", "hud_spawner", false, 0.780, 0.245, "top-right", "Nearby hive/spawner state");
+        add("waila_block", "Looking-At Block", "world", "hud_waila_blk", false, 0.500, 0.085, "top-center", "WAILA targeted block name");
+        add("waila_entity", "Looking-At Entity", "world", "hud_waila_ent", false, 0.500, 0.130, "top-center", "Targeted mob name & distance");
+        add("inv_space", "Inventory Space", "world", "hud_inv_space", false, 0.988, 0.890, "bottom-right", "Occupied vs free bag slots");
+        add("mini_inventory", "Mini Inventory", "world", "hud_mini_inv", false, 0.988, 0.940, "bottom-right", "Compact backpack item summary");
 
         // === D. MINIGAMES, SERVER & SOCIAL (18) ===
-        add("server_ip", "Server IP", "server", "hud_srv_ip", false, 0.840, 0.135, "Connected server address badge");
-        add("player_count", "Online Players", "server", "hud_players", false, 0.840, 0.440, "Current / Max lobby players");
-        add("friends_online", "Friends Online", "server", "hud_friends", false, 0.840, 0.485, "Added friends online tracker");
-        add("scoreboard_mod", "Scoreboard Style", "server", "hud_scoreboard", false, 0.840, 0.530, "Sidebar cleaner & custom theme");
-        add("bossbar_mod", "BossBar Style", "server", "hud_bossbar", false, 0.380, 0.175, "BossBar scale & clean toggle");
-        add("actionbar_mod", "Action Bar Style", "server", "hud_actionbar", false, 0.380, 0.220, "Repositioned action-bar badge");
-        add("title_scaler", "Title Scaler", "server", "hud_title_scale", false, 0.380, 0.265, "Title/subtitle sizing status");
-        add("bw_resources", "BW Resources", "server", "hud_bw_res", false, 0.150, 0.820, "Iron, Gold, Diamond & Emerald count");
-        add("bw_gens", "BW Gen Timers", "server", "hud_bw_gens", false, 0.150, 0.875, "Diamond/Emerald upgrade timer");
-        add("uhc_border", "UHC Border Timer", "server", "hud_uhc_border", false, 0.380, 0.310, "Border shrink & safe distance");
-        add("speedrun_splits", "Speedrun Splits", "server", "hud_splits", false, 0.015, 0.835, "Nether/Bastion/Fortress splits");
-        add("kdr_tracker", "K/D/R Tracker", "server", "hud_kdr", false, 0.015, 0.890, "Session Kills, Deaths & KDR");
-        add("autogg_status", "AutoGG / Tip", "server", "hud_autogg", false, 0.380, 0.355, "Active AutoGG & AutoTip badge");
-        add("queue_pos", "Queue Position", "server", "hud_queue", false, 0.380, 0.400, "Server queue wait estimator");
-        add("level_head", "LevelHead Badge", "server", "hud_levelhead", false, 0.380, 0.445, "Player rank & level preview");
-        add("chat_mentions", "Chat Mentions", "server", "hud_mentions", false, 0.300, 0.820, "Mini-box for DMs & keyword pings");
-        add("voice_hud", "Voice Chat HUD", "server", "hud_voice", false, 0.300, 0.875, "Active speakers & mic status");
-        add("party_list", "Party / Team", "server", "hud_party", false, 0.720, 0.330, "Teammates HP & dimension list");
+        add("server_ip", "Server IP", "server", "hud_srv_ip", false, 0.988, 0.135, "top-right", "Connected server address badge");
+        add("player_count", "Online Players", "server", "hud_players", false, 0.988, 0.440, "top-right", "Current / Max lobby players");
+        add("friends_online", "Friends Online", "server", "hud_friends", false, 0.988, 0.485, "top-right", "Added friends online tracker");
+        add("scoreboard_mod", "Scoreboard Style", "server", "hud_scoreboard", false, 0.988, 0.530, "top-right", "Sidebar cleaner & custom theme");
+        add("bossbar_mod", "BossBar Style", "server", "hud_bossbar", false, 0.500, 0.175, "top-center", "BossBar scale & clean toggle");
+        add("actionbar_mod", "Action Bar Style", "server", "hud_actionbar", false, 0.500, 0.220, "top-center", "Repositioned action-bar badge");
+        add("title_scaler", "Title Scaler", "server", "hud_title_scale", false, 0.500, 0.265, "top-center", "Title/subtitle sizing status");
+        add("bw_resources", "BW Resources", "server", "hud_bw_res", false, 0.150, 0.820, "top-left", "Iron, Gold, Diamond & Emerald count");
+        add("bw_gens", "BW Gen Timers", "server", "hud_bw_gens", false, 0.150, 0.875, "top-left", "Diamond/Emerald upgrade timer");
+        add("uhc_border", "UHC Border Timer", "server", "hud_uhc_border", false, 0.500, 0.310, "top-center", "Border shrink & safe distance");
+        add("speedrun_splits", "Speedrun Splits", "server", "hud_splits", false, 0.012, 0.835, "top-left", "Nether/Bastion/Fortress splits");
+        add("kdr_tracker", "K/D/R Tracker", "server", "hud_kdr", false, 0.012, 0.890, "top-left", "Session Kills, Deaths & KDR");
+        add("autogg_status", "AutoGG / Tip", "server", "hud_autogg", false, 0.500, 0.355, "top-center", "Active AutoGG & AutoTip badge");
+        add("queue_pos", "Queue Position", "server", "hud_queue", false, 0.500, 0.400, "top-center", "Server queue wait estimator");
+        add("level_head", "LevelHead Badge", "server", "hud_levelhead", false, 0.500, 0.445, "top-center", "Player rank & level preview");
+        add("chat_mentions", "Chat Mentions", "server", "hud_mentions", false, 0.300, 0.820, "top-left", "Mini-box for DMs & keyword pings");
+        add("voice_hud", "Voice Chat HUD", "server", "hud_voice", false, 0.300, 0.875, "top-left", "Active speakers & mic status");
+        add("party_list", "Party / Team", "server", "hud_party", false, 0.780, 0.330, "top-right", "Teammates HP & dimension list");
 
         // === E. VISUALS, MEDIA & AESTHETIC WIDGETS (18) ===
-        add("pack_display", "Resource Pack", "visuals", "hud_pack", false, 0.015, 0.935, "Active resource pack badge");
-        add("shader_display", "Shader Pack", "visuals", "hud_shader", false, 0.180, 0.935, "Active shader profile status");
-        add("now_playing", "Now Playing", "visuals", "hud_media", false, 0.350, 0.935, "Media track & progress indicator");
-        add("audio_viz", "Audio Visualizer", "visuals", "hud_audioviz", false, 0.520, 0.915, "Reactive frequency bars widget");
-        add("paperdoll", "Paperdoll Player", "visuals", "hud_paperdoll", false, 0.910, 0.560, "Mini live player stance preview");
-        add("pickup_feed", "Item Pickup Feed", "visuals", "hud_pickups", false, 0.760, 0.600, "Scrolling collected item feed");
-        add("toast_style", "Toast Customizer", "visuals", "hud_toasts", false, 0.540, 0.850, "Themed advancement toast style");
-        add("subtitles_mod", "Sound Visualizer", "visuals", "hud_subtitles", false, 0.540, 0.895, "Directional sound cues widget");
-        add("zoom_indicator", "Zoom Indicator", "visuals", "hud_zoom_ind", false, 0.460, 0.360, "Live FOV zoom multiplier badge");
-        add("gamma_level", "Gamma / Bright", "visuals", "hud_gamma", false, 0.560, 0.025, "Current brightness % readout");
-        add("fov_indicator", "FOV Indicator", "visuals", "hud_fov", false, 0.560, 0.070, "Dynamic vs static FOV readout");
-        add("freelook_badge", "FreeLook Badge", "visuals", "hud_freelook", false, 0.455, 0.475, "Detached 360 camera alert");
-        add("screenshot_toast", "Capture Preview", "visuals", "hud_ss_toast", false, 0.560, 0.115, "Screenshot capture status badge");
-        add("arraylist", "Active Modules", "visuals", "hud_arraylist", false, 0.850, 0.020, "Compact list of active utilities");
-        add("watermark", "Watermark Text", "visuals", "hud_watermark", false, 0.015, 0.005, "Custom client branding text");
-        add("custom_image", "Custom Overlay", "visuals", "hud_custom_img", false, 0.640, 0.025, "Custom PNG/badge overlay slot");
-        add("low_hp_vignette", "Low-HP Pulse", "visuals", "hud_low_hp", false, 0.455, 0.520, "Screen edge pulse at low health");
-        add("notebook", "Quick Notebook", "visuals", "hud_notebook", false, 0.720, 0.385, "Pinned survival tasks & notes");
+        add("pack_display", "Resource Pack", "visuals", "hud_pack", false, 0.012, 0.945, "bottom-left", "Active resource pack badge");
+        add("shader_display", "Shader Pack", "visuals", "hud_shader", false, 0.180, 0.945, "bottom-left", "Active shader profile status");
+        add("now_playing", "Now Playing", "visuals", "hud_media", false, 0.500, 0.945, "bottom-center", "Media track & progress indicator");
+        add("audio_viz", "Audio Visualizer", "visuals", "hud_audioviz", false, 0.500, 0.900, "bottom-center", "Reactive frequency bars widget");
+        add("paperdoll", "Paperdoll Player", "visuals", "hud_paperdoll", false, 0.988, 0.560, "mid-right", "Mini live player stance preview");
+        add("pickup_feed", "Item Pickup Feed", "visuals", "hud_pickups", false, 0.988, 0.600, "top-right", "Scrolling collected item feed");
+        add("toast_style", "Toast Customizer", "visuals", "hud_toasts", false, 0.500, 0.850, "top-center", "Themed advancement toast style");
+        add("subtitles_mod", "Sound Visualizer", "visuals", "hud_subtitles", false, 0.500, 0.895, "top-center", "Directional sound cues widget");
+        add("zoom_indicator", "Zoom Indicator", "visuals", "hud_zoom_ind", false, 0.500, 0.360, "top-center", "Live FOV zoom multiplier badge");
+        add("gamma_level", "Gamma / Bright", "visuals", "hud_gamma", false, 0.620, 0.020, "top-center", "Current brightness % readout");
+        add("fov_indicator", "FOV Indicator", "visuals", "hud_fov", false, 0.620, 0.065, "top-center", "Dynamic vs static FOV readout");
+        add("freelook_badge", "FreeLook Badge", "visuals", "hud_freelook", false, 0.500, 0.475, "top-center", "Detached 360 camera alert");
+        add("screenshot_toast", "Capture Preview", "visuals", "hud_ss_toast", false, 0.620, 0.110, "top-center", "Screenshot capture status badge");
+        add("arraylist", "Active Modules", "visuals", "hud_arraylist", false, 0.988, 0.020, "top-right", "Compact list of active utilities");
+        add("watermark", "Watermark Text", "visuals", "hud_watermark", false, 0.012, 0.008, "top-left", "Custom client branding text");
+        add("custom_image", "Custom Overlay", "visuals", "hud_custom_img", false, 0.720, 0.020, "top-center", "Custom PNG/badge overlay slot");
+        add("low_hp_vignette", "Low-HP Pulse", "visuals", "hud_low_hp", false, 0.500, 0.520, "top-center", "Screen edge pulse at low health");
+        add("notebook", "Quick Notebook", "visuals", "hud_notebook", false, 0.780, 0.385, "top-right", "Pinned survival tasks & notes");
 
         for (HudModule m : hudModules.values()) if (m.optId != null) setDefaultOpt(m.optId, Boolean.valueOf(m.enabled));
 
         // === GLOBAL UI ENGINE & MASTER SLIDERS ===
-        setDefaultOpt("global_hud_rounding", Integer.valueOf(-1)); // -1 = per-hud, 0 = sharp, 12 = round
-        setDefaultOpt("global_hud_opacity", Double.valueOf(-1.0)); // -1 = per-hud, 0.10 to 1.00
+        setDefaultOpt("global_hud_rounding", Integer.valueOf(-1));
+        setDefaultOpt("global_hud_opacity", Double.valueOf(-1.0));
         setDefaultOpt("ui_menu_layout", "topbar");
         setDefaultOpt("ui_switch_style", "pill");
         setDefaultOpt("ui_card_width", Integer.valueOf(140));
-        setDefaultOpt("ui_menu_rounding", Integer.valueOf(12));
-        setDefaultOpt("ui_menu_opacity", Double.valueOf(0.95));
+        setDefaultOpt("ui_menu_rounding", Integer.valueOf(8));
+        setDefaultOpt("ui_menu_opacity", Double.valueOf(0.92));
         setDefaultOpt("ui_menu_blur", Integer.valueOf(14));
         setDefaultOpt("ui_world_blur", Integer.valueOf(10));
         setDefaultOpt("ui_accent", "white");
@@ -212,7 +213,7 @@ public class ClientConfig {
 
         // === NO HURT CAM & DYNAMIC FOV ===
         setDefaultOpt("pvp_no_hurtcam", Boolean.FALSE);
-        setDefaultOpt("pvp_hurtcam_factor", Double.valueOf(0.0)); // 0.0 = completely off, 1.0 = vanilla
+        setDefaultOpt("pvp_hurtcam_factor", Double.valueOf(0.0));
         setDefaultOpt("cam_fov_dynamic", Boolean.TRUE);
         setDefaultOpt("cam_fov_factor", Double.valueOf(1.0));
         setDefaultOpt("cam_fov_sprint", Boolean.TRUE);
@@ -249,14 +250,16 @@ public class ClientConfig {
             "000000000000000" + "000000000000000" + "000000000000000");
         setDefaultOpt("pvp_xhair_pixel_scale", Integer.valueOf(1));
 
-        // === SATURATION & POTIONS CUSTOMIZATION ===
-        setDefaultOpt("saturation_style", "appleskin"); // appleskin, bar, text
+        // === HUD MODULE FORMATTING ===
+        setDefaultOpt("saturation_style", "appleskin");
         setDefaultOpt("saturation_glint", Boolean.TRUE);
-        setDefaultOpt("potions_style", "vanilla");      // vanilla, compact, cards
+        setDefaultOpt("potions_style", "vanilla");
         setDefaultOpt("potions_timers", Boolean.TRUE);
         setDefaultOpt("potions_numerals", Boolean.TRUE);
         setDefaultOpt("potions_show_icon", Boolean.TRUE);
         setDefaultOpt("potions_blink", Boolean.TRUE);
+        setDefaultOpt("armor_style", "vertical"); // vertical, horizontal, compact
+        setDefaultOpt("armor_percent", Boolean.TRUE);
 
         setDefaultOpt("cam_zoom", Boolean.TRUE);
         setDefaultOpt("cam_zoom_fac", Integer.valueOf(4));
@@ -274,7 +277,6 @@ public class ClientConfig {
         setDefaultOpt("clock_24h", Boolean.FALSE);
         setDefaultOpt("clock_seconds", Boolean.FALSE);
         setDefaultOpt("compass_degrees", Boolean.TRUE);
-        setDefaultOpt("armor_percent", Boolean.TRUE);
         setDefaultOpt("keystrokes_cps", Boolean.TRUE);
         setDefaultOpt("keystrokes_space", Boolean.TRUE);
         setDefaultOpt("keystrokes_mods", Boolean.FALSE);
@@ -282,10 +284,10 @@ public class ClientConfig {
         setDefaultOpt("speed_unit", "bps");
     }
 
-    private void add(String id, String label, String cat, String optId, boolean en, double x, double y, String desc) {
+    private void add(String id, String label, String cat, String optId, boolean en, double x, double y, String anchor, String desc) {
         HudModule m = new HudModule();
         m.id = id; m.label = label; m.category = cat; m.optId = optId; m.enabled = en;
-        m.x = x; m.y = y; m.desc = desc;
+        m.x = x; m.y = y; m.anchor = anchor; m.desc = desc;
         hudModules.put(id, m);
     }
 
@@ -410,6 +412,7 @@ public class ClientConfig {
                     if (o.has("hideInChat")) m.hideInChat = o.get("hideInChat").getAsBoolean();
                     if (o.has("hideInInventory")) m.hideInInventory = o.get("hideInInventory").getAsBoolean();
                     if (o.has("hideInF3")) m.hideInF3 = o.get("hideInF3").getAsBoolean();
+                    if (o.has("hideWhenEmpty")) m.hideWhenEmpty = o.get("hideWhenEmpty").getAsBoolean();
                     if (m.optId != null && options.containsKey(m.optId)) m.enabled = getBool(m.optId, m.enabled);
                     hudModules.put(e.getKey(), m);
                 }
@@ -481,6 +484,7 @@ public class ClientConfig {
             o.addProperty("hideInChat", Boolean.valueOf(m.hideInChat));
             o.addProperty("hideInInventory", Boolean.valueOf(m.hideInInventory));
             o.addProperty("hideInF3", Boolean.valueOf(m.hideInF3));
+            o.addProperty("hideWhenEmpty", Boolean.valueOf(m.hideWhenEmpty));
             mods.add(e.getKey(), o);
         }
         root.add("hudModules", mods);
