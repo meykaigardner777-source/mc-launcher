@@ -10,6 +10,8 @@ public final class UiBridge {
         void pushTransform(float tx, float ty, float scale);
         void popTransform();
 
+        default void drawEntity(int x, int y, int size, float mouseX, float mouseY) {}
+
         default void drawBorder(int x, int y, int w, int h, int col) {
             fill(x, y, x + w, y + 1, col);
             fill(x, y + h - 1, x + w, y + h, col);
@@ -17,25 +19,20 @@ public final class UiBridge {
             fill(x + w - 1, y + 1, x + w, y + h - 1, col);
         }
 
-        // Clean, true-curve rounded rectangle with ZERO corner box artifacts
         default void drawRoundedRect(int x, int y, int w, int h, int r, int argb) {
             if (w <= 0 || h <= 0 || ((argb >>> 24) & 0xFF) == 0) return;
             r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
             if (r <= 1) { fill(x, y, x + w, y + h, argb); return; }
 
-            // Large central block
             fill(x + r, y, x + w - r, y + h, argb);
             fill(x, y + r, x + r, y + h - r, argb);
             fill(x + w - r, y + r, x + w, y + h - r, argb);
 
-            // Circular corner curves (trigonometric analytical arc without squares)
             for (int dy = 0; dy < r; dy++) {
                 double dist = Math.sqrt(Math.max(0.0, r * r - Math.pow(r - dy - 0.5, 2)));
                 int span = (int) Math.round(dist);
-                // Top-Left and Top-Right
                 fill(x + r - span, y + dy, x + r, y + dy + 1, argb);
                 fill(x + w - r, y + dy, x + w - r + span, y + dy + 1, argb);
-                // Bottom-Left and Bottom-Right
                 fill(x + r - span, y + h - 1 - dy, x + r, y + h - dy, argb);
                 fill(x + w - r, y + h - 1 - dy, x + w - r + span, y + h - dy, argb);
             }
@@ -50,7 +47,6 @@ public final class UiBridge {
             int t = Math.max(1, Math.min(3, thickness));
             r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
 
-            // Flat edge bars
             fill(x + r, y, x + w - r, y + t, argb);
             fill(x + r, y + h - t, x + w - r, y + h, argb2);
             fill(x, y + r, x + t, y + h - r, argb);
@@ -58,7 +54,6 @@ public final class UiBridge {
 
             if (r <= 1) return;
 
-            // Curved corner outline
             for (int dy = 0; dy < r; dy++) {
                 double outerDist = Math.sqrt(Math.max(0.0, r * r - Math.pow(r - dy - 0.5, 2)));
                 double innerDist = (dy >= t && (r - t) > 0) ? Math.sqrt(Math.max(0.0, Math.pow(r - t, 2) - Math.pow(r - dy - 0.5, 2))) : 0;
@@ -67,7 +62,7 @@ public final class UiBridge {
                 int len = Math.max(1, ox - ix);
 
                 fill(x + r - ox, y + dy, x + r - ox + len, y + dy + 1, argb);
-                fill(x + w - r + ox - len, y + dy, x + w - r + ox, y + dy + 1, argb);
+                fill(x + w - r + ox - len, y + dy, x + w - r + ox, y + dy + 1, argb2);
                 fill(x + r - ox, y + h - 1 - dy, x + r - ox + len, y + h - dy, argb2);
                 fill(x + w - r + ox - len, y + h - 1 - dy, x + w - r + ox, y + h - dy, argb2);
             }
