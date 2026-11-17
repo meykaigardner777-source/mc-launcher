@@ -40,11 +40,12 @@ public class SharedModMenu {
         if (initialized) return;
         initialized = true;
         ALL_MODS.add(new ModEntry("crosshair", "Crosshair", "utility", "Dynamic shapes, pixel editor & Player-in-View switch", false));
-        ALL_MODS.add(new ModEntry("zoom", "Optical Zoom", "utility", "Scroll-wheel zoom, easing & custom keybind", false));
+        ALL_MODS.add(new ModEntry("zoom", "Optical Zoom", "utility", "Scroll-wheel zoom, easing & Any-Key bind", false));
+        ALL_MODS.add(new ModEntry("freelook", "FreeLook 360", "utility", "Detached 360-degree camera & Any-Key bind", false));
+        ALL_MODS.add(new ModEntry("fullbright", "Fullbright", "utility", "Clean max brightness night vision boost", false));
         ALL_MODS.add(new ModEntry("fov_mod", "FOV Modifier", "utility", "Disable dynamic FOV, sprint/bow zoom & intensity", false));
         ALL_MODS.add(new ModEntry("hurtcam", "No Hurt Cam", "utility", "Disable or reduce damage camera shake", false));
         ALL_MODS.add(new ModEntry("low_fire", "Low Fire", "utility", "Lower first-person flame height with preview", false));
-        ALL_MODS.add(new ModEntry("freelook", "FreeLook Key", "utility", "Bind FreeLook hotkey to any key", false));
         for (ClientConfig.HudModule m : ClientConfig.get().hudModules.values()) {
             if (REAL_HUDS.contains(m.id)) {
                 ALL_MODS.add(new ModEntry(m.id, m.label, m.category, m.desc, true));
@@ -146,10 +147,7 @@ public class SharedModMenu {
 
     public boolean keyPressedCode(int keyCode) {
         if (listeningKeyOptId == null) return false;
-        if (keyCode == 256) {
-            listeningKeyOptId = null;
-            return true;
-        }
+        if (keyCode == 256) { listeningKeyOptId = null; return true; }
         if (keyCode == 259 || keyCode == 261) {
             ClientConfig.get().setOption(listeningKeyOptId, "NONE");
             listeningKeyOptId = null;
@@ -439,10 +437,11 @@ public class SharedModMenu {
         List<SettingRow> rows = new ArrayList<SettingRow>();
         if ("crosshair".equals(editingModId)) buildCrosshairRows(rows);
         else if ("zoom".equals(editingModId)) buildZoomRows(rows);
+        else if ("freelook".equals(editingModId)) buildFreeLookRows(rows);
+        else if ("fullbright".equals(editingModId)) buildFullbrightRows(rows);
         else if ("fov_mod".equals(editingModId)) buildFovRows(rows);
         else if ("hurtcam".equals(editingModId)) buildHurtCamRows(rows);
         else if ("low_fire".equals(editingModId)) buildLowFireRows(rows);
-        else if ("freelook".equals(editingModId)) buildFreeLookRows(rows);
         else if (isHud) buildHudInspectorRows(rows, cfg.hudModules.get(editingModId));
 
         return renderScrollableRows(g, rows, cx, listTop, rw, listH, cw, mx, my, click, accent, accentFg, menuRad);
@@ -590,8 +589,13 @@ public class SharedModMenu {
     }
 
     private void buildFreeLookRows(List<SettingRow> rows) {
-        rows.add(boolRow("Enable FreeLook", "Enable FreeLook keybind state", "util_freelook", true));
+        rows.add(boolRow("Enable FreeLook 360", "Hold key to rotate camera freely 360 degrees", "util_freelook", true));
         rows.add(keybindRow("FreeLook Keybind", "Click and press ANY key (Backspace = unbind)", "util_freelook_key", "LALT"));
+    }
+
+    private void buildFullbrightRows(List<SettingRow> rows) {
+        rows.add(boolRow("Fullbright", "Max in-world brightness boost", "util_fullbright", false));
+        rows.add(sliderRow("Brightness Level", "Gamma multiplier (2.0 = bright, 12.0 = max)", "util_fullbright_level", 2.0, 15.0, 1.0, false));
     }
 
     private void buildFovRows(List<SettingRow> rows) {
@@ -1006,6 +1010,7 @@ public class SharedModMenu {
         if ("ui_menu_rounding".equals(key)) return cfg.getDouble("ui_menu_rounding", 10.0);
         if ("ui_card_width".equals(key)) return cfg.getDouble("ui_card_width", 140);
         if ("ui_anim_speed".equals(key)) return cfg.getDouble("ui_anim_speed", 1.0);
+        if ("util_fullbright_level".equals(key)) return cfg.getDouble("util_fullbright_level", 12.0);
         if ("xhair_pixel_scale".equals(key)) return cfg.getDouble("pvp_xhair_pixel_scale", 1);
         if ("xhair_size".equals(key)) return cfg.getDouble("pvp_xhair_size", 6);
         if ("xhair_gap".equals(key)) return cfg.getDouble("pvp_xhair_gap", 2);
@@ -1048,6 +1053,7 @@ public class SharedModMenu {
         else if ("ui_menu_rounding".equals(key)) cfg.setOption("ui_menu_rounding", Integer.valueOf((int) Math.round(snapped)));
         else if ("ui_card_width".equals(key)) cfg.setOption("ui_card_width", Integer.valueOf((int) Math.round(snapped)));
         else if ("ui_anim_speed".equals(key)) cfg.setOption("ui_anim_speed", Double.valueOf(Math.round(snapped * 10.0) / 10.0));
+        else if ("util_fullbright_level".equals(key)) cfg.setOption("util_fullbright_level", Double.valueOf(Math.round(snapped * 10.0) / 10.0));
         else if ("xhair_pixel_scale".equals(key)) cfg.setOption("pvp_xhair_pixel_scale", Integer.valueOf((int) Math.round(snapped)));
         else if ("xhair_size".equals(key)) cfg.setOption("pvp_xhair_size", Integer.valueOf((int) Math.round(snapped)));
         else if ("xhair_gap".equals(key)) cfg.setOption("pvp_xhair_gap", Integer.valueOf((int) Math.round(snapped)));
@@ -1107,10 +1113,11 @@ public class SharedModMenu {
         ClientConfig cfg = ClientConfig.get();
         if ("crosshair".equals(id)) return !"vanilla".equalsIgnoreCase(cfg.getString("pvp_xhair_style", "classic"));
         if ("zoom".equals(id)) return cfg.getBool("cam_zoom", true);
+        if ("freelook".equals(id)) return cfg.getBool("util_freelook", true);
+        if ("fullbright".equals(id)) return cfg.getBool("util_fullbright", false);
         if ("fov_mod".equals(id)) return !cfg.getBool("cam_fov_dynamic", true) || cfg.getDouble("cam_fov_factor", 1.0) != 1.0 || !cfg.getBool("cam_fov_sprint", true) || !cfg.getBool("cam_fov_bow", true);
         if ("hurtcam".equals(id)) return cfg.getBool("pvp_no_hurtcam", false) || cfg.getDouble("pvp_hurtcam_factor", 1.0) < 0.99;
         if ("low_fire".equals(id)) return cfg.getBool("pvp_low_fire", true);
-        if ("freelook".equals(id)) return cfg.getBool("util_freelook", true);
         ClientConfig.HudModule m = cfg.hudModules.get(id);
         return m != null && m.enabled;
     }
@@ -1119,10 +1126,11 @@ public class SharedModMenu {
         ClientConfig cfg = ClientConfig.get();
         if ("crosshair".equals(id)) cfg.setOption("pvp_xhair_style", "vanilla".equalsIgnoreCase(cfg.getString("pvp_xhair_style", "classic")) ? "classic" : "vanilla");
         else if ("zoom".equals(id)) cfg.setOption("cam_zoom", Boolean.valueOf(!cfg.getBool("cam_zoom", true)));
+        else if ("freelook".equals(id)) cfg.setOption("util_freelook", Boolean.valueOf(!cfg.getBool("util_freelook", true)));
+        else if ("fullbright".equals(id)) cfg.setOption("util_fullbright", Boolean.valueOf(!cfg.getBool("util_fullbright", false)));
         else if ("fov_mod".equals(id)) cfg.setOption("cam_fov_dynamic", Boolean.valueOf(!cfg.getBool("cam_fov_dynamic", true)));
         else if ("hurtcam".equals(id)) cfg.setOption("pvp_no_hurtcam", Boolean.valueOf(!cfg.getBool("pvp_no_hurtcam", false)));
         else if ("low_fire".equals(id)) cfg.setOption("pvp_low_fire", Boolean.valueOf(!cfg.getBool("pvp_low_fire", true)));
-        else if ("freelook".equals(id)) cfg.setOption("util_freelook", Boolean.valueOf(!cfg.getBool("util_freelook", true)));
         else { ClientConfig.HudModule m = cfg.hudModules.get(id); if (m != null) cfg.toggleModule(m); }
     }
 

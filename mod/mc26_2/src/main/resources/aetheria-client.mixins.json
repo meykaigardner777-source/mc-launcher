@@ -9,6 +9,7 @@
     "GameRendererMixin",
     "CameraMixin",
     "EntityMixin",
+    "OptionInstanceMixin",
     "ScreenEffectRendererMixin"
   ],
   "injectors": { "defaultRequire": 1 }

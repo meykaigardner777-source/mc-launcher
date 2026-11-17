@@ -209,6 +209,9 @@ public class ClientConfig {
         setDefaultOpt("cam_zoom_scroll", Boolean.TRUE);
         setDefaultOpt("cam_zoom_reset_scroll", Boolean.TRUE);
         setDefaultOpt("cam_zoom_key", "C");
+                setDefaultOpt("util_fullbright", Boolean.FALSE);
+        setDefaultOpt("util_fullbright_level", Double.valueOf(12.0));
+        setDefaultOpt("util_freelook", Boolean.TRUE);
         setDefaultOpt("util_freelook_key", "LALT");
         setDefaultOpt("ctl_menu_key", "RSHIFT");
         setDefaultOpt("ctl_profile_key", "F6");

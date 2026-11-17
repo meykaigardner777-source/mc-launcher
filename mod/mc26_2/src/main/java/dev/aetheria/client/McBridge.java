@@ -1,10 +1,14 @@
 package dev.aetheria.client;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import dev.aetheria.client.common.*;
 import dev.aetheria.client.gui.HudEditorScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.player.Player;
@@ -13,7 +17,31 @@ import net.minecraft.world.phys.*;
 import java.util.*;
 
 public final class McBridge {
+    private static final Identifier CIRCLE_TEX = Identifier.fromNamespaceAndPath("aetheria", "circle_aa");
+    private static final Identifier RING_TEX = Identifier.fromNamespaceAndPath("aetheria", "ring_aa");
+    private static boolean texturesInit = false;
+
     private McBridge() {}
+
+    private static void ensureTextures(Minecraft mc) {
+        if (texturesInit || mc == null) return;
+        texturesInit = true;
+        try {
+            NativeImage circleImg = new NativeImage(NativeImage.Format.RGBA, 128, 128, false);
+            NativeImage ringImg = new NativeImage(NativeImage.Format.RGBA, 128, 128, false);
+            for (int py = 0; py < 128; py++) {
+                for (int px = 0; px < 128; px++) {
+                    double d = Math.hypot(px + 0.5 - 64.0, py + 0.5 - 64.0);
+                    double aFill = Math.max(0.0, Math.min(1.0, 63.0 - d));
+                    circleImg.setPixel(px, py, (((int) Math.round(aFill * 255.0)) << 24) | 0x00FFFFFF);
+                    double aRing = Math.min(aFill, Math.max(0.0, Math.min(1.0, d - 56.5)));
+                    ringImg.setPixel(px, py, (((int) Math.round(aRing * 255.0)) << 24) | 0x00FFFFFF);
+                }
+            }
+            mc.getTextureManager().register(CIRCLE_TEX, new DynamicTexture(() -> "aetheria_circle_aa", circleImg));
+            mc.getTextureManager().register(RING_TEX, new DynamicTexture(() -> "aetheria_ring_aa", ringImg));
+        } catch (Throwable ignored) {}
+    }
 
     public static void renderInGame(GuiGraphicsExtractor g) {
         Minecraft mc = Minecraft.getInstance();
@@ -40,33 +68,74 @@ public final class McBridge {
 
     public static UiBridge.UiDraw draw(GuiGraphicsExtractor g, Minecraft mc) {
         return new UiBridge.UiDraw() {
-            @Override public void fill(int x1, int y1, int x2, int y2, int argb) { g.fill(x1, y1, x2, y2, argb); }
-            @Override public void text(String txt, int x, int y, int argb, boolean shadow) { g.text(mc.font, txt, x, y, argb, shadow); }
+            @Override public void fill(int x1, int y1, int x2, int y2, int argb) { if (g != null) g.fill(x1, y1, x2, y2, argb); }
+            @Override public void text(String txt, int x, int y, int argb, boolean shadow) { if (g != null) g.text(mc.font, txt, x, y, argb, shadow); }
             @Override public int textWidth(String txt) { return mc.font.width(txt); }
-            @Override public void pushTransform(float tx, float ty, float scale) { g.pose().pushMatrix(); g.pose().translate(tx, ty); g.pose().scale(scale, scale); }
-            @Override public void popTransform() { g.pose().popMatrix(); }
+            @Override public void pushTransform(float tx, float ty, float scale) { if (g != null) { g.pose().pushMatrix(); g.pose().translate(tx, ty); g.pose().scale(scale, scale); } }
+            @Override public void popTransform() { if (g != null) g.pose().popMatrix(); }
+
+            @Override
+            public void drawRoundedRect(int x, int y, int w, int h, int r, int argb) {
+                if (g == null || w <= 0 || h <= 0 || ((argb >>> 24) & 0xFF) == 0) return;
+                r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+                if (r <= 1) { g.fill(x, y, x + w, y + h, argb); return; }
+                ensureTextures(mc);
+                g.fill(x + r, y, x + w - r, y + h, argb);
+                if (h > r * 2) {
+                    g.fill(x, y + r, x + r, y + h - r, argb);
+                    g.fill(x + w - r, y + r, x + w, y + h - r, argb);
+                }
+                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x, y, 0.0F, 0.0F, r, r, 64, 64, 128, 128, argb);
+                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x + w - r, y, 64.0F, 0.0F, r, r, 64, 64, 128, 128, argb);
+                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x, y + h - r, 0.0F, 64.0F, r, r, 64, 64, 128, 128, argb);
+                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x + w - r, y + h - r, 64.0F, 64.0F, r, r, 64, 64, 128, 128, argb);
+            }
+
+            @Override
+            public void drawRoundedOutline(int x, int y, int w, int h, int r, int thickness, String style, int argb, int argb2) {
+                if (g == null || w <= 1 || h <= 1 || thickness <= 0 || ((argb >>> 24) & 0xFF) == 0) return;
+                int t = Math.max(1, Math.min(3, thickness));
+                r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+                g.fill(x + r, y, x + w - r, y + t, argb);
+                g.fill(x + r, y + h - t, x + w - r, y + h, argb2);
+                g.fill(x, y + r, x + t, y + h - r, argb);
+                g.fill(x + w - t, y + r, x + w, y + h - r, argb2);
+                if (r > 1) {
+                    ensureTextures(mc);
+                    g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, x, y, 0.0F, 0.0F, r, r, 64, 64, 128, 128, argb);
+                    g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, x + w - r, y, 64.0F, 0.0F, r, r, 64, 64, 128, 128, argb2);
+                    g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, x, y + h - r, 0.0F, 64.0F, r, r, 64, 64, 128, 128, argb);
+                    g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, x + w - r, y + h - r, 64.0F, 64.0F, r, r, 64, 64, 128, 128, argb2);
+                }
+            }
+
+            @Override
+            public void drawCircleFilled(int cx, int cy, int r, int argb) {
+                if (g == null || r <= 0 || ((argb >>> 24) & 0xFF) == 0) return;
+                ensureTextures(mc);
+                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, cx - r, cy - r, 0.0F, 0.0F, r * 2, r * 2, 128, 128, 128, 128, argb);
+            }
+
+            @Override
+            public void drawCircle(int cx, int cy, int r, int t, int col) {
+                if (g == null || r <= 0 || ((col >>> 24) & 0xFF) == 0) return;
+                ensureTextures(mc);
+                g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, cx - r, cy - r, 0.0F, 0.0F, r * 2, r * 2, 128, 128, 128, 128, col);
+            }
 
             @Override
             public void drawEntity(int x, int y, int size, float mouseX, float mouseY) {
-                if (mc.player == null) return;
-                try {
-                    java.lang.reflect.Method m = net.minecraft.client.gui.screens.inventory.InventoryScreen.class.getMethod(
-                        "renderEntityInInventory",
-                        GuiGraphicsExtractor.class, int.class, int.class, int.class, int.class, int.class, float.class, float.class, float.class, LivingEntity.class
-                    );
-                    m.invoke(null, g, x - size, y - size * 2, x + size, y, size, 0.0625f, mouseX, mouseY, mc.player);
-                } catch (Throwable ignored) {
-                    int swing = mc.player.isSprinting() ? (int) Math.round(Math.sin(System.currentTimeMillis() / 110.0) * 4.0) : 0;
-                    int hy = y - 42 + (mc.player.isShiftKeyDown() ? 4 : 0);
-                    g.fill(x - 6, hy, x + 6, hy + 12, 0xFFE4E4E7);
-                    g.fill(x - 4, hy + 3, x - 1, hy + 6, 0xFF18181B);
-                    g.fill(x + 1, hy + 3, x + 4, hy + 6, 0xFF18181B);
-                    g.fill(x - 6, hy + 13, x + 6, hy + 29, 0xFF3F3F46);
-                    g.fill(x - 10, hy + 13 + swing / 2, x - 7, hy + 27 + swing / 2, 0xFFA1A1AA);
-                    g.fill(x + 7, hy + 13 - swing / 2, x + 10, hy + 27 - swing / 2, 0xFFA1A1AA);
-                    g.fill(x - 5, hy + 30, x - 1, y - swing, 0xFF27272A);
-                    g.fill(x + 1, hy + 30, x + 5, y + swing, 0xFF27272A);
-                }
+                if (g == null || mc.player == null) return;
+                int swing = mc.player.isSprinting() ? (int) Math.round(Math.sin(System.currentTimeMillis() / 110.0) * 4.0) : 0;
+                int hy = y - 42 + (mc.player.isShiftKeyDown() ? 4 : 0);
+                g.fill(x - 6, hy, x + 6, hy + 12, 0xFFE4E4E7);
+                g.fill(x - 4, hy + 3, x - 1, hy + 6, 0xFF18181B);
+                g.fill(x + 1, hy + 3, x + 4, hy + 6, 0xFF18181B);
+                g.fill(x - 6, hy + 13, x + 6, hy + 29, 0xFF3F3F46);
+                g.fill(x - 10, hy + 13 + swing / 2, x - 7, hy + 27 + swing / 2, 0xFFA1A1AA);
+                g.fill(x + 7, hy + 13 - swing / 2, x + 10, hy + 27 - swing / 2, 0xFFA1A1AA);
+                g.fill(x - 5, hy + 30, x - 1, y - swing, 0xFF27272A);
+                g.fill(x + 1, hy + 30, x + 5, y + swing, 0xFF27272A);
             }
         };
     }
@@ -155,11 +224,7 @@ public final class McBridge {
             @Override public int airSupply() { return mc.player.getAirSupply(); }
             @Override public int maxAirSupply() { return mc.player.getMaxAirSupply(); }
             @Override public int onlinePlayers() { return mc.getConnection() != null ? mc.getConnection().getOnlinePlayers().size() : 1; }
-            @Override public int renderedEntities() {
-                int c = 0;
-                for (Entity ignored : mc.level.entitiesForRendering()) c++;
-                return c;
-            }
+            @Override public int renderedEntities() { int c = 0; for (Entity ignored : mc.level.entitiesForRendering()) c++; return c; }
             @Override public int totalEntities() { return renderedEntities(); }
             @Override public String lookingAtBlock() { return mc.hitResult instanceof BlockHitResult bhr ? mc.level.getBlockState(bhr.getBlockPos()).getBlock().getName().getString() : "Air"; }
             @Override public String lookingAtEntity() { return mc.hitResult instanceof EntityHitResult ehr ? ehr.getEntity().getName().getString() : "None"; }
@@ -169,16 +234,13 @@ public final class McBridge {
             @Override public double targetDistance() { return (mc.hitResult instanceof EntityHitResult ehr) ? mc.player.distanceTo(ehr.getEntity()) : 0.0; }
             @Override public int[] nearbyEntityRadar() {
                 List<Integer> pts = new ArrayList<Integer>();
-                double rad = Math.toRadians(mc.player.getYRot());
-                double cos = Math.cos(rad), sin = Math.sin(rad);
+                double rad = Math.toRadians(mc.player.getYRot()), cos = Math.cos(rad), sin = Math.sin(rad);
                 for (Entity e : mc.level.entitiesForRendering()) {
                     if (e == mc.player || !(e instanceof LivingEntity) || !e.isAlive()) continue;
                     double dx = e.getX() - mc.player.getX(), dz = e.getZ() - mc.player.getZ();
                     if (dx * dx + dz * dz > 48.0 * 48.0) continue;
-                    int rx = (int) Math.round((dx * cos + dz * sin) * 0.55);
-                    int rz = (int) Math.round((-dx * sin + dz * cos) * 0.55);
-                    pts.add(Integer.valueOf(-rx));
-                    pts.add(Integer.valueOf(rz));
+                    pts.add(Integer.valueOf(-(int) Math.round((dx * cos + dz * sin) * 0.55)));
+                    pts.add(Integer.valueOf((int) Math.round((-dx * sin + dz * cos) * 0.55)));
                     if (pts.size() >= 64) break;
                 }
                 int[] out = new int[pts.size()];

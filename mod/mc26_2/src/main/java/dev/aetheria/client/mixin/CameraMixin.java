@@ -7,10 +7,21 @@ import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Camera.class)
 public class CameraMixin {
+    @ModifyVariable(method = "setRotation", at = @At("HEAD"), ordinal = 0, argsOnly = true, require = 0)
+    private float aetheria$freeLookYaw(float yRot) {
+        return ClientState.isFreeLook() ? ClientState.getFreeLookYaw() : yRot;
+    }
+
+    @ModifyVariable(method = "setRotation", at = @At("HEAD"), ordinal = 1, argsOnly = true, require = 0)
+    private float aetheria$freeLookPitch(float xRot) {
+        return ClientState.isFreeLook() ? ClientState.getFreeLookPitch() : xRot;
+    }
+
     @Inject(method = "calculateFov", at = @At("RETURN"), cancellable = true, require = 0)
     private void aetheria$modifyFov(float partialTicks, CallbackInfoReturnable<Float> cir) {
         ClientConfig cfg = ClientConfig.get();
@@ -36,9 +47,7 @@ public class CameraMixin {
         }
 
         float div = ClientState.getSmoothedZoomDivisor();
-        if (div > 1.01f) {
-            fov /= div;
-        }
+        if (div > 1.01f) fov /= div;
         cir.setReturnValue(fov);
     }
 }

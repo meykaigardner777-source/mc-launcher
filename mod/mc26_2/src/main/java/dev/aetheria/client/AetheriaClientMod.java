@@ -28,8 +28,13 @@ public class AetheriaClientMod implements ClientModInitializer {
 
         ClientState.setZooming(mc.gui.screen() == null && cfg.getBool("cam_zoom", true)
                 && isKeyHeld(mc, cfg.getString("cam_zoom_key", "C"), InputConstants.KEY_C));
-        ClientState.setFreeLook(mc.gui.screen() == null && cfg.getBool("util_freelook", true)
-                && isKeyHeld(mc, cfg.getString("util_freelook_key", "LALT"), InputConstants.KEY_LALT));
+
+        boolean fl = mc.gui.screen() == null && cfg.getBool("util_freelook", true)
+                && isKeyHeld(mc, cfg.getString("util_freelook_key", "LALT"), InputConstants.KEY_LALT);
+        if (fl && !ClientState.isFreeLook() && mc.player != null) {
+            ClientState.initFreeLook(mc.player.getYRot(), mc.player.getXRot());
+        }
+        ClientState.setFreeLook(fl);
 
         if (mc.player != null && mc.gui.screen() == null && cfg.getBool("pvp_togglesprint", true)) {
             if (mc.options.keyUp.isDown() && !mc.player.isShiftKeyDown() && !mc.player.horizontalCollision

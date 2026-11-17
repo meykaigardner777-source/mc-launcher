@@ -188,6 +188,11 @@ public final class ClientState {
         float step = (float) (verticalDelta * Math.max(0.5, (ClientConfig.get().getZoomFactor() + scrollZoomOffset) * 0.2));
         scrollZoomOffset = Math.max(-2.5f, Math.min(20.0f, scrollZoomOffset + step));
     }
+        private static volatile float freeLookYaw = 0.0f, freeLookPitch = 0.0f;
+    public static void initFreeLook(float yaw, float pitch) { freeLookYaw = yaw; freeLookPitch = Math.max(-90.0f, Math.min(90.0f, pitch)); }
+    public static void addFreeLookDelta(float dYaw, float dPitch) { freeLookYaw += dYaw; freeLookPitch = Math.max(-90.0f, Math.min(90.0f, freeLookPitch + dPitch)); }
+    public static float getFreeLookYaw() { return freeLookYaw; }
+    public static float getFreeLookPitch() { return freeLookPitch; }
     public static void setFreeLook(boolean active) { freeLook = active; }
     public static boolean isFreeLook() { return freeLook; }
 
