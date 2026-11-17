@@ -48,26 +48,24 @@ public final class McBridge {
 
             @Override
             public void drawEntity(int x, int y, int size, float mouseX, float mouseY) {
-                if (mc.player != null) {
-                    try {
-                        java.lang.reflect.Method m = net.minecraft.client.gui.screens.inventory.InventoryScreen.class.getMethod(
-                            "renderEntityInInventory",
-                            GuiGraphicsExtractor.class, int.class, int.class, int.class, float.class, float.class, LivingEntity.class
-                        );
-                        m.invoke(null, g, x, y, size, mouseX, mouseY, mc.player);
-                    } catch (Throwable t1) {
-                        try {
-                            java.lang.reflect.Method m2 = net.minecraft.client.gui.screens.inventory.InventoryScreen.class.getMethod(
-                                "renderEntityInInventory",
-                                GuiGraphicsExtractor.class, int.class, int.class, int.class, int.class, int.class, float.class, float.class, float.class, LivingEntity.class
-                            );
-                            m2.invoke(null, g, x - size, y - size * 2, x + size, y, size, 0.0625f, mouseX, mouseY, mc.player);
-                        } catch (Throwable t2) {
-                            g.fill(x - 8, y - 36, x + 8, y - 12, 0x55FFFFFF);
-                            g.fill(x - 6, y - 12, x - 2, y, 0x44FFFFFF);
-                            g.fill(x + 2, y - 12, x + 6, y, 0x44FFFFFF);
-                        }
-                    }
+                if (mc.player == null) return;
+                try {
+                    java.lang.reflect.Method m = net.minecraft.client.gui.screens.inventory.InventoryScreen.class.getMethod(
+                        "renderEntityInInventory",
+                        GuiGraphicsExtractor.class, int.class, int.class, int.class, int.class, int.class, float.class, float.class, float.class, LivingEntity.class
+                    );
+                    m.invoke(null, g, x - size, y - size * 2, x + size, y, size, 0.0625f, mouseX, mouseY, mc.player);
+                } catch (Throwable ignored) {
+                    int swing = mc.player.isSprinting() ? (int) Math.round(Math.sin(System.currentTimeMillis() / 110.0) * 4.0) : 0;
+                    int hy = y - 42 + (mc.player.isShiftKeyDown() ? 4 : 0);
+                    g.fill(x - 6, hy, x + 6, hy + 12, 0xFFE4E4E7);
+                    g.fill(x - 4, hy + 3, x - 1, hy + 6, 0xFF18181B);
+                    g.fill(x + 1, hy + 3, x + 4, hy + 6, 0xFF18181B);
+                    g.fill(x - 6, hy + 13, x + 6, hy + 29, 0xFF3F3F46);
+                    g.fill(x - 10, hy + 13 + swing / 2, x - 7, hy + 27 + swing / 2, 0xFFA1A1AA);
+                    g.fill(x + 7, hy + 13 - swing / 2, x + 10, hy + 27 - swing / 2, 0xFFA1A1AA);
+                    g.fill(x - 5, hy + 30, x - 1, y - swing, 0xFF27272A);
+                    g.fill(x + 1, hy + 30, x + 5, y + swing, 0xFF27272A);
                 }
             }
         };
@@ -92,17 +90,18 @@ public final class McBridge {
             @Override public String[] activePotions() {
                 List<String> out = new ArrayList<String>();
                 boolean numerals = ClientConfig.get().getBool("potions_numerals", true);
+                boolean timers = ClientConfig.get().getBool("potions_timers", true);
                 for (MobEffectInstance eff : mc.player.getActiveEffects()) {
                     String name = eff.getEffect().value().getDisplayName().getString();
-                    if (numerals && eff.getAmplifier() > 0) {
-                        name += " " + toRoman(eff.getAmplifier() + 1);
+                    if (numerals && eff.getAmplifier() > 0) name += " " + toRoman(eff.getAmplifier() + 1);
+                    if (timers) {
+                        if (eff.isInfiniteDuration()) name += " **:**";
+                        else {
+                            int s = Math.max(0, eff.getDuration() / 20);
+                            name += " " + (s / 60) + ":" + String.format("%02d", s % 60);
+                        }
                     }
-                    if (eff.isInfiniteDuration()) {
-                        out.add(name + " **:**");
-                    } else {
-                        int s = Math.max(0, eff.getDuration() / 20);
-                        out.add(name + " " + (s / 60) + ":" + String.format("%02d", s % 60));
-                    }
+                    out.add(name);
                 }
                 return out.isEmpty() ? new String[]{"No Potions"} : out.toArray(new String[0]);
             }
@@ -110,7 +109,14 @@ public final class McBridge {
             @Override public String serverIp() { return mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"; }
             @Override public long dayCount() { return mc.level.getOverworldClockTime() / 24000L; }
             @Override public long worldTime() { return mc.level.getOverworldClockTime(); }
-            @Override public String heldToolDurability() { ItemStack h = mc.player.getMainHandItem(); return (!h.isEmpty() && h.isDamageableItem()) ? h.getHoverName().getString() + ": " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Tool: --"; }
+            @Override public String heldToolDurability() {
+                ItemStack h = mc.player.getMainHandItem();
+                return (!h.isEmpty() && h.isDamageableItem()) ? h.getHoverName().getString() + ": " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Tool: --";
+            }
+            @Override public String offhandDurability() {
+                ItemStack h = mc.player.getOffhandItem();
+                return (!h.isEmpty() && h.isDamageableItem()) ? "Off: " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Off: --";
+            }
             @Override public String armorStatus() {
                 boolean pct = ClientConfig.get().getBool("armor_percent", true);
                 List<String> list = new ArrayList<String>();
@@ -149,11 +155,36 @@ public final class McBridge {
             @Override public int airSupply() { return mc.player.getAirSupply(); }
             @Override public int maxAirSupply() { return mc.player.getMaxAirSupply(); }
             @Override public int onlinePlayers() { return mc.getConnection() != null ? mc.getConnection().getOnlinePlayers().size() : 1; }
+            @Override public int renderedEntities() {
+                int c = 0;
+                for (Entity ignored : mc.level.entitiesForRendering()) c++;
+                return c;
+            }
+            @Override public int totalEntities() { return renderedEntities(); }
             @Override public String lookingAtBlock() { return mc.hitResult instanceof BlockHitResult bhr ? mc.level.getBlockState(bhr.getBlockPos()).getBlock().getName().getString() : "Air"; }
             @Override public String lookingAtEntity() { return mc.hitResult instanceof EntityHitResult ehr ? ehr.getEntity().getName().getString() : "None"; }
             @Override public String targetName() { return mc.hitResult instanceof EntityHitResult ehr ? ehr.getEntity().getName().getString() : ""; }
             @Override public float targetHealth() { return (mc.hitResult instanceof EntityHitResult ehr && ehr.getEntity() instanceof LivingEntity le) ? le.getHealth() : 0.0F; }
             @Override public float targetMaxHealth() { return (mc.hitResult instanceof EntityHitResult ehr && ehr.getEntity() instanceof LivingEntity le) ? le.getMaxHealth() : 20.0F; }
+            @Override public double targetDistance() { return (mc.hitResult instanceof EntityHitResult ehr) ? mc.player.distanceTo(ehr.getEntity()) : 0.0; }
+            @Override public int[] nearbyEntityRadar() {
+                List<Integer> pts = new ArrayList<Integer>();
+                double rad = Math.toRadians(mc.player.getYRot());
+                double cos = Math.cos(rad), sin = Math.sin(rad);
+                for (Entity e : mc.level.entitiesForRendering()) {
+                    if (e == mc.player || !(e instanceof LivingEntity) || !e.isAlive()) continue;
+                    double dx = e.getX() - mc.player.getX(), dz = e.getZ() - mc.player.getZ();
+                    if (dx * dx + dz * dz > 48.0 * 48.0) continue;
+                    int rx = (int) Math.round((dx * cos + dz * sin) * 0.55);
+                    int rz = (int) Math.round((-dx * sin + dz * cos) * 0.55);
+                    pts.add(Integer.valueOf(-rx));
+                    pts.add(Integer.valueOf(rz));
+                    if (pts.size() >= 64) break;
+                }
+                int[] out = new int[pts.size()];
+                for (int i = 0; i < pts.size(); i++) out[i] = pts.get(i).intValue();
+                return out;
+            }
             @Override public int countItem(String kw) {
                 int c = 0; String l = kw.toLowerCase();
                 for (int i = 0; i < 36; i++) { ItemStack s = mc.player.getInventory().getItem(i); if (!s.isEmpty() && s.getItem().toString().toLowerCase().contains(l)) c += s.getCount(); }
@@ -166,6 +197,8 @@ public final class McBridge {
             @Override public boolean isBlockingOrCooling() { return mc.player.isBlocking(); }
             @Override public double fovDegrees() { return ((Number) mc.options.fov().get()).doubleValue(); }
             @Override public double gammaPercent() { return ((Number) mc.options.gamma().get()).doubleValue() * 100.0; }
+            @Override public boolean isF1Hidden() { return mc.gui.hud.isHidden(); }
+            @Override public boolean isInventoryOpen() { return mc.gui.screen() != null; }
         };
     }
 

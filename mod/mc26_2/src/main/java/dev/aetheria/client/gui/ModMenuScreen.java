@@ -50,6 +50,7 @@ public class ModMenuScreen extends Screen {
     }
 
     @Override public boolean keyPressed(KeyEvent event) {
+        if (menu.keyPressedCode(event.key())) return true;
         if (menu.keyPressed(event.key() == InputConstants.KEY_BACKSPACE, event.key() == InputConstants.KEY_ESCAPE)) return true;
         return super.keyPressed(event);
     }

@@ -23,12 +23,11 @@ public final class ClientState {
     private static final Deque<Long> LEFT_CLICKS = new ArrayDeque<Long>();
     private static final Deque<Long> RIGHT_CLICKS = new ArrayDeque<Long>();
     private static volatile boolean leftDown = false, rightDown = false, zooming = false, freeLook = false;
-    private static float currentZoomDivisor = 1.0f;
+    private static volatile float currentZoomDivisor = 1.0f, scrollZoomOffset = 0.0f;
     private static long lastZoomFrameNs = 0L, lastHitTimeMs = 0L;
     private static int comboCount = 0, swingsTotal = 0, swingsLanded = 0, killCount = 0, deathCount = 0;
     private static double lastReachBlocks = 0.0;
 
-    // Frame & Network Telemetry
     private static final float[] FRAMETIMES = new float[48];
     private static int frameIdx = 0;
     private static long prevFrameNs = 0L;
@@ -42,14 +41,12 @@ public final class ClientState {
     private static int cpsIdx = 0;
     private static long lastCpsSampleMs = 0L;
 
-    // TPS & Motion
     private static long lastWorldTickSampleMs = 0L, lastWorldTickVal = -1L;
     private static double estimatedTps = 20.0, estimatedTickMs = 50.0;
     private static double prevPosX = 0, prevPosY = 0, prevPosZ = 0, speedBps = 0, speed3dBps = 0;
     private static long prevPosMs = 0L;
     private static float prevYaw = 0f, prevPitch = 0f, mouseVelX = 0f, mouseVelY = 0f;
 
-    // Stopwatch, Countdown, Splits, Cooldowns
     private static boolean swRunning = false;
     private static long swAccumMs = 0L, swStartMs = 0L;
     private static long countdownEndMs = 0L, pearlCooldownEndMs = 0L, shieldCooldownEndMs = 0L;
@@ -57,7 +54,6 @@ public final class ClientState {
     private static long splitStartMs = START_TIME_MS;
     private static final String[] SPLIT_NAMES = {"Overworld", "Nether", "Bastion", "Fortress", "Stronghold", "End"};
 
-    // Death, Spawn, Waypoints, Pickups
     private static int lastDeathX = 0, lastDeathY = 0, lastDeathZ = 0;
     private static boolean hasDeathLoc = false, wasDead = false;
     private static int spawnX = 0, spawnY = 64, spawnZ = 0;
@@ -66,9 +62,53 @@ public final class ClientState {
     private static final Deque<String> PICKUP_FEED = new ArrayDeque<String>();
     private static final Deque<String> CHAT_MENTIONS = new ArrayDeque<String>();
 
+    private static final Map<String, Integer> NAME_TO_GLFW = new LinkedHashMap<String, Integer>();
+    private static final Map<Integer, String> GLFW_TO_NAME = new LinkedHashMap<Integer, String>();
+
     static {
         WAYPOINTS_NAMES.add("Origin");
         WAYPOINTS_COORDS.add(new int[]{0, 64, 0});
+
+        regKey("NONE", -1);
+        for (char c = 'A'; c <= 'Z'; c++) regKey(String.valueOf(c), (int) c);
+        for (char c = '0'; c <= '9'; c++) regKey(String.valueOf(c), (int) c);
+        for (int i = 1; i <= 12; i++) regKey("F" + i, 289 + i);
+        regKey("SPACE", 32); regKey("APOSTROPHE", 39); regKey("COMMA", 44); regKey("MINUS", 45);
+        regKey("PERIOD", 46); regKey("SLASH", 47); regKey("SEMICOLON", 59); regKey("EQUAL", 61);
+        regKey("LBRACKET", 91); regKey("BACKSLASH", 92); regKey("RBRACKET", 93); regKey("GRAVE", 96);
+        regKey("TAB", 258); regKey("ENTER", 257); regKey("BACKSPACE", 259);
+        regKey("INSERT", 260); regKey("DELETE", 261);
+        regKey("RIGHT", 262); regKey("LEFT", 263); regKey("DOWN", 264); regKey("UP", 265);
+        regKey("PAGEUP", 266); regKey("PAGEDOWN", 267); regKey("HOME", 268); regKey("END", 269);
+        regKey("CAPSLOCK", 280);
+        regKey("LSHIFT", 340); regKey("LCTRL", 341); regKey("LALT", 342);
+        regKey("RSHIFT", 344); regKey("RCTRL", 345); regKey("RALT", 346);
+        for (int i = 0; i <= 9; i++) regKey("KP" + i, 320 + i);
+        // Legacy aliases
+        NAME_TO_GLFW.put("ALT", Integer.valueOf(342));
+        NAME_TO_GLFW.put("CTRL", Integer.valueOf(341));
+        NAME_TO_GLFW.put("SHIFT", Integer.valueOf(340));
+    }
+
+    private static void regKey(String name, int code) {
+        NAME_TO_GLFW.put(name, Integer.valueOf(code));
+        if (code > 0) GLFW_TO_NAME.put(Integer.valueOf(code), name);
+    }
+
+    public static String glfwKeyToName(int code) {
+        String s = GLFW_TO_NAME.get(Integer.valueOf(code));
+        return s != null ? s : ("KEY_" + code);
+    }
+
+    public static int nameToGlfwKey(String name, int fallback) {
+        if (name == null || name.isEmpty()) return fallback;
+        String u = name.trim().toUpperCase();
+        Integer found = NAME_TO_GLFW.get(u);
+        if (found != null) return found.intValue();
+        if (u.startsWith("KEY_")) {
+            try { return Integer.parseInt(u.substring(4)); } catch (Exception ignored) {}
+        }
+        return fallback;
     }
 
     private ClientState() {}
@@ -136,14 +176,24 @@ public final class ClientState {
         return RIGHT_CLICKS.size();
     }
 
-    public static void setZooming(boolean active) { zooming = active; }
+    public static void setZooming(boolean active) {
+        if (!active && zooming && ClientConfig.get().getBool("cam_zoom_reset_scroll", true)) {
+            scrollZoomOffset = 0.0f;
+        }
+        zooming = active;
+    }
     public static boolean isZooming() { return zooming; }
+    public static void adjustZoomScroll(double verticalDelta) {
+        if (!zooming) return;
+        float step = (float) (verticalDelta * Math.max(0.5, (ClientConfig.get().getZoomFactor() + scrollZoomOffset) * 0.2));
+        scrollZoomOffset = Math.max(-2.5f, Math.min(20.0f, scrollZoomOffset + step));
+    }
     public static void setFreeLook(boolean active) { freeLook = active; }
     public static boolean isFreeLook() { return freeLook; }
 
     public static float getSmoothedZoomDivisor() {
         ClientConfig cfg = ClientConfig.get();
-        float target = zooming ? (float) cfg.getZoomFactor() : 1.0f;
+        float target = zooming ? Math.max(1.5f, Math.min(24.0f, (float) cfg.getZoomFactor() + scrollZoomOffset)) : 1.0f;
         long now = System.nanoTime();
         float dt = lastZoomFrameNs == 0L ? 0.016f : Math.min(0.1f, (now - lastZoomFrameNs) / 1_000_000_000.0f);
         lastZoomFrameNs = now;

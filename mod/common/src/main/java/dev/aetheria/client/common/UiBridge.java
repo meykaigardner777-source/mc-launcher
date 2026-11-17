@@ -19,23 +19,27 @@ public final class UiBridge {
             fill(x + w - 1, y + 1, x + w, y + h - 1, col);
         }
 
+        // 2x sub-pixel rounded rectangle for smoother circular curves
         default void drawRoundedRect(int x, int y, int w, int h, int r, int argb) {
             if (w <= 0 || h <= 0 || ((argb >>> 24) & 0xFF) == 0) return;
             r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
             if (r <= 1) { fill(x, y, x + w, y + h, argb); return; }
 
-            fill(x + r, y, x + w - r, y + h, argb);
-            fill(x, y + r, x + r, y + h - r, argb);
-            fill(x + w - r, y + r, x + w, y + h - r, argb);
+            pushTransform((float) x, (float) y, 0.5F);
+            int sw = w * 2, sh = h * 2, sr = r * 2;
+            fill(sr, 0, sw - sr, sh, argb);
+            fill(0, sr, sr, sh - sr, argb);
+            fill(sw - sr, sr, sw, sh - sr, argb);
 
-            for (int dy = 0; dy < r; dy++) {
-                double dist = Math.sqrt(Math.max(0.0, r * r - Math.pow(r - dy - 0.5, 2)));
+            for (int dy = 0; dy < sr; dy++) {
+                double dist = Math.sqrt(Math.max(0.0, sr * sr - Math.pow(sr - dy - 0.5, 2)));
                 int span = (int) Math.round(dist);
-                fill(x + r - span, y + dy, x + r, y + dy + 1, argb);
-                fill(x + w - r, y + dy, x + w - r + span, y + dy + 1, argb);
-                fill(x + r - span, y + h - 1 - dy, x + r, y + h - dy, argb);
-                fill(x + w - r, y + h - 1 - dy, x + w - r + span, y + h - dy, argb);
+                fill(sr - span, dy, sr, dy + 1, argb);
+                fill(sw - sr, dy, sw - sr + span, dy + 1, argb);
+                fill(sr - span, sh - 1 - dy, sr, sh - dy, argb);
+                fill(sw - sr, sh - 1 - dy, sw - sr + span, sh - dy, argb);
             }
+            popTransform();
         }
 
         default void drawRoundedOutline(int x, int y, int w, int h, int r, int argb) {
@@ -47,25 +51,27 @@ public final class UiBridge {
             int t = Math.max(1, Math.min(3, thickness));
             r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
 
-            fill(x + r, y, x + w - r, y + t, argb);
-            fill(x + r, y + h - t, x + w - r, y + h, argb2);
-            fill(x, y + r, x + t, y + h - r, argb);
-            fill(x + w - t, y + r, x + w, y + h - r, argb2);
+            pushTransform((float) x, (float) y, 0.5F);
+            int sw = w * 2, sh = h * 2, sr = r * 2, st = t * 2;
+            fill(sr, 0, sw - sr, st, argb);
+            fill(sr, sh - st, sw - sr, sh, argb2);
+            fill(0, sr, st, sh - sr, argb);
+            fill(sw - st, sr, sw, sh - sr, argb2);
 
-            if (r <= 1) return;
-
-            for (int dy = 0; dy < r; dy++) {
-                double outerDist = Math.sqrt(Math.max(0.0, r * r - Math.pow(r - dy - 0.5, 2)));
-                double innerDist = (dy >= t && (r - t) > 0) ? Math.sqrt(Math.max(0.0, Math.pow(r - t, 2) - Math.pow(r - dy - 0.5, 2))) : 0;
-                int ox = (int) Math.round(outerDist);
-                int ix = (int) Math.round(innerDist);
-                int len = Math.max(1, ox - ix);
-
-                fill(x + r - ox, y + dy, x + r - ox + len, y + dy + 1, argb);
-                fill(x + w - r + ox - len, y + dy, x + w - r + ox, y + dy + 1, argb2);
-                fill(x + r - ox, y + h - 1 - dy, x + r - ox + len, y + h - dy, argb2);
-                fill(x + w - r + ox - len, y + h - 1 - dy, x + w - r + ox, y + h - dy, argb2);
+            if (sr > 2) {
+                for (int dy = 0; dy < sr; dy++) {
+                    double outerDist = Math.sqrt(Math.max(0.0, sr * sr - Math.pow(sr - dy - 0.5, 2)));
+                    double innerDist = (dy >= st && (sr - st) > 0) ? Math.sqrt(Math.max(0.0, Math.pow(sr - st, 2) - Math.pow(sr - dy - 0.5, 2))) : 0;
+                    int ox = (int) Math.round(outerDist);
+                    int ix = (int) Math.round(innerDist);
+                    int len = Math.max(1, ox - ix);
+                    fill(sr - ox, dy, sr - ox + len, dy + 1, argb);
+                    fill(sw - sr + ox - len, dy, sw - sr + ox, dy + 1, argb2);
+                    fill(sr - ox, sh - 1 - dy, sr - ox + len, sh - dy, argb2);
+                    fill(sw - sr + ox - len, sh - 1 - dy, sw - sr + ox, sh - dy, argb2);
+                }
             }
+            popTransform();
         }
 
         default void drawGlassCard(int x, int y, int w, int h, int radius, int bgArgb, int borderArgb) {
@@ -82,13 +88,8 @@ public final class UiBridge {
             }
         }
 
-        default void drawSoftShadow(int x, int y, int w, int h, int radius) {
-            fill(x + 1, y + h, x + w - 1, y + h + 1, 0x18000000);
-        }
-
-        default void drawSoftShadow(int x, int y, int w, int h, int radius, int offX, int offY, int blur, int col) {
-            fill(x + offX, y + offY, x + offX + w, y + offY + h, ClientState.withAlpha(col, 25));
-        }
+        default void drawSoftShadow(int x, int y, int w, int h, int radius) {}
+        default void drawSoftShadow(int x, int y, int w, int h, int radius, int offX, int offY, int blur, int col) {}
 
         default void drawCircleFilled(int cx, int cy, int r, int argb) {
             drawRoundedRect(cx - r, cy - r, r * 2, r * 2, r, argb);
@@ -182,7 +183,7 @@ public final class UiBridge {
         default int countItem(String keyword) { return 0; }
         default int freeSlots() { return 36; }
         default int usedSlots() { return 0; }
-        default String offhandDurability() { return "Offhand: --"; }
+        default String offhandDurability() { return "Off: --"; }
         default int armorReductionPct() { return 0; }
         default int armorEpf() { return 0; }
         default float attackCooldownPct() { return 1.0F; }
