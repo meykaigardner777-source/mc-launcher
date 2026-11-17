@@ -1,4 +1,3 @@
-
 package dev.aetheria.client.common;
 
 import java.text.SimpleDateFormat;
@@ -7,37 +6,17 @@ import java.util.*;
 public final class SharedHudRenderer {
     public static final int XHAIR_GRID_SIZE = 15;
     public static final String DEFAULT_CUSTOM_PIXELS =
-        "000000000000000" +
-        "000000000000000" +
-        "000000000000000" +
-        "000000000000000" +
-        "000000010000000" +
-        "000000010000000" +
-        "000000000000000" +
-        "000011000110000" +
-        "000000000000000" +
-        "000000010000000" +
-        "000000010000000" +
-        "000000000000000" +
-        "000000000000000" +
-        "000000000000000" +
-        "000000000000000";
+        "000000000000000" + "000000000000000" + "000000000000000" +
+        "000000000000000" + "000000010000000" + "000000010000000" +
+        "000000000000000" + "000011000110000" + "000000000000000" +
+        "000000010000000" + "000000010000000" + "000000000000000" +
+        "000000000000000" + "000000000000000" + "000000000000000";
     public static final String DEFAULT_TARGET_CUSTOM_PIXELS =
-        "000000000000000" +
-        "000000000000000" +
-        "000000000000000" +
-        "000000000000000" +
-        "000010010010000" +
-        "000001010100000" +
-        "000000000000000" +
-        "000011010110000" +
-        "000000000000000" +
-        "000001010100000" +
-        "000010010010000" +
-        "000000000000000" +
-        "000000000000000" +
-        "000000000000000" +
-        "000000000000000";
+        "000000000000000" + "000000000000000" + "000000000000000" +
+        "000000000000000" + "000010010010000" + "000001010100000" +
+        "000000000000000" + "000011010110000" + "000000000000000" +
+        "000001010100000" + "000010010010000" + "000000000000000" +
+        "000000000000000" + "000000000000000" + "000000000000000";
 
     private static final SimpleDateFormat CLOCK_12 = new SimpleDateFormat("hh:mm a");
     private static final SimpleDateFormat CLOCK_12S = new SimpleDateFormat("hh:mm:ss a");
@@ -95,11 +74,16 @@ public final class SharedHudRenderer {
             w = 76 + (px - 6) * 2;
             h = 42 + (showCps ? 16 : 0) + (showSpace ? 14 : 0) + (showMods ? 14 : 0) + (py - 4) * 2;
         } else if ("potions".equals(m.id)) {
-            String[] pots = getFormattedLines(d, m);
+            String[] pots = d.activePotions();
+            if (ClientConfig.get().getBool("potions_auto_hide", true) && (pots == null || pots.length == 0 || "No Potions".equals(pots[0]))) {
+                return new int[]{0, 0};
+            }
             int maxW = 80;
             for (String p : pots) maxW = Math.max(maxW, textWidthSpaced(g, p, m.letterSpacing) + 16);
             w = maxW + px * 2;
             h = Math.max(18, pots.length * 15 + py * 2);
+        } else if ("pearl_cd".equals(m.id) && ClientConfig.get().getBool("pearl_auto_hide", true) && ClientState.getPearlCooldownSec() <= 0.0) {
+            return new int[]{0, 0};
         } else if ("saturation".equals(m.id)) {
             String style = ClientConfig.get().getString("saturation_style", "appleskin");
             if ("appleskin".equalsIgnoreCase(style)) {
@@ -139,6 +123,7 @@ public final class SharedHudRenderer {
 
     public static int[] getModulePixelBounds(UiBridge.UiDraw g, UiBridge.HudData d, ClientConfig.HudModule m, int sw, int sh) {
         int[] base = getBaseBoxSize(g, d, m);
+        if (base[0] <= 0 || base[1] <= 0) return new int[]{0, 0, 0, 0};
         double sc = Math.max(0.25, Math.min(4.0, m.scale));
         int scaledW = (int) Math.round(base[0] * sc);
         int scaledH = (int) Math.round(base[1] * sc);
@@ -154,12 +139,14 @@ public final class SharedHudRenderer {
     }
 
     public static void renderModule(UiBridge.UiDraw g, UiBridge.HudData d, ClientConfig.HudModule m, int sw, int sh, boolean shadow, boolean editorPreview) {
+        int[] base = getBaseBoxSize(g, d, m);
+        if (!editorPreview && (base[0] <= 0 || base[1] <= 0)) return;
+
         if ("target_hud".equals(m.id) && !editorPreview && (d.targetName() == null || d.targetName().isEmpty() || d.targetHealth() <= 0.0F)) {
             return;
         }
 
         int[] bounds = getModulePixelBounds(g, d, m, sw, sh);
-        int[] base = getBaseBoxSize(g, d, m);
         int boxW = base[0], boxH = base[1];
         float scale = (float) Math.max(0.25, Math.min(4.0, m.scale));
 
@@ -239,10 +226,7 @@ public final class SharedHudRenderer {
 
     private static void renderPotionHud(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int textCol, boolean shadow) {
         String[] pots = d.activePotions();
-        if (pots == null || pots.length == 0 || "No Potions".equals(pots[0])) {
-            g.text("No Active Effects", px, py + 2, ClientState.UI_TEXT_MUTED, shadow);
-            return;
-        }
+        if (pots == null || pots.length == 0 || "No Potions".equals(pots[0])) return;
 
         ClientConfig cfg = ClientConfig.get();
         boolean blink = cfg.getBool("potions_blink", true);
@@ -267,14 +251,12 @@ public final class SharedHudRenderer {
         String style = ClientConfig.get().getString("saturation_style", "appleskin");
         if ("appleskin".equalsIgnoreCase(style)) {
             float sat = d.saturation();
-            int food = d.foodLevel();
             int shanks = Math.min(10, (int) Math.ceil(sat / 2.0F));
 
             int startX = px;
             for (int i = 0; i < 10; i++) {
                 int sx = startX + i * 8;
                 boolean hasSat = i < shanks;
-                // Draw clean AppleSkin golden saturation outline around hunger slots
                 g.drawRoundedRect(sx, py + 1, 6, 8, 2, hasSat ? 0xCCFFB703 : 0x33444444);
                 if (hasSat) {
                     g.drawRoundedOutline(sx, py + 1, 6, 8, 2, 1, "solid", 0xFFFFD166, 0xFFFFB703);
@@ -292,40 +274,9 @@ public final class SharedHudRenderer {
 
     private static void renderRealPlayerPaperdoll(UiBridge.UiDraw g, UiBridge.HudData d, int boxW, int boxH, int textCol) {
         int cx = boxW / 2;
-        int cy = boxH / 2;
-
-        // Clean real live player stance silhouette with head turning and smooth posture
-        float yaw = (float) Math.sin(System.currentTimeMillis() / 1500.0) * 20.0F;
-        int headOffset = d.isSneaking() ? 4 : 0;
-
-        // Player Head
-        g.drawRoundedRect(cx - 6, cy - 26 + headOffset, 12, 12, 3, textCol);
-        // Face visor
-        g.fill(cx - 4, cy - 22 + headOffset, cx + 4, cy - 18 + headOffset, 0xFF0D0D14);
-
-        // Body Armor Stance
-        int bodyTop = cy - 13 + headOffset;
-        g.drawRoundedRect(cx - 7, bodyTop, 14, 18, 2, ClientState.withAlpha(textCol, 220));
-
-        // Real Arms & Held Tool stance
-        int armSwing = d.isSprinting() ? (int) Math.round(Math.sin(System.currentTimeMillis() / 120.0) * 4.0) : 0;
-        g.fill(cx - 11, bodyTop, cx - 8, bodyTop + 14 + armSwing, ClientState.withAlpha(textCol, 180));
-        g.fill(cx + 8, bodyTop, cx + 11, bodyTop + 14 - armSwing, ClientState.withAlpha(textCol, 180));
-
-        // Legs
-        int legTop = bodyTop + 18;
-        g.fill(cx - 6, legTop, cx - 1, legTop + 16 - armSwing, ClientState.withAlpha(textCol, 190));
-        g.fill(cx + 1, legTop, cx + 6, legTop + 16 + armSwing, ClientState.withAlpha(textCol, 190));
-    }
-
-    private static float getBarPercent(UiBridge.HudData d, String id) {
-        if ("ram_usage".equals(id)) {
-            Runtime rt = Runtime.getRuntime();
-            long max = Math.max(1L, rt.maxMemory());
-            long used = rt.totalMemory() - rt.freeMemory();
-            return (float) used / (float) max;
-        }
-        return Math.max(0.0F, Math.min(1.0F, d.attackCooldownPct()));
+        int cy = boxH - 8;
+        int size = Math.min(boxW, boxH) / 2;
+        g.drawEntity(cx, cy, size, 0.0F, 0.0F);
     }
 
     private static void renderKeystrokes(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int textCol, boolean shadow, int parentRad) {
@@ -540,6 +491,14 @@ public final class SharedHudRenderer {
             raw = det
                 ? new String[]{l1, "Min " + ClientState.getMinFps() + " | 1% " + ClientState.getOnePercentLowFps()}
                 : new String[]{l1};
+        } else if ("armor".equals(id)) {
+            boolean textMode = cfg.getBool("armor_text_mode", false);
+            if (textMode) {
+                raw = new String[]{d.armorStatus()};
+            } else {
+                String arm = d.armorStatus();
+                raw = (arm == null || arm.isEmpty()) ? new String[]{"Armor: None"} : arm.split("\n");
+            }
         } else if ("potions".equals(id)) {
             String[] pots = d.activePotions();
             raw = (pots == null || pots.length == 0) ? new String[]{"No Potions"} : pots;
@@ -588,9 +547,6 @@ public final class SharedHudRenderer {
             raw = new String[]{"Accuracy: " + ClientState.getHitAccuracyPct() + "%"};
         } else if ("sprint_reset".equals(id)) {
             raw = new String[]{d.isSprinting() ? "Sprint: Reset Ready" : "Sprint: Idle"};
-        } else if ("armor".equals(id)) {
-            String arm = d.armorStatus();
-            raw = (arm == null || arm.isEmpty()) ? new String[]{"Armor: None"} : arm.split("\n");
         } else if ("armor_prot".equals(id)) {
             raw = new String[]{"Prot: " + d.armorReductionPct() + "% (EPF " + d.armorEpf() + ")"};
         } else if ("durability".equals(id)) {
