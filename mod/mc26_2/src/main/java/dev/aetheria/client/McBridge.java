@@ -51,14 +51,20 @@ public final class McBridge {
                 if (mc.player != null) {
                     try {
                         net.minecraft.client.gui.screens.inventory.InventoryScreen.renderEntityInInventory(
-                            g, x - size, y - size * 2, x + size, y, size, 0.0625f, mouseX, mouseY, mc.player
+                            g, x, y, size, 0.0f, 0.0f, mc.player
                         );
                     } catch (Throwable t1) {
                         try {
-                            net.minecraft.client.gui.screens.inventory.InventoryScreen.renderEntityInInventory(
-                                g, x, y, size, 0.0f, 0.0f, mc.player
+                            java.lang.reflect.Method m = net.minecraft.client.gui.screens.inventory.InventoryScreen.class.getMethod(
+                                "renderEntityInInventory", GuiGraphicsExtractor.class, int.class, int.class, int.class, int.class, int.class, float.class, float.class, float.class, LivingEntity.class
                             );
-                        } catch (Throwable ignored) {}
+                            m.invoke(null, g, x - size, y - size * 2, x + size, y, size, 0.0625f, mouseX, mouseY, mc.player);
+                        } catch (Throwable ignored) {
+                            // Safe fallback: draws a crisp minimalist player profile placeholder if mappings vary
+                            g.fill(x - 8, y - 36, x + 8, y - 12, 0x55FFFFFF);
+                            g.fill(x - 6, y - 12, x - 2, y, 0x44FFFFFF);
+                            g.fill(x + 2, y - 12, x + 6, y, 0x44FFFFFF);
+                        }
                     }
                 }
             }
