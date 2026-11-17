@@ -224,6 +224,19 @@ public final class SharedHudRenderer {
         }
     }
 
+    private static float getBarPercent(UiBridge.HudData d, String id) {
+        if ("ram_usage".equals(id)) {
+            Runtime rt = Runtime.getRuntime();
+            long max = Math.max(1L, rt.maxMemory());
+            long used = rt.totalMemory() - rt.freeMemory();
+            return (float) used / (float) max;
+        }
+        if ("saturation".equals(id)) {
+            return Math.max(0.0F, Math.min(1.0F, d.saturation() / 20.0F));
+        }
+        return Math.max(0.0F, Math.min(1.0F, d.attackCooldownPct()));
+    }
+
     private static void renderPotionHud(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int textCol, boolean shadow) {
         String[] pots = d.activePotions();
         if (pots == null || pots.length == 0 || "No Potions".equals(pots[0])) return;
