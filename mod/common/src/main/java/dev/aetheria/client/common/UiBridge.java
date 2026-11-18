@@ -10,7 +10,13 @@ public final class UiBridge {
         void pushTransform(float tx, float ty, float scale);
         void popTransform();
 
+        default void playClickSound() {}
         default void drawEntity(int x, int y, int size, float mouseX, float mouseY) {}
+        default void drawPaperdoll(int x1, int y1, int x2, int y2, int size, float mouseX, float mouseY) {
+            pushTransform(x1, y1, 1.0F);
+            drawEntity((x2 - x1) / 2, Math.max(12, y2 - y1 - 8), size, mouseX, mouseY);
+            popTransform();
+        }
         default boolean supportsItemIcons() { return false; }
         default void drawArmorSlot(int slotIndex, int x, int y) {}
 
@@ -116,6 +122,7 @@ public final class UiBridge {
         boolean isMoveW(); boolean isMoveA(); boolean isMoveS(); boolean isMoveD(); boolean isJumpDown();
         boolean targetPlayerInView(double range); boolean targetEntityInView(double range);
 
+        default String dimensionId() { return "minecraft:overworld"; }
         default boolean isSingleplayer() { return false; }
         default boolean showSurvivalBars() { return true; }
         default String[] armorSlotReadouts() { return new String[0]; }

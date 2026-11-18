@@ -9,6 +9,7 @@ import java.util.*;
 public class ClientConfig {
     private static final ClientConfig INSTANCE = new ClientConfig();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final String[] WP_COLORS = {"#22d3ee", "#10b981", "#f59e0b", "#ef4444", "#a855f7", "#ffffff"};
 
     private Path configPath;
     private long lastPollMs = 0L, lastFileMtimeMs = 0L;
@@ -18,6 +19,13 @@ public class ClientConfig {
     public long updatedAt = 0L;
     public final Map<String, HudModule> hudModules = new LinkedHashMap<String, HudModule>();
     public final Map<String, JsonElement> options = new LinkedHashMap<String, JsonElement>();
+    public final List<Waypoint> waypoints = new ArrayList<Waypoint>();
+
+    public static class Waypoint {
+        public String id, name, dimension = "minecraft:overworld", color = "#22d3ee";
+        public int x, y, z;
+        public boolean enabled = true;
+    }
 
     public static class HudModule {
         public String id, label, category = "system", optId, desc = "";
@@ -62,7 +70,6 @@ public class ClientConfig {
     private void initDefaults() {
         hudModules.clear();
 
-        // === CLEAN BALANCED DEFAULT HUDs ===
         add("fps", "FPS Counter", "system", "hud_fps", true, 0.015, 0.025, "top-left", "Current, Min & 1% Low FPS");
         add("ping", "Ping / Latency", "system", "pvp_ping_hud", true, 0.015, 0.075, "top-left", "Live ms latency");
         add("coords", "Coordinates XYZ", "world", "hud_coords", true, 0.015, 0.125, "top-left", "Overworld + Nether 8:1 coords");
@@ -75,8 +82,8 @@ public class ClientConfig {
         add("togglesprint", "ToggleSprint", "pvp", "pvp_togglesprint", true, 0.500, 0.770, "bottom-center", "Sprint & sneak state badge");
         add("armor", "Armor Status", "pvp", "pvp_armor_hud", true, 0.985, 0.975, "bottom-right", "Equipped armor durability");
         add("durability", "Held Durability", "pvp", "hud_durability", true, 0.985, 0.915, "bottom-right", "Main-hand & off-hand durability");
+        add("hotbar", "Hotbar HUD", "visuals", "hud_hotbar", true, 0.500, 1.000, "bottom-center", "Reposition & resize your hotbar + bars");
 
-        // === OPTIONAL REAL HUDs (Disabled by default) ===
         add("frametime_graph", "Frametime Graph", "system", "hud_ft_graph", false, 0.015, 0.185, "top-left", "Rolling frame ms spike chart");
         add("ram_usage", "RAM / Memory", "system", "hud_ram", false, 0.015, 0.255, "top-left", "JVM heap MB used & % bar");
         add("cpu_load", "CPU / Threads", "system", "hud_cpu", false, 0.015, 0.315, "top-left", "Cores & active threads");
@@ -113,8 +120,8 @@ public class ClientConfig {
         add("day_count", "Day & Time", "world", "hud_day_count", false, 0.985, 0.425, "top-right", "World day count & time");
         add("moon_phase", "Moon Phase", "world", "hud_moon", false, 0.985, 0.475, "top-right", "Current moon phase");
         add("weather", "Weather", "world", "hud_weather", false, 0.985, 0.525, "top-right", "Clear / Rain / Thunder");
-        add("minimap", "Radar Minimap", "world", "hud_minimap", false, 0.985, 0.620, "mid-right", "Live nearby entity radar");
-        add("waypoints", "Waypoints HUD", "world", "hud_waypoints", false, 0.720, 0.025, "top-left", "Nearest waypoint & distance");
+        add("minimap", "Radar Minimap", "world", "hud_minimap", false, 0.985, 0.620, "mid-right", "Live entity & waypoint radar");
+        add("waypoints", "Waypoints", "world", "hud_waypoints", false, 0.720, 0.025, "top-left", "Lunar/Dot/Block/Beacon waypoints & Nether sync");
         add("spawn_dist", "Spawn Distance", "world", "hud_spawn_dist", false, 0.720, 0.075, "top-left", "Distance to spawn");
         add("death_loc", "Death Tracker", "world", "hud_death_loc", false, 0.720, 0.125, "top-left", "Last death coordinates");
         add("y_alert", "Y-Level Alert", "world", "hud_y_alert", false, 0.180, 0.175, "top-left", "Diamond / Debris Y alert");
@@ -132,16 +139,18 @@ public class ClientConfig {
         add("bw_resources", "BW Resources", "server", "hud_bw_res", false, 0.160, 0.820, "top-left", "Iron, Gold, Diamond & Emerald count");
         add("uhc_border", "0,0 Distance", "server", "hud_uhc_border", false, 0.380, 0.310, "top-left", "Distance from 0,0");
 
-        add("paperdoll", "Paperdoll Player", "visuals", "hud_paperdoll", false, 0.985, 0.720, "mid-right", "Live player stance preview");
+        add("paperdoll", "Paperdoll Player", "visuals", "hud_paperdoll", false, 0.985, 0.720, "mid-right", "Live 3D Bedrock-style MC skin preview");
         add("zoom_indicator", "Zoom Indicator", "visuals", "hud_zoom_ind", false, 0.500, 0.360, "center", "Live zoom magnification");
         add("gamma_level", "Gamma / Bright", "visuals", "hud_gamma", false, 0.560, 0.025, "top-left", "Current brightness %");
         add("fov_indicator", "FOV Indicator", "visuals", "hud_fov", false, 0.560, 0.070, "top-left", "Current FOV readout");
         add("watermark", "Watermark Text", "visuals", "hud_watermark", false, 0.015, 0.005, "top-left", "Custom client text");
         add("low_hp_vignette", "Low-HP Pulse", "visuals", "hud_low_hp", false, 0.500, 0.500, "center", "Red screen edge pulse at low HP");
 
+        HudModule hb = hudModules.get("hotbar");
+        if (hb != null) { hb.bg = false; hb.border = false; }
+
         for (HudModule m : hudModules.values()) if (m.optId != null) setDefaultOpt(m.optId, Boolean.valueOf(m.enabled));
 
-        // -1 means AUTO (use each HUD's individual roundness / opacity slider!)
         setDefaultOpt("global_hud_rounding", Integer.valueOf(-1));
         setDefaultOpt("global_hud_opacity", Double.valueOf(-1.0));
         setDefaultOpt("ui_menu_layout", "topbar");
@@ -154,6 +163,8 @@ public class ClientConfig {
         setDefaultOpt("ui_animations", Boolean.TRUE);
         setDefaultOpt("ui_anim_speed", Double.valueOf(1.0));
         setDefaultOpt("ui_anim_curve", "smooth");
+        setDefaultOpt("ui_click_sound", Boolean.TRUE);
+        setDefaultOpt("ui_tooltips", Boolean.TRUE);
 
         setDefaultOpt("hud_snap_grid", Boolean.TRUE);
         setDefaultOpt("hud_align_guides", Boolean.TRUE);
@@ -161,6 +172,51 @@ public class ClientConfig {
 
         setDefaultOpt("pvp_low_fire", Boolean.TRUE);
         setDefaultOpt("pvp_low_fire_offset", Double.valueOf(-0.32));
+        setDefaultOpt("pvp_low_shield", Boolean.FALSE);
+        setDefaultOpt("pvp_low_shield_blocking", Boolean.FALSE);
+        setDefaultOpt("pvp_low_shield_scale", Double.valueOf(0.85));
+        setDefaultOpt("pvp_low_shield_y", Double.valueOf(-0.22));
+        setDefaultOpt("pvp_low_shield_x", Double.valueOf(0.0));
+
+        setDefaultOpt("vm_enabled", Boolean.FALSE);
+        setDefaultOpt("vm_main_x", Double.valueOf(0.0));
+        setDefaultOpt("vm_main_y", Double.valueOf(0.0));
+        setDefaultOpt("vm_main_z", Double.valueOf(0.0));
+        setDefaultOpt("vm_main_scale", Double.valueOf(1.0));
+        setDefaultOpt("vm_off_x", Double.valueOf(0.0));
+        setDefaultOpt("vm_off_y", Double.valueOf(0.0));
+        setDefaultOpt("vm_off_z", Double.valueOf(0.0));
+        setDefaultOpt("vm_off_scale", Double.valueOf(1.0));
+        setDefaultOpt("pvp_small_totem", Boolean.FALSE);
+        setDefaultOpt("pvp_small_totem_scale", Double.valueOf(0.60));
+        setDefaultOpt("pvp_small_totem_y", Double.valueOf(-0.12));
+
+        setDefaultOpt("pvp_hit_color", Boolean.FALSE);
+        setDefaultOpt("pvp_hit_color_hex", "#22d3ee");
+        setDefaultOpt("pvp_hit_color_alpha", Double.valueOf(0.55));
+        setDefaultOpt("pvp_hit_color_chroma", Boolean.FALSE);
+
+        setDefaultOpt("hb_enabled", Boolean.FALSE);
+        setDefaultOpt("hb_only_f3b", Boolean.FALSE);
+        setDefaultOpt("hb_players", Boolean.TRUE);
+        setDefaultOpt("hb_mobs", Boolean.TRUE);
+        setDefaultOpt("hb_items", Boolean.FALSE);
+        setDefaultOpt("hb_projectiles", Boolean.TRUE);
+        setDefaultOpt("hb_hide_self", Boolean.TRUE);
+        setDefaultOpt("hb_color", "#22d3ee");
+        setDefaultOpt("hb_fill_alpha", Double.valueOf(0.12));
+        setDefaultOpt("hb_line_width", Double.valueOf(2.0));
+        setDefaultOpt("hb_chroma", Boolean.FALSE);
+        setDefaultOpt("hb_eye_line", Boolean.TRUE);
+        setDefaultOpt("hb_look_vec", Boolean.TRUE);
+
+        setDefaultOpt("bb_enabled", Boolean.FALSE);
+        setDefaultOpt("bb_style", "shrink");
+        setDefaultOpt("bb_hide_vanilla", Boolean.FALSE);
+        setDefaultOpt("bb_progress_color", Boolean.TRUE);
+        setDefaultOpt("bb_color", "#22d3ee");
+        setDefaultOpt("bb_fill_alpha", Double.valueOf(0.30));
+        setDefaultOpt("bb_line_width", Double.valueOf(2.5));
 
         setDefaultOpt("pvp_no_hurtcam", Boolean.FALSE);
         setDefaultOpt("pvp_hurtcam_factor", Double.valueOf(1.0));
@@ -180,18 +236,18 @@ public class ClientConfig {
         setDefaultOpt("pvp_xhair_target_style", "same");
         setDefaultOpt("pvp_xhair_target_color", "#ef4444");
         setDefaultOpt("pvp_xhair_custom_pixels",
-            "000000000000000" + "000000000000000" + "000000000000000" +
-            "000000000000000" + "000000010000000" + "000000010000000" +
-            "000000000000000" + "000011000110000" + "000000000000000" +
-            "000000010000000" + "000000010000000" + "000000000000000" +
-            "000000000000000" + "000000000000000" + "000000000000000");
+            "000000000000000000000000000000000000000000000" +
+            "000000000000000000000010000000000000010000000" +
+            "000000000000000000011000110000000000000000000" +
+            "000000010000000000000010000000000000000000000" +
+            "000000000000000000000000000000000000000000000");
         setDefaultOpt("pvp_xhair_target_custom_pixels",
-            "000000000000000" + "000000000000000" + "000000000000000" +
-            "000000000000000" + "000010010010000" + "000001010100000" +
-            "000000000000000" + "000011010110000" + "000000000000000" +
-            "000001010100000" + "000010010010000" + "000000000000000" +
-            "000000000000000" + "000000000000000" + "000000000000000");
-                setDefaultOpt("pvp_xhair_pixel_scale", Integer.valueOf(1));
+            "000000000000000000000000000000000000000000000" +
+            "000000000000000000010010010000000001010100000" +
+            "000000000000000000011010110000000000000000000" +
+            "000001010100000000010010010000000000000000000" +
+            "000000000000000000000000000000000000000000000");
+        setDefaultOpt("pvp_xhair_pixel_scale", Integer.valueOf(1));
         setDefaultOpt("pvp_xhair_atk_ind", "bar");
         setDefaultOpt("pvp_xhair_atk_always", Boolean.FALSE);
         setDefaultOpt("pvp_xhair_atk_color", "#ffffff");
@@ -199,7 +255,6 @@ public class ClientConfig {
         setDefaultOpt("armor_horizontal", Boolean.FALSE);
         setDefaultOpt("armor_show_text", Boolean.TRUE);
         setDefaultOpt("saturation_glint", Boolean.TRUE);
-
         setDefaultOpt("saturation_style", "appleskin");
         setDefaultOpt("potions_timers", Boolean.TRUE);
         setDefaultOpt("potions_numerals", Boolean.TRUE);
@@ -209,6 +264,13 @@ public class ClientConfig {
         setDefaultOpt("armor_text_mode", Boolean.FALSE);
         setDefaultOpt("pearl_auto_hide", Boolean.TRUE);
 
+        setDefaultOpt("wp_style", "lunar");
+        setDefaultOpt("wp_world_markers", Boolean.TRUE);
+        setDefaultOpt("wp_beam_beacon", Boolean.TRUE);
+        setDefaultOpt("wp_show_dist", Boolean.TRUE);
+        setDefaultOpt("wp_nether_sync", Boolean.TRUE);
+        setDefaultOpt("wp_offscreen_arrows", Boolean.TRUE);
+
         setDefaultOpt("cam_zoom", Boolean.TRUE);
         setDefaultOpt("cam_zoom_fac", Integer.valueOf(4));
         setDefaultOpt("cam_zoom_ease", Boolean.TRUE);
@@ -216,7 +278,7 @@ public class ClientConfig {
         setDefaultOpt("cam_zoom_scroll", Boolean.TRUE);
         setDefaultOpt("cam_zoom_reset_scroll", Boolean.TRUE);
         setDefaultOpt("cam_zoom_key", "C");
-                setDefaultOpt("util_fullbright", Boolean.FALSE);
+        setDefaultOpt("util_fullbright", Boolean.FALSE);
         setDefaultOpt("util_fullbright_level", Double.valueOf(12.0));
         setDefaultOpt("util_freelook", Boolean.TRUE);
         setDefaultOpt("util_freelook_key", "LALT");
@@ -246,17 +308,41 @@ public class ClientConfig {
         hudModules.put(id, m);
     }
 
+    public synchronized void addWaypointAt(String name, int x, int y, int z, String dim) {
+        Waypoint w = new Waypoint();
+        w.id = "wp_" + System.currentTimeMillis() + "_" + waypoints.size();
+        w.name = (name == null || name.trim().isEmpty()) ? ("WP #" + (waypoints.size() + 1)) : name.trim();
+        w.x = x; w.y = y; w.z = z;
+        w.dimension = (dim == null || dim.isEmpty()) ? "minecraft:overworld" : dim;
+        w.color = WP_COLORS[waypoints.size() % WP_COLORS.length];
+        w.enabled = true;
+        waypoints.add(w);
+        save();
+    }
+
+    public synchronized void removeWaypoint(String id) {
+        for (int i = waypoints.size() - 1; i >= 0; i--) if (id.equals(waypoints.get(i).id)) waypoints.remove(i);
+        save();
+    }
+
+    public synchronized void cycleWaypointColor(Waypoint w) {
+        int next = 0;
+        for (int i = 0; i < WP_COLORS.length; i++) if (WP_COLORS[i].equalsIgnoreCase(w.color)) next = (i + 1) % WP_COLORS.length;
+        w.color = WP_COLORS[next];
+        save();
+    }
+
     public void applyProfilePreset(String name) {
         activeProfile = name;
-        for (HudModule m : hudModules.values()) setModuleEnabledSilent(m, false);
+        for (HudModule m : hudModules.values()) if (!"hotbar".equals(m.id)) setModuleEnabledSilent(m, false);
         if ("PvP".equalsIgnoreCase(name)) {
-            enableOnly(new String[]{"fps", "ping", "cps", "keystrokes", "togglesprint", "potions", "armor", "durability", "combo", "reach", "hit_accuracy", "target_hud", "compass", "session", "pearl_cd"});
+            enableOnly(new String[]{"fps", "ping", "cps", "keystrokes", "togglesprint", "potions", "armor", "durability", "combo", "reach", "hit_accuracy", "target_hud", "compass", "session", "pearl_cd", "hotbar"});
         } else if ("Survival".equalsIgnoreCase(name)) {
-            enableOnly(new String[]{"fps", "coords", "biome", "light_level", "day_count", "weather", "durability", "armor", "saturation", "inv_space", "y_alert", "waila_block", "compass"});
+            enableOnly(new String[]{"fps", "coords", "biome", "light_level", "day_count", "weather", "durability", "armor", "saturation", "inv_space", "y_alert", "waila_block", "compass", "waypoints", "hotbar"});
         } else if ("SMP".equalsIgnoreCase(name)) {
-            enableOnly(new String[]{"fps", "coords", "ping", "server_tps", "server_ip", "player_count", "waypoints", "death_loc", "totem_count", "armor", "potions", "session"});
+            enableOnly(new String[]{"fps", "coords", "ping", "server_tps", "server_ip", "player_count", "waypoints", "death_loc", "totem_count", "armor", "potions", "session", "hotbar"});
         } else if ("Minimal".equalsIgnoreCase(name)) {
-            enableOnly(new String[]{"fps", "coords", "ping"});
+            enableOnly(new String[]{"fps", "coords", "ping", "hotbar"});
         } else if ("Cinematic".equalsIgnoreCase(name)) {
             enableOnly(new String[]{"zoom_indicator"});
         }
@@ -271,10 +357,7 @@ public class ClientConfig {
     }
 
     private void enableOnly(String[] ids) {
-        for (int i = 0; i < ids.length; i++) {
-            HudModule m = hudModules.get(ids[i]);
-            if (m != null) setModuleEnabledSilent(m, true);
-        }
+        for (int i = 0; i < ids.length; i++) { HudModule m = hudModules.get(ids[i]); if (m != null) setModuleEnabledSilent(m, true); }
     }
 
     private void setModuleEnabledSilent(HudModule m, boolean en) {
@@ -289,16 +372,11 @@ public class ClientConfig {
         HudModule fresh = hudModules.get(id);
         hudModules.clear();
         hudModules.putAll(snap);
-        if (fresh != null) {
-            if (old != null) fresh.enabled = old.enabled;
-            hudModules.put(id, fresh);
-        }
+        if (fresh != null) { if (old != null) fresh.enabled = old.enabled; hudModules.put(id, fresh); }
         save();
     }
 
-    private void setDefaultOpt(String id, Object val) {
-        if (!options.containsKey(id)) options.put(id, GSON.toJsonTree(val));
-    }
+    private void setDefaultOpt(String id, Object val) { if (!options.containsKey(id)) options.put(id, GSON.toJsonTree(val)); }
 
     public synchronized void load() {
         initDefaults();
@@ -313,6 +391,23 @@ public class ClientConfig {
 
             if (root.has("options") && root.get("options").isJsonObject()) {
                 for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("options").entrySet()) options.put(e.getKey(), e.getValue());
+            }
+            if (root.has("waypoints") && root.get("waypoints").isJsonArray()) {
+                waypoints.clear();
+                for (JsonElement el : root.getAsJsonArray("waypoints")) {
+                    if (!el.isJsonObject()) continue;
+                    JsonObject o = el.getAsJsonObject();
+                    Waypoint w = new Waypoint();
+                    w.id = o.has("id") ? o.get("id").getAsString() : ("wp_" + waypoints.size());
+                    w.name = o.has("name") ? o.get("name").getAsString() : "Waypoint";
+                    w.x = o.has("x") ? o.get("x").getAsInt() : 0;
+                    w.y = o.has("y") ? o.get("y").getAsInt() : 64;
+                    w.z = o.has("z") ? o.get("z").getAsInt() : 0;
+                    w.dimension = o.has("dimension") ? o.get("dimension").getAsString() : "minecraft:overworld";
+                    w.color = o.has("color") ? o.get("color").getAsString() : "#22d3ee";
+                    w.enabled = !o.has("enabled") || o.get("enabled").getAsBoolean();
+                    waypoints.add(w);
+                }
             }
             if (root.has("hudModules") && root.get("hudModules").isJsonObject()) {
                 for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("hudModules").entrySet()) {
@@ -442,6 +537,16 @@ public class ClientConfig {
         }
         root.add("hudModules", mods);
 
+        JsonArray wpArr = new JsonArray();
+        for (Waypoint w : waypoints) {
+            JsonObject wo = new JsonObject();
+            wo.addProperty("id", w.id); wo.addProperty("name", w.name);
+            wo.addProperty("x", Integer.valueOf(w.x)); wo.addProperty("y", Integer.valueOf(w.y)); wo.addProperty("z", Integer.valueOf(w.z));
+            wo.addProperty("dimension", w.dimension); wo.addProperty("color", w.color); wo.addProperty("enabled", Boolean.valueOf(w.enabled));
+            wpArr.add(wo);
+        }
+        root.add("waypoints", wpArr);
+
         JsonObject opts = new JsonObject();
         for (Map.Entry<String, JsonElement> e : options.entrySet()) opts.add(e.getKey(), e.getValue());
         root.add("options", opts);
@@ -480,5 +585,5 @@ public class ClientConfig {
         Map<String, JsonElement> kept = new LinkedHashMap<String, JsonElement>(options);
         initDefaults(); options.putAll(kept); save();
     }
-    public void resetAll() { options.clear(); initDefaults(); save(); }
+    public void resetAll() { options.clear(); waypoints.clear(); initDefaults(); save(); }
 }

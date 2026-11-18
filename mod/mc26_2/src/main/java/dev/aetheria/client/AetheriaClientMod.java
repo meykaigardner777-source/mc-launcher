@@ -42,6 +42,7 @@ public class AetheriaClientMod implements ClientModInitializer {
                 mc.player.setSprinting(true);
             }
         }
+        if (mc.player != null && mc.level != null) McBridge.emitWorldGizmos(mc);
         ClientState.tickComboTimeout();
     }
 }

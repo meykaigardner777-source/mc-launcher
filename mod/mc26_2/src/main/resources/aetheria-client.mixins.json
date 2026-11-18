@@ -10,7 +10,11 @@
     "CameraMixin",
     "EntityMixin",
     "OptionInstanceMixin",
-    "ScreenEffectRendererMixin"
+    "ScreenEffectRendererMixin",
+    "ItemInHandRendererMixin",
+    "LivingEntityRendererMixin",
+    "MultiPlayerGameModeMixin",
+    "ClientLevelMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

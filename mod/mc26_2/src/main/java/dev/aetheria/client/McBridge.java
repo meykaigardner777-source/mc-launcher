@@ -5,20 +5,29 @@ import dev.aetheria.client.common.*;
 import dev.aetheria.client.gui.HudEditorScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
 import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.*;
 import java.util.*;
 
 public final class McBridge {
     private static final Identifier CIRCLE_TEX = Identifier.fromNamespaceAndPath("aetheria", "circle_aa");
-    private static final Identifier RING_TEX = Identifier.fromNamespaceAndPath("aetheria", "ring_aa");
+    private static final Identifier RING_TEX_1 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_1");
+    private static final Identifier RING_TEX_2 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_2");
+    private static final Identifier RING_TEX_3 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_3");
     private static boolean texturesInit = false;
 
     private McBridge() {}
@@ -28,19 +37,104 @@ public final class McBridge {
         texturesInit = true;
         try {
             NativeImage circleImg = new NativeImage(NativeImage.Format.RGBA, 128, 128, false);
-            NativeImage ringImg = new NativeImage(NativeImage.Format.RGBA, 128, 128, false);
+            NativeImage ring1 = new NativeImage(NativeImage.Format.RGBA, 128, 128, false);
+            NativeImage ring2 = new NativeImage(NativeImage.Format.RGBA, 128, 128, false);
+            NativeImage ring3 = new NativeImage(NativeImage.Format.RGBA, 128, 128, false);
             for (int py = 0; py < 128; py++) {
                 for (int px = 0; px < 128; px++) {
                     double d = Math.hypot(px + 0.5 - 64.0, py + 0.5 - 64.0);
                     double aFill = Math.max(0.0, Math.min(1.0, 63.0 - d));
                     circleImg.setPixel(px, py, (((int) Math.round(aFill * 255.0)) << 24) | 0x00FFFFFF);
-                    double aRing = Math.min(aFill, Math.max(0.0, Math.min(1.0, d - 56.5)));
-                    ringImg.setPixel(px, py, (((int) Math.round(aRing * 255.0)) << 24) | 0x00FFFFFF);
+                    ring1.setPixel(px, py, (((int) Math.round(Math.min(aFill, Math.max(0.0, Math.min(1.0, d - 50.0))) * 255.0)) << 24) | 0x00FFFFFF);
+                    ring2.setPixel(px, py, (((int) Math.round(Math.min(aFill, Math.max(0.0, Math.min(1.0, d - 42.0))) * 255.0)) << 24) | 0x00FFFFFF);
+                    ring3.setPixel(px, py, (((int) Math.round(Math.min(aFill, Math.max(0.0, Math.min(1.0, d - 34.0))) * 255.0)) << 24) | 0x00FFFFFF);
                 }
             }
             mc.getTextureManager().register(CIRCLE_TEX, new DynamicTexture(() -> "aetheria_circle_aa", circleImg));
-            mc.getTextureManager().register(RING_TEX, new DynamicTexture(() -> "aetheria_ring_aa", ringImg));
+            mc.getTextureManager().register(RING_TEX_1, new DynamicTexture(() -> "aetheria_ring_aa_1", ring1));
+            mc.getTextureManager().register(RING_TEX_2, new DynamicTexture(() -> "aetheria_ring_aa_2", ring2));
+            mc.getTextureManager().register(RING_TEX_3, new DynamicTexture(() -> "aetheria_ring_aa_3", ring3));
         } catch (Throwable ignored) {}
+    }
+
+    public static void emitWorldGizmos(Minecraft mc) {
+        if (mc.player == null || mc.level == null) return;
+        ClientConfig cfg = ClientConfig.get();
+        String curDim = mc.level.dimension().identifier().toString();
+
+        // 1. Block Highlighter Waypoints
+        if (cfg.getBool("wp_world_markers", true) && "block".equalsIgnoreCase(cfg.getString("wp_style", "lunar"))) {
+            boolean sync = cfg.getBool("wp_nether_sync", true);
+            for (ClientConfig.Waypoint wp : cfg.waypoints) {
+                double[] pos = ClientState.resolveWaypointCoords(wp, curDim, sync);
+                if (pos == null) continue;
+                int col = ClientState.parseHexColor(wp.color, 0xFF22D3EE);
+                AABB box = new AABB(pos[0], pos[1], pos[2], pos[0] + 1.0, pos[1] + 1.0, pos[2] + 1.0).inflate(0.015);
+                Gizmos.cuboid(box, GizmoStyle.strokeAndFill(col, 2.5F, ClientState.withAlpha(col, 65))).setAlwaysOnTop();
+            }
+        }
+
+        // 2. Custom Hitboxes
+        if (cfg.getBool("hb_enabled", false)) {
+            int col = cfg.getBool("hb_chroma", false)
+                ? ClientState.getChromaColor(1.5, 0.85, 45.0, 0.5, 0.5)
+                : ClientState.parseHexColor(cfg.getString("hb_color", "#22d3ee"), 0xFF22D3EE);
+            float lw = (float) Math.max(1.0, Math.min(5.0, cfg.getDouble("hb_line_width", 2.0)));
+            int fill = ClientState.scaleAlpha(col, cfg.getDouble("hb_fill_alpha", 0.12));
+            boolean doPlayers = cfg.getBool("hb_players", true), doMobs = cfg.getBool("hb_mobs", true);
+            boolean doItems = cfg.getBool("hb_items", false), doProj = cfg.getBool("hb_projectiles", true);
+            boolean hideSelf = cfg.getBool("hb_hide_self", true), eyeLine = cfg.getBool("hb_eye_line", true), lookVec = cfg.getBool("hb_look_vec", true);
+
+            for (Entity e : mc.level.entitiesForRendering()) {
+                if (e == mc.player && hideSelf) continue;
+                if (e.distanceToSqr(mc.player) > 64.0 * 64.0) continue;
+                boolean match = (e instanceof Player && doPlayers)
+                    || (e instanceof ItemEntity && doItems)
+                    || (e instanceof Projectile && doProj)
+                    || (e instanceof LivingEntity && !(e instanceof Player) && doMobs);
+                if (!match) continue;
+                AABB bb = e.getBoundingBox();
+                Gizmos.cuboid(bb, (fill >>> 24) > 2 ? GizmoStyle.strokeAndFill(col, lw, fill) : GizmoStyle.stroke(col, lw));
+                if (e instanceof LivingEntity) {
+                    if (eyeLine) {
+                        double ey = e.getEyeY();
+                        Gizmos.cuboid(new AABB(bb.minX, ey - 0.01, bb.minZ, bb.maxX, ey + 0.01, bb.maxZ), GizmoStyle.stroke(0xFFEF4444, Math.max(1.0F, lw * 0.8F)));
+                    }
+                    if (lookVec) {
+                        Vec3 eyePos = e.getEyePosition(1.0F);
+                        Gizmos.line(eyePos, eyePos.add(e.getViewVector(1.0F).scale(2.0)), 0xFF3B82F6, Math.max(1.0F, lw * 0.8F));
+                    }
+                }
+            }
+        }
+
+        // 3. 5 Custom Block Breaking Animations
+        if (cfg.getBool("bb_enabled", false) && ClientState.isBreakingActive()) {
+            float p = ClientState.getBreakProgress();
+            int bx = ClientState.getBreakX(), by = ClientState.getBreakY(), bz = ClientState.getBreakZ();
+            String style = cfg.getString("bb_style", "shrink").toLowerCase();
+            int col = cfg.getBool("bb_progress_color", true)
+                ? (p < 0.5F ? ClientState.lerpColor(0xFF10B981, 0xFFF59E0B, p * 2.0F) : ClientState.lerpColor(0xFFF59E0B, 0xFFEF4444, (p - 0.5F) * 2.0F))
+                : ClientState.parseHexColor(cfg.getString("bb_color", "#22d3ee"), 0xFF22D3EE);
+            float lw = (float) Math.max(1.0, Math.min(5.0, cfg.getDouble("bb_line_width", 2.5)));
+            int fill = ClientState.scaleAlpha(col, cfg.getDouble("bb_fill_alpha", 0.30));
+            AABB box;
+            if ("expand".equals(style)) {
+                double inset = 0.46 * (1.0 - p);
+                box = new AABB(bx + inset, by + inset, bz + inset, bx + 1 - inset, by + 1 - inset, bz + 1 - inset).inflate(0.003);
+            } else if ("rise".equals(style)) {
+                box = new AABB(bx, by, bz, bx + 1.0, by + Math.max(0.05, p), bz + 1.0).inflate(0.003);
+            } else if ("slide_down".equals(style)) {
+                box = new AABB(bx, by, bz, bx + 1.0, by + Math.max(0.05, 1.0 - p), bz + 1.0).inflate(0.003);
+            } else if ("pulse".equals(style)) {
+                double wave = 0.03 * Math.sin(System.currentTimeMillis() / 70.0);
+                box = new AABB(bx, by, bz, bx + 1.0, by + 1.0, bz + 1.0).inflate(0.006 + wave);
+            } else {
+                double inset = 0.45 * p;
+                box = new AABB(bx + inset, by + inset, bz + inset, bx + 1 - inset, by + 1 - inset, bz + 1 - inset).inflate(0.002);
+            }
+            Gizmos.cuboid(box, GizmoStyle.strokeAndFill(col, lw, fill));
+        }
     }
 
     public static void renderInGame(GuiGraphicsExtractor g) {
@@ -76,15 +170,19 @@ public final class McBridge {
             @Override public boolean supportsItemIcons() { return true; }
 
             @Override
+            public void playClickSound() {
+                if (ClientConfig.get().getBool("ui_click_sound", true)) {
+                    mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                }
+            }
+
+            @Override
             public void drawArmorSlot(int slotIndex, int x, int y) {
                 if (g == null || mc.player == null) return;
                 EquipmentSlot[] slots = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET, EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND};
                 if (slotIndex < 0 || slotIndex >= slots.length) return;
                 ItemStack st = mc.player.getItemBySlot(slots[slotIndex]);
-                if (!st.isEmpty()) {
-                    g.item(st, x, y);
-                    g.itemDecorations(mc.font, st, x, y);
-                }
+                if (!st.isEmpty()) { g.item(st, x, y); g.itemDecorations(mc.font, st, x, y); }
             }
 
             @Override
@@ -94,10 +192,7 @@ public final class McBridge {
                 if (r <= 1) { g.fill(x, y, x + w, y + h, argb); return; }
                 ensureTextures(mc);
                 g.fill(x + r, y, x + w - r, y + h, argb);
-                if (h > r * 2) {
-                    g.fill(x, y + r, x + r, y + h - r, argb);
-                    g.fill(x + w - r, y + r, x + w, y + h - r, argb);
-                }
+                if (h > r * 2) { g.fill(x, y + r, x + r, y + h - r, argb); g.fill(x + w - r, y + r, x + w, y + h - r, argb); }
                 g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x, y, 0.0F, 0.0F, r, r, 64, 64, 128, 128, argb);
                 g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x + w - r, y, 64.0F, 0.0F, r, r, 64, 64, 128, 128, argb);
                 g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x, y + h - r, 0.0F, 64.0F, r, r, 64, 64, 128, 128, argb);
@@ -115,10 +210,11 @@ public final class McBridge {
                 g.fill(x + w - t, y + r, x + w, y + h - r, argb2);
                 if (r > 1) {
                     ensureTextures(mc);
-                    g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, x, y, 0.0F, 0.0F, r, r, 64, 64, 128, 128, argb);
-                    g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, x + w - r, y, 64.0F, 0.0F, r, r, 64, 64, 128, 128, argb2);
-                    g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, x, y + h - r, 0.0F, 64.0F, r, r, 64, 64, 128, 128, argb);
-                    g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, x + w - r, y + h - r, 64.0F, 64.0F, r, r, 64, 64, 128, 128, argb2);
+                    Identifier ring = t >= 3 ? RING_TEX_3 : (t == 2 ? RING_TEX_2 : RING_TEX_1);
+                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x, y, 0.0F, 0.0F, r, r, 64, 64, 128, 128, argb);
+                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x + w - r, y, 64.0F, 0.0F, r, r, 64, 64, 128, 128, argb2);
+                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x, y + h - r, 0.0F, 64.0F, r, r, 64, 64, 128, 128, argb);
+                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x + w - r, y + h - r, 64.0F, 64.0F, r, r, 64, 64, 128, 128, argb2);
                 }
             }
 
@@ -133,22 +229,19 @@ public final class McBridge {
             public void drawCircle(int cx, int cy, int r, int t, int col) {
                 if (g == null || r <= 0 || ((col >>> 24) & 0xFF) == 0) return;
                 ensureTextures(mc);
-                g.blit(RenderPipelines.GUI_TEXTURED, RING_TEX, cx - r, cy - r, 0.0F, 0.0F, r * 2, r * 2, 128, 128, 128, 128, col);
+                Identifier ring = t >= 3 ? RING_TEX_3 : (t == 2 ? RING_TEX_2 : RING_TEX_1);
+                g.blit(RenderPipelines.GUI_TEXTURED, ring, cx - r, cy - r, 0.0F, 0.0F, r * 2, r * 2, 128, 128, 128, 128, col);
             }
 
             @Override
-            public void drawEntity(int x, int y, int size, float mouseX, float mouseY) {
+            public void drawPaperdoll(int x1, int y1, int x2, int y2, int size, float mouseX, float mouseY) {
                 if (g == null || mc.player == null) return;
-                int swing = mc.player.isSprinting() ? (int) Math.round(Math.sin(System.currentTimeMillis() / 110.0) * 4.0) : 0;
-                int hy = y - 42 + (mc.player.isShiftKeyDown() ? 4 : 0);
-                g.fill(x - 6, hy, x + 6, hy + 12, 0xFFE4E4E7);
-                g.fill(x - 4, hy + 3, x - 1, hy + 6, 0xFF18181B);
-                g.fill(x + 1, hy + 3, x + 4, hy + 6, 0xFF18181B);
-                g.fill(x - 6, hy + 13, x + 6, hy + 29, 0xFF3F3F46);
-                g.fill(x - 10, hy + 13 + swing / 2, x - 7, hy + 27 + swing / 2, 0xFFA1A1AA);
-                g.fill(x + 7, hy + 13 - swing / 2, x + 10, hy + 27 - swing / 2, 0xFFA1A1AA);
-                g.fill(x - 5, hy + 30, x - 1, y - swing, 0xFF27272A);
-                g.fill(x + 1, hy + 30, x + 5, y + swing, 0xFF27272A);
+                try {
+                    int sw = mc.getWindow().getGuiScaledWidth();
+                    float lookX = mouseX != 0.0F ? mouseX : (((x1 + x2) * 0.5F < sw * 0.5F) ? (x2 + 20.0F) : (x1 - 20.0F));
+                    float lookY = mouseY != 0.0F ? mouseY : ((y1 + y2) * 0.45F);
+                    InventoryScreen.extractEntityInInventoryFollowsMouse(g, x1, y1, x2, y2, Math.max(14, size), 0.0625F, lookX, lookY, mc.player);
+                } catch (Throwable ignored) {}
             }
         };
     }
@@ -156,6 +249,7 @@ public final class McBridge {
     public static UiBridge.HudData data(Minecraft mc) {
         return new UiBridge.HudData() {
             @Override public boolean hasWorld() { return mc.player != null && mc.level != null; }
+            @Override public String dimensionId() { return mc.level.dimension().identifier().toString(); }
             @Override public boolean isSingleplayer() { return mc.getSingleplayerServer() != null; }
             @Override public boolean showSurvivalBars() { return mc.player != null && !mc.player.getAbilities().instabuild && !mc.player.isSpectator(); }
             @Override public int fps() { return mc.getFps(); }
@@ -178,17 +272,13 @@ public final class McBridge {
             @Override public boolean isSprinting() { return mc.player.isSprinting(); }
             @Override public String[] activePotions() {
                 List<String> out = new ArrayList<String>();
-                boolean numerals = ClientConfig.get().getBool("potions_numerals", true);
-                boolean timers = ClientConfig.get().getBool("potions_timers", true);
+                boolean numerals = ClientConfig.get().getBool("potions_numerals", true), timers = ClientConfig.get().getBool("potions_timers", true);
                 for (MobEffectInstance eff : mc.player.getActiveEffects()) {
                     String name = eff.getEffect().value().getDisplayName().getString();
                     if (numerals && eff.getAmplifier() > 0) name += " " + toRoman(eff.getAmplifier() + 1);
                     if (timers) {
                         if (eff.isInfiniteDuration()) name += " **:**";
-                        else {
-                            int s = Math.max(0, eff.getDuration() / 20);
-                            name += " " + (s / 60) + ":" + String.format("%02d", s % 60);
-                        }
+                        else { int s = Math.max(0, eff.getDuration() / 20); name += " " + (s / 60) + ":" + String.format("%02d", Integer.valueOf(s % 60)); }
                     }
                     out.add(name);
                 }
@@ -198,14 +288,8 @@ public final class McBridge {
             @Override public String serverIp() { return mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"; }
             @Override public long dayCount() { return mc.level.getOverworldClockTime() / 24000L; }
             @Override public long worldTime() { return mc.level.getOverworldClockTime(); }
-            @Override public String heldToolDurability() {
-                ItemStack h = mc.player.getMainHandItem();
-                return (!h.isEmpty() && h.isDamageableItem()) ? h.getHoverName().getString() + ": " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Tool: --";
-            }
-            @Override public String offhandDurability() {
-                ItemStack h = mc.player.getOffhandItem();
-                return (!h.isEmpty() && h.isDamageableItem()) ? "Off: " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Off: --";
-            }
+            @Override public String heldToolDurability() { ItemStack h = mc.player.getMainHandItem(); return (!h.isEmpty() && h.isDamageableItem()) ? h.getHoverName().getString() + ": " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Tool: --"; }
+            @Override public String offhandDurability() { ItemStack h = mc.player.getOffhandItem(); return (!h.isEmpty() && h.isDamageableItem()) ? "Off: " + (h.getMaxDamage() - h.getDamageValue()) + "/" + h.getMaxDamage() : "Off: --"; }
             @Override public String[] armorSlotReadouts() {
                 boolean pct = ClientConfig.get().getBool("armor_percent", true);
                 EquipmentSlot[] slots = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
@@ -214,10 +298,7 @@ public final class McBridge {
                     ItemStack st = mc.player.getItemBySlot(slots[i]);
                     if (st.isEmpty()) out[i] = null;
                     else if (!st.isDamageableItem()) out[i] = "";
-                    else {
-                        int rem = st.getMaxDamage() - st.getDamageValue();
-                        out[i] = pct ? (Math.round(100.0 * rem / st.getMaxDamage()) + "%") : (rem + "/" + st.getMaxDamage());
-                    }
+                    else { int rem = st.getMaxDamage() - st.getDamageValue(); out[i] = pct ? (Math.round(100.0 * rem / st.getMaxDamage()) + "%") : (rem + "/" + st.getMaxDamage()); }
                 }
                 return out;
             }
@@ -227,23 +308,18 @@ public final class McBridge {
                 for (EquipmentSlot s : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
                     ItemStack st = mc.player.getItemBySlot(s);
                     if (!st.isEmpty() && st.isDamageableItem()) {
-                        int rem = st.getMaxDamage() - st.getDamageValue();
-                        String tag = s.getName().substring(0, 1).toUpperCase();
+                        int rem = st.getMaxDamage() - st.getDamageValue(); String tag = s.getName().substring(0, 1).toUpperCase();
                         list.add(pct ? (tag + ": " + Math.round(100.0 * rem / st.getMaxDamage()) + "%") : (tag + ": " + rem + "/" + st.getMaxDamage()));
                     }
                 }
                 return list.isEmpty() ? "Armor: None" : String.join(" | ", list);
             }
-            @Override public boolean isMoveW() { return mc.options.keyUp.isDown(); }
-            @Override public boolean isMoveA() { return mc.options.keyLeft.isDown(); }
-            @Override public boolean isMoveS() { return mc.options.keyDown.isDown(); }
-            @Override public boolean isMoveD() { return mc.options.keyRight.isDown(); }
+            @Override public boolean isMoveW() { return mc.options.keyUp.isDown(); } @Override public boolean isMoveA() { return mc.options.keyLeft.isDown(); }
+            @Override public boolean isMoveS() { return mc.options.keyDown.isDown(); } @Override public boolean isMoveD() { return mc.options.keyRight.isDown(); }
             @Override public boolean isJumpDown() { return mc.options.keyJump.isDown(); }
             @Override public boolean targetPlayerInView(double range) { return targetInView(mc, range, true); }
             @Override public boolean targetEntityInView(double range) { return targetInView(mc, range, false); }
-            @Override public double posX() { return mc.player.getX(); }
-            @Override public double posY() { return mc.player.getY(); }
-            @Override public double posZ() { return mc.player.getZ(); }
+            @Override public double posX() { return mc.player.getX(); } @Override public double posY() { return mc.player.getY(); } @Override public double posZ() { return mc.player.getZ(); }
             @Override public float pitch() { return mc.player.getXRot(); }
             @Override public boolean isSneaking() { return mc.player.isShiftKeyDown(); }
             @Override public boolean isMoveCtrl() { return mc.options.keySprint.isDown(); }
@@ -251,13 +327,11 @@ public final class McBridge {
             @Override public String weather() { return mc.level.isThundering() ? "Thunder" : (mc.level.isRaining() ? "Rain" : "Clear"); }
             @Override public int blockLight() { return mc.level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, mc.player.blockPosition()); }
             @Override public int skyLight() { return mc.level.getBrightness(net.minecraft.world.level.LightLayer.SKY, mc.player.blockPosition()); }
-            @Override public float health() { return mc.player.getHealth(); }
-            @Override public float maxHealth() { return mc.player.getMaxHealth(); }
+            @Override public float health() { return mc.player.getHealth(); } @Override public float maxHealth() { return mc.player.getMaxHealth(); }
             @Override public float absorption() { return mc.player.getAbsorptionAmount(); }
             @Override public int foodLevel() { return mc.player.getFoodData().getFoodLevel(); }
             @Override public float saturation() { return mc.player.getFoodData().getSaturationLevel(); }
-            @Override public int airSupply() { return mc.player.getAirSupply(); }
-            @Override public int maxAirSupply() { return mc.player.getMaxAirSupply(); }
+            @Override public int airSupply() { return mc.player.getAirSupply(); } @Override public int maxAirSupply() { return mc.player.getMaxAirSupply(); }
             @Override public int onlinePlayers() { return mc.getConnection() != null ? mc.getConnection().getOnlinePlayers().size() : 1; }
             @Override public int renderedEntities() { int c = 0; for (Entity ignored : mc.level.entitiesForRendering()) c++; return c; }
             @Override public int totalEntities() { return renderedEntities(); }
@@ -278,8 +352,7 @@ public final class McBridge {
                     pts.add(Integer.valueOf((int) Math.round((-dx * sin + dz * cos) * 0.55)));
                     if (pts.size() >= 64) break;
                 }
-                int[] out = new int[pts.size()];
-                for (int i = 0; i < pts.size(); i++) out[i] = pts.get(i).intValue();
+                int[] out = new int[pts.size()]; for (int i = 0; i < pts.size(); i++) out[i] = pts.get(i).intValue();
                 return out;
             }
             @Override public int countItem(String kw) {

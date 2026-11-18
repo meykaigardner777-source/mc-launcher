@@ -16,6 +16,8 @@ public class HudEditorScreen extends Screen {
 
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float pt) {
         Minecraft mc = Minecraft.getInstance();
+        editor.setShiftHeld(InputConstants.isKeyDown(mc.getWindow(), InputConstants.KEY_LSHIFT)
+                || InputConstants.isKeyDown(mc.getWindow(), InputConstants.KEY_RSHIFT));
         editor.render(McBridge.draw(g, mc), McBridge.data(mc), this.width, this.height, mx, my);
     }
 

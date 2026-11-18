@@ -28,6 +28,13 @@ public final class ClientState {
     private static int comboCount = 0, swingsTotal = 0, swingsLanded = 0, killCount = 0, deathCount = 0;
     private static double lastReachBlocks = 0.0;
 
+    private static volatile int playerX = 0, playerY = 64, playerZ = 0;
+    private static volatile String playerDim = "minecraft:overworld";
+
+    private static volatile boolean breakingActive = false;
+    private static volatile int breakX = 0, breakY = 0, breakZ = 0;
+    private static volatile float breakProgress = 0.0F;
+
     private static final float[] FRAMETIMES = new float[48];
     private static int frameIdx = 0;
     private static long prevFrameNs = 0L;
@@ -57,8 +64,6 @@ public final class ClientState {
     private static int lastDeathX = 0, lastDeathY = 0, lastDeathZ = 0;
     private static boolean hasDeathLoc = false, wasDead = false;
     private static int spawnX = 0, spawnY = 64, spawnZ = 0;
-    private static final List<int[]> WAYPOINTS_COORDS = new ArrayList<int[]>();
-    private static final List<String> WAYPOINTS_NAMES = new ArrayList<String>();
     private static final Deque<String> PICKUP_FEED = new ArrayDeque<String>();
     private static final Deque<String> CHAT_MENTIONS = new ArrayDeque<String>();
 
@@ -66,9 +71,6 @@ public final class ClientState {
     private static final Map<Integer, String> GLFW_TO_NAME = new LinkedHashMap<Integer, String>();
 
     static {
-        WAYPOINTS_NAMES.add("Origin");
-        WAYPOINTS_COORDS.add(new int[]{0, 64, 0});
-
         regKey("NONE", -1);
         for (char c = 'A'; c <= 'Z'; c++) regKey(String.valueOf(c), (int) c);
         for (char c = '0'; c <= '9'; c++) regKey(String.valueOf(c), (int) c);
@@ -84,7 +86,6 @@ public final class ClientState {
         regKey("LSHIFT", 340); regKey("LCTRL", 341); regKey("LALT", 342);
         regKey("RSHIFT", 344); regKey("RCTRL", 345); regKey("RALT", 346);
         for (int i = 0; i <= 9; i++) regKey("KP" + i, 320 + i);
-        // Legacy aliases
         NAME_TO_GLFW.put("ALT", Integer.valueOf(342));
         NAME_TO_GLFW.put("CTRL", Integer.valueOf(341));
         NAME_TO_GLFW.put("SHIFT", Integer.valueOf(340));
@@ -112,6 +113,25 @@ public final class ClientState {
     }
 
     private ClientState() {}
+
+    public static void updatePlayerPos(int x, int y, int z, String dim) {
+        playerX = x; playerY = y; playerZ = z;
+        if (dim != null && !dim.isEmpty()) playerDim = dim;
+    }
+    public static int getPlayerX() { return playerX; }
+    public static int getPlayerY() { return playerY; }
+    public static int getPlayerZ() { return playerZ; }
+    public static String getPlayerDim() { return playerDim; }
+
+    public static void setBlockBreak(boolean active, int x, int y, int z, float progress) {
+        breakingActive = active; breakX = x; breakY = y; breakZ = z;
+        breakProgress = Math.max(0.0F, Math.min(1.0F, progress));
+    }
+    public static boolean isBreakingActive() { return breakingActive && breakProgress > 0.005F; }
+    public static int getBreakX() { return breakX; }
+    public static int getBreakY() { return breakY; }
+    public static int getBreakZ() { return breakZ; }
+    public static float getBreakProgress() { return breakProgress; }
 
     public static int getAccentColor() {
         String theme = ClientConfig.get().getString("ui_accent", "white");
@@ -177,9 +197,7 @@ public final class ClientState {
     }
 
     public static void setZooming(boolean active) {
-        if (!active && zooming && ClientConfig.get().getBool("cam_zoom_reset_scroll", true)) {
-            scrollZoomOffset = 0.0f;
-        }
+        if (!active && zooming && ClientConfig.get().getBool("cam_zoom_reset_scroll", true)) scrollZoomOffset = 0.0f;
         zooming = active;
     }
     public static boolean isZooming() { return zooming; }
@@ -188,7 +206,8 @@ public final class ClientState {
         float step = (float) (verticalDelta * Math.max(0.5, (ClientConfig.get().getZoomFactor() + scrollZoomOffset) * 0.2));
         scrollZoomOffset = Math.max(-2.5f, Math.min(20.0f, scrollZoomOffset + step));
     }
-        private static volatile float freeLookYaw = 0.0f, freeLookPitch = 0.0f;
+
+    private static volatile float freeLookYaw = 0.0f, freeLookPitch = 0.0f;
     public static void initFreeLook(float yaw, float pitch) { freeLookYaw = yaw; freeLookPitch = Math.max(-90.0f, Math.min(90.0f, pitch)); }
     public static void addFreeLookDelta(float dYaw, float dPitch) { freeLookYaw += dYaw; freeLookPitch = Math.max(-90.0f, Math.min(90.0f, freeLookPitch + dPitch)); }
     public static float getFreeLookYaw() { return freeLookYaw; }
@@ -292,8 +311,7 @@ public final class ClientState {
             mouseVelX *= 0.85f; mouseVelY *= 0.85f;
         }
         if (health <= 0.0f && !wasDead) {
-            wasDead = true;
-            deathCount++;
+            wasDead = true; deathCount++;
             lastDeathX = (int) Math.floor(px); lastDeathY = (int) Math.floor(py); lastDeathZ = (int) Math.floor(pz);
             hasDeathLoc = true;
         } else if (health > 0.0f) {
@@ -366,18 +384,32 @@ public final class ClientState {
         return SPLIT_NAMES[splitIndex] + " " + String.format("%02d:%02d", Long.valueOf(s / 60), Long.valueOf(s % 60));
     }
 
-    public static synchronized void addWaypoint(String name, int x, int y, int z) {
-        WAYPOINTS_NAMES.add(name); WAYPOINTS_COORDS.add(new int[]{x, y, z});
-    }
-    public static synchronized String getNearestWaypointText(int cx, int cy, int cz) {
-        if (WAYPOINTS_COORDS.isEmpty()) return "No Waypoints";
-        int bestIdx = 0; double bestDist = Double.MAX_VALUE;
-        for (int i = 0; i < WAYPOINTS_COORDS.size(); i++) {
-            int[] c = WAYPOINTS_COORDS.get(i);
-            double d = Math.sqrt(Math.pow(c[0] - cx, 2) + Math.pow(c[1] - cy, 2) + Math.pow(c[2] - cz, 2));
-            if (d < bestDist) { bestDist = d; bestIdx = i; }
+    public static double[] resolveWaypointCoords(ClientConfig.Waypoint wp, String curDim, boolean netherSync) {
+        if (wp == null || !wp.enabled) return null;
+        String wDim = wp.dimension == null ? "minecraft:overworld" : wp.dimension;
+        String cDim = curDim == null ? "minecraft:overworld" : curDim;
+        if (wDim.equals(cDim)) return new double[]{wp.x, wp.y, wp.z, 0.0};
+        if (netherSync) {
+            if ("minecraft:overworld".equals(wDim) && "minecraft:the_nether".equals(cDim)) return new double[]{wp.x / 8.0, wp.y, wp.z / 8.0, 1.0};
+            if ("minecraft:the_nether".equals(wDim) && "minecraft:overworld".equals(cDim)) return new double[]{wp.x * 8.0, wp.y, wp.z * 8.0, 2.0};
         }
-        return WAYPOINTS_NAMES.get(bestIdx) + ": " + Math.round(bestDist) + "m";
+        return null;
+    }
+
+    public static String getNearestWaypointText(int cx, int cy, int cz, String curDim) {
+        List<ClientConfig.Waypoint> wps = ClientConfig.get().waypoints;
+        if (wps.isEmpty()) return "No Waypoints";
+        boolean sync = ClientConfig.get().getBool("wp_nether_sync", true);
+        ClientConfig.Waypoint best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (int i = 0; i < wps.size(); i++) {
+            ClientConfig.Waypoint w = wps.get(i);
+            double[] pos = resolveWaypointCoords(w, curDim, sync);
+            if (pos == null) continue;
+            double d = Math.sqrt(Math.pow(pos[0] - cx, 2) + Math.pow(pos[1] - cy, 2) + Math.pow(pos[2] - cz, 2));
+            if (d < bestDist) { bestDist = d; best = w; }
+        }
+        return best == null ? "No Active WPs" : (best.name + ": " + Math.round(bestDist) + "m");
     }
 
     public static synchronized void pushPickup(String txt) {
