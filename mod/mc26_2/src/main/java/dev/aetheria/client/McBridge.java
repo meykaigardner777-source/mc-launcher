@@ -3,7 +3,9 @@ package dev.aetheria.client;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.aetheria.client.common.*;
 import dev.aetheria.client.gui.HudEditorScreen;
+import dev.aetheria.client.mixin.MinecraftAccessor;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
@@ -21,6 +23,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.*;
+import java.lang.reflect.Constructor;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public final class McBridge {
@@ -62,7 +66,6 @@ public final class McBridge {
         ClientConfig cfg = ClientConfig.get();
         String curDim = mc.level.dimension().identifier().toString();
 
-        // 1. Block Highlighter Waypoints
         if (cfg.getBool("wp_world_markers", true) && "block".equalsIgnoreCase(cfg.getString("wp_style", "lunar"))) {
             boolean sync = cfg.getBool("wp_nether_sync", true);
             for (ClientConfig.Waypoint wp : cfg.waypoints) {
@@ -74,7 +77,6 @@ public final class McBridge {
             }
         }
 
-        // 2. Custom Hitboxes
         if (cfg.getBool("hb_enabled", false)) {
             int col = cfg.getBool("hb_chroma", false)
                 ? ClientState.getChromaColor(1.5, 0.85, 45.0, 0.5, 0.5)
@@ -108,7 +110,6 @@ public final class McBridge {
             }
         }
 
-        // 3. 5 Custom Block Breaking Animations
         if (cfg.getBool("bb_enabled", false) && ClientState.isBreakingActive()) {
             float p = ClientState.getBreakProgress();
             int bx = ClientState.getBreakX(), by = ClientState.getBreakY(), bz = ClientState.getBreakZ();
@@ -168,6 +169,36 @@ public final class McBridge {
             @Override public void pushTransform(float tx, float ty, float scale) { if (g != null) { g.pose().pushMatrix(); g.pose().translate(tx, ty); g.pose().scale(scale, scale); } }
             @Override public void popTransform() { if (g != null) g.pose().popMatrix(); }
             @Override public boolean supportsItemIcons() { return true; }
+
+            @Override public String currentUsername() { return mc.getUser() != null ? mc.getUser().getName() : "Player"; }
+            @Override public String currentUuid() { return mc.getUser() != null && mc.getUser().getProfileId() != null ? mc.getUser().getProfileId().toString() : ""; }
+
+            @Override
+            public boolean switchAccount(String username, String uuidStr) {
+                try {
+                    if (username == null || username.trim().isEmpty()) return false;
+                    String clean = username.trim();
+                    UUID id = (uuidStr != null && !uuidStr.isEmpty())
+                        ? UUID.fromString(uuidStr)
+                        : UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8));
+                    for (Constructor<?> c : User.class.getConstructors()) {
+                        Class<?>[] pt = c.getParameterTypes();
+                        if (pt.length == 6 && pt[0] == String.class && pt[1] == UUID.class && pt[2] == String.class) {
+                            Object typeEnum = pt[5].isEnum() ? pt[5].getEnumConstants()[0] : null;
+                            User u = (User) c.newInstance(clean, id, "0", Optional.empty(), Optional.empty(), typeEnum);
+                            ((MinecraftAccessor) (Object) mc).aetheria$setUser(u);
+                            return true;
+                        }
+                        if (pt.length == 5 && pt[0] == String.class && pt[1] == UUID.class && pt[2] == String.class) {
+                            Object typeEnum = pt[4].isEnum() ? pt[4].getEnumConstants()[0] : null;
+                            User u = (User) c.newInstance(clean, id, "0", Optional.empty(), typeEnum);
+                            ((MinecraftAccessor) (Object) mc).aetheria$setUser(u);
+                            return true;
+                        }
+                    }
+                } catch (Throwable ignored) {}
+                return false;
+            }
 
             @Override
             public void playClickSound() {

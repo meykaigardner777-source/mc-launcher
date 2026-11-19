@@ -311,7 +311,6 @@ public class SharedModMenu {
         if (!click && maxScrollPx > 0) drawScrollbar(g, cx + cw - 4, cy, ch, totalH, curScroll, accent);
         return false;
     }
-
     private boolean renderModSettingsPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         ClientConfig cfg = ClientConfig.get(); boolean isHud = cfg.hudModules.containsKey(editingModId), enabled = isModEnabled(editingModId);
         if (drawBtn(g, "set_back", cx, cy, 52, 20, Math.max(2, menuRad / 2), "< Back", 0xFF191922, ClientState.UI_TEXT, false, mx, my, click)) { editingModId = null; listeningKeyOptId = null; resetScroll(); return true; }
@@ -350,39 +349,51 @@ public class SharedModMenu {
 
     private void buildHudInspectorRows(List<SettingRow> rows, ClientConfig.HudModule m) {
         if ("waypoints".equals(m.id) && "geom".equals(inspectorTab)) {
-            rows.add(actionRow("+ Add Waypoint Here", "Save XYZ (" + ClientState.getPlayerX() + "," + ClientState.getPlayerY() + "," + ClientState.getPlayerZ() + ")", "wp_add"));
-            for (int i = 0; i < ClientConfig.get().waypoints.size(); i++) rows.add(waypointRow(ClientConfig.get().waypoints.get(i)));
-            rows.add(cycleRow("Waypoint Style", "Lunar Card, Block Highlighter, Dot, or Tall Beacon", "wp_style", WP_STYLES));
-            rows.add(boolRow("World Markers", "Show floating markers / block highlights in world", "wp_world_markers", true));
-            rows.add(boolRow("Vertical Beacon Beams", "Draw translucent beam above marker", "wp_beam_beacon", true));
-            rows.add(boolRow("Show Distance (m)", "Display meter distance inside tag", "wp_show_dist", true));
-            rows.add(boolRow("Overworld <-> Nether Sync", "Auto-convert 8:1 coordinates", "wp_nether_sync", true));
-            rows.add(boolRow("Offscreen Edge Pointers", "Show directional arrow when off-screen", "wp_offscreen_arrows", true));
+            rows.add(accordionRow("wp_mgr", "WAYPOINTS MANAGER"));
+            if (!foldedAccordions.contains("wp_mgr")) {
+                rows.add(actionRow("+ Add Waypoint Here", "Save XYZ (" + ClientState.getPlayerX() + "," + ClientState.getPlayerY() + "," + ClientState.getPlayerZ() + ")", "wp_add"));
+                for (int i = 0; i < ClientConfig.get().waypoints.size(); i++) rows.add(waypointRow(ClientConfig.get().waypoints.get(i)));
+                rows.add(cycleRow("Waypoint Style", "Lunar Card, Block Highlighter, Dot, or Tall Beacon", "wp_style", WP_STYLES));
+                rows.add(boolRow("World Markers", "Show floating markers / block highlights in world", "wp_world_markers", true));
+                rows.add(boolRow("Vertical Beacon Beams", "Draw translucent beam above marker", "wp_beam_beacon", true));
+                rows.add(boolRow("Show Distance (m)", "Display meter distance inside tag", "wp_show_dist", true));
+                rows.add(boolRow("Overworld <-> Nether Sync", "Auto-convert 8:1 coordinates", "wp_nether_sync", true));
+                rows.add(boolRow("Offscreen Edge Pointers", "Show directional arrow when off-screen", "wp_offscreen_arrows", true));
+            }
         }
         if ("geom".equals(inspectorTab)) {
-            rows.add(modCycleRow("Anchor Lock (9-Point)", "Reference anchor point on screen", m.id, "anchor", ANCHORS));
-            rows.add(sliderRow("Scale Multiplier", "Resize HUD from 0.25x to 4.0x", "mod_scale:" + m.id, 0.25, 4.0, 0.05, false));
-            rows.add(sliderRow("X Coordinate", "Horizontal anchor position (0-100%)", "mod_x:" + m.id, 0.0, 1.0, 0.005, false));
-            rows.add(sliderRow("Y Coordinate", "Vertical anchor position (0-100%)", "mod_y:" + m.id, 0.0, 1.0, 0.005, false));
-            rows.add(sliderRow("Width Override (0=Auto)", "Fixed box width in pixels", "mod_w:" + m.id, 0, 320, 4, true));
-            rows.add(sliderRow("Height Override (0=Auto)", "Fixed box height in pixels", "mod_h:" + m.id, 0, 180, 2, true));
-            rows.add(sliderRow("Horizontal Padding", "Inner X spacing (1-24px)", "mod_padx:" + m.id, 1, 24, 1, true));
-            rows.add(sliderRow("Vertical Padding", "Inner Y spacing (1-24px)", "mod_pady:" + m.id, 1, 24, 1, true));
-            rows.add(sliderRow("Margin Offset", "Outer offset from anchor (0-16px)", "mod_margin:" + m.id, 0, 16, 1, true));
+            rows.add(accordionRow("hud_pos", "POSITION & SIZE"));
+            if (!foldedAccordions.contains("hud_pos")) {
+                rows.add(modCycleRow("Anchor Lock (9-Point)", "Reference anchor point on screen", m.id, "anchor", ANCHORS));
+                rows.add(sliderRow("Scale Multiplier", "Resize HUD from 0.25x to 4.0x", "mod_scale:" + m.id, 0.25, 4.0, 0.05, false));
+                rows.add(sliderRow("X Coordinate", "Horizontal anchor position (0-100%)", "mod_x:" + m.id, 0.0, 1.0, 0.005, false));
+                rows.add(sliderRow("Y Coordinate", "Vertical anchor position (0-100%)", "mod_y:" + m.id, 0.0, 1.0, 0.005, false));
+                rows.add(sliderRow("Width Override (0=Auto)", "Fixed box width in pixels", "mod_w:" + m.id, 0, 320, 4, true));
+                rows.add(sliderRow("Height Override (0=Auto)", "Fixed box height in pixels", "mod_h:" + m.id, 0, 180, 2, true));
+                rows.add(sliderRow("Horizontal Padding", "Inner X spacing (1-24px)", "mod_padx:" + m.id, 1, 24, 1, true));
+                rows.add(sliderRow("Vertical Padding", "Inner Y spacing (1-24px)", "mod_pady:" + m.id, 1, 24, 1, true));
+                rows.add(sliderRow("Margin Offset", "Outer offset from anchor (0-16px)", "mod_margin:" + m.id, 0, 16, 1, true));
+            }
         } else if ("style".equals(inspectorTab)) {
-            rows.add(sliderRow("Individual Corner Roundness", "0px sharp to 24px pill (Global must be INDIV)", "mod_rad:" + m.id, 0, 24, 1, true));
-            rows.add(modBoolRow("Background Box", "Draw clean backdrop container", m.id, "bg"));
-            rows.add(colorRow("Background Color", "mod_bg:" + m.id));
-            rows.add(sliderRow("Individual BG Opacity", "Backdrop alpha (Global must be INDIV)", "mod_opacity:" + m.id, 0.0, 1.0, 0.05, false));
-            rows.add(modBoolRow("Border Outline", "Draw outline border around module", m.id, "border"));
-            rows.add(sliderRow("Border Thickness", "Stroke width (0-3px)", "mod_bw:" + m.id, 0, 3, 1, true));
-            rows.add(modCycleRow("Border Style", "Solid, Dashed, or Gradient", m.id, "borderStyle", BORDER_STYLES));
-            rows.add(colorRow("Border Color 1", "mod_brd:" + m.id));
-            rows.add(colorRow("Border Color 2 (Grad)", "mod_brd2:" + m.id));
-            rows.add(modBoolRow("Chroma RGB Wave", "Animated rainbow color wave", m.id, "chroma"));
-            rows.add(sliderRow("Chroma Wave Speed", "Cycle speed multiplier", "mod_cspeed:" + m.id, 0.2, 4.0, 0.1, false));
-            rows.add(sliderRow("Chroma Saturation", "Color intensity", "mod_csat:" + m.id, 0.1, 1.0, 0.05, false));
-            rows.add(sliderRow("Chroma Angle", "Wave direction in degrees", "mod_cang:" + m.id, 0, 360, 15, true));
+            rows.add(accordionRow("hud_bg", "BACKGROUND & BORDER"));
+            if (!foldedAccordions.contains("hud_bg")) {
+                rows.add(sliderRow("Individual Corner Roundness", "0px sharp to 24px pill (Global must be INDIV)", "mod_rad:" + m.id, 0, 24, 1, true));
+                rows.add(modBoolRow("Background Box", "Draw clean backdrop container", m.id, "bg"));
+                rows.add(colorRow("Background Color", "mod_bg:" + m.id));
+                rows.add(sliderRow("Individual BG Opacity", "Backdrop alpha (Global must be INDIV)", "mod_opacity:" + m.id, 0.0, 1.0, 0.05, false));
+                rows.add(modBoolRow("Border Outline", "Draw outline border around module", m.id, "border"));
+                rows.add(sliderRow("Border Thickness", "Stroke width (0-3px)", "mod_bw:" + m.id, 0, 3, 1, true));
+                rows.add(modCycleRow("Border Style", "Solid, Dashed, or Gradient", m.id, "borderStyle", BORDER_STYLES));
+                rows.add(colorRow("Border Color 1", "mod_brd:" + m.id));
+                rows.add(colorRow("Border Color 2 (Grad)", "mod_brd2:" + m.id));
+            }
+            rows.add(accordionRow("hud_rgb", "CHROMA RGB"));
+            if (!foldedAccordions.contains("hud_rgb")) {
+                rows.add(modBoolRow("Chroma RGB Wave", "Animated rainbow color wave", m.id, "chroma"));
+                rows.add(sliderRow("Chroma Wave Speed", "Cycle speed multiplier", "mod_cspeed:" + m.id, 0.2, 4.0, 0.1, false));
+                rows.add(sliderRow("Chroma Saturation", "Color intensity", "mod_csat:" + m.id, 0.1, 1.0, 0.05, false));
+                rows.add(sliderRow("Chroma Angle", "Wave direction in degrees", "mod_cang:" + m.id, 0, 360, 15, true));
+            }
         } else if ("text".equals(inspectorTab)) {
             if ("saturation".equals(m.id)) { rows.add(cycleRow("Saturation Style", "AppleSkin / Bar / Text", "saturation_style", SAT_STYLES)); rows.add(boolRow("AppleSkin Glint", "Pulse golden outlines", "saturation_glint", true)); }
             if ("potions".equals(m.id)) {
@@ -421,42 +432,49 @@ public class SharedModMenu {
     }
 
     private boolean renderUiEnginePage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-        if (!click) g.text("Global UI Engine & Keybinds", cx + 2, cy + 4, ClientState.UI_TEXT, false);
         List<SettingRow> rows = new ArrayList<SettingRow>();
-        rows.add(boolRow("UI Click Sounds", "Subtle click audio on menu buttons & switches", "ui_click_sound", true));
-        rows.add(boolRow("Hover Tooltips", "Show descriptive tooltips when hovering cards", "ui_tooltips", true));
-        rows.add(sliderRow("Global Corner Rounding", "INDIV = per-HUD roundness | 0-24 = force all", "global_hud_rounding", -1, 24, 1, true));
-        rows.add(sliderRow("Global Background Opacity", "INDIV = per-HUD opacity | 0%-100% = force all", "global_hud_opacity", -0.05, 1.0, 0.05, false));
-        rows.add(sliderRow("Menu Corner Rounding", "ClickGUI roundness (when Global is INDIV)", "ui_menu_rounding", 0, 24, 1, true));
-        rows.add(cycleRow("Menu Layout Mode", "Topbar, Sidebar, Grid, or Command Palette", "ui_menu_layout", MENU_LAYOUTS));
-        rows.add(cycleRow("Toggle Switch Style", "Pill, iOS Switch, or Checkbox", "ui_switch_style", SWITCH_STYLES));
-        rows.add(sliderRow("Module Card Width", "Grid card width (105-200px)", "ui_card_width", 105, 200, 5, true));
-        rows.add(accentRow("Accent Color"));
-        rows.add(colorRow("Custom Accent HEX", "opt:ui_accent_custom"));
-        rows.add(boolRow("UI Animations", "Smooth fade, scale & spring easing", "ui_animations", true));
-        rows.add(sliderRow("Animation Speed", "Transition speed (0.5x-2.5x)", "ui_anim_speed", 0.5, 2.5, 0.1, false));
-        rows.add(cycleRow("Animation Curve", "Smooth vs Snappy easing", "ui_anim_curve", ANIM_CURVES));
-        rows.add(boolRow("HUD Magnetic Snap Grid", "Snap to 40-step grid in HUD Editor", "hud_snap_grid", true));
-        rows.add(boolRow("HUD Alignment Guides", "Show center snap lines while dragging", "hud_align_guides", true));
-        rows.add(boolRow("Global HUD Text Shadow", "Clean drop shadow toggle", "hud_shadow", true));
-        rows.add(keybindRow("Menu Keybind", "Click and press ANY key to open ClickGUI", "ctl_menu_key", "RSHIFT"));
-        rows.add(keybindRow("Profile Cycle Keybind", "Click and press ANY key to switch profile", "ctl_profile_key", "F6"));
-        rows.add(keybindRow("Zoom Keybind", "Click and press ANY key to zoom", "cam_zoom_key", "C"));
-        rows.add(keybindRow("FreeLook Keybind", "Click and press ANY key for FreeLook", "util_freelook_key", "LALT"));
-        rows.add(actionRow("Reset All HUD Positions", "Restore default positions & layout", "reset_layout"));
-        rows.add(actionRow("Reset All Client Settings", "Factory reset all options", "reset_all"));
-        return renderScrollableRows(g, rows, cx, cy + 22, cw - 10, ch - 22, cw, mx, my, click, accent, accentFg, menuRad);
+        rows.add(accordionRow("ui_theme", "THEMES & APPEARANCE"));
+        if (!foldedAccordions.contains("ui_theme")) {
+            rows.add(cycleRow("Menu Layout Mode", "OneClient, Topbar, Sidebar, Grid, or Palette", "ui_menu_layout", MENU_LAYOUTS));
+            rows.add(accentRow("Accent Color"));
+            rows.add(colorRow("Custom Accent HEX", "opt:ui_accent_custom"));
+            rows.add(sliderRow("Global Corner Rounding", "INDIV = per-HUD | 0-24 = force all", "global_hud_rounding", -1, 24, 1, true));
+            rows.add(sliderRow("Global Background Opacity", "INDIV = per-HUD | 0%-100% = force all", "global_hud_opacity", -0.05, 1.0, 0.05, false));
+            rows.add(sliderRow("Menu Corner Rounding", "ClickGUI roundness (when Global is INDIV)", "ui_menu_rounding", 0, 24, 1, true));
+            rows.add(cycleRow("Toggle Switch Style", "Pill, iOS Switch, or Checkbox", "ui_switch_style", SWITCH_STYLES));
+            rows.add(sliderRow("Module Card Width", "Grid card width (105-200px)", "ui_card_width", 105, 200, 5, true));
+            rows.add(boolRow("UI Click Sounds", "Subtle click audio on buttons", "ui_click_sound", true));
+            rows.add(boolRow("Hover Tooltips", "Show descriptive tooltips on hover", "ui_tooltips", true));
+        }
+        rows.add(accordionRow("ui_anim", "ANIMATIONS & HUD EDITOR"));
+        if (!foldedAccordions.contains("ui_anim")) {
+            rows.add(boolRow("UI Animations", "Smooth fade & spring easing", "ui_animations", true));
+            rows.add(sliderRow("Animation Speed", "Transition speed (0.5x-2.5x)", "ui_anim_speed", 0.5, 2.5, 0.1, false));
+            rows.add(cycleRow("Animation Curve", "Smooth vs Snappy easing", "ui_anim_curve", ANIM_CURVES));
+            rows.add(boolRow("HUD Magnetic Snap Grid", "Snap to 40-step grid", "hud_snap_grid", true));
+            rows.add(boolRow("HUD Alignment Guides", "Show center snap lines", "hud_align_guides", true));
+            rows.add(boolRow("Global HUD Text Shadow", "Clean drop shadow toggle", "hud_shadow", true));
+        }
+        rows.add(accordionRow("ui_keys", "KEYBINDS & RESET"));
+        if (!foldedAccordions.contains("ui_keys")) {
+            rows.add(keybindRow("Menu Keybind", "Click and press ANY key", "ctl_menu_key", "RSHIFT"));
+            rows.add(keybindRow("Profile Cycle Keybind", "Click and press ANY key", "ctl_profile_key", "F6"));
+            rows.add(keybindRow("Zoom Keybind", "Click and press ANY key", "cam_zoom_key", "C"));
+            rows.add(keybindRow("FreeLook Keybind", "Click and press ANY key", "util_freelook_key", "LALT"));
+            rows.add(actionRow("Reset All HUD Positions", "Restore default positions", "reset_layout"));
+            rows.add(actionRow("Reset All Client Settings", "Factory reset all options", "reset_all"));
+        }
+        return renderScrollableRows(g, rows, cx, cy, cw - 10, ch, cw, mx, my, click, accent, accentFg, menuRad);
     }
 
     private boolean renderProfilesPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-        if (!click) g.text("HUD Profiles (Active: " + ClientConfig.get().activeProfile + ")", cx + 2, cy + 4, ClientState.UI_TEXT, false);
         List<SettingRow> rows = new ArrayList<SettingRow>();
         rows.add(profileRow("PvP", "FPS, Ping, CPS, Keystrokes, Target HUD, Combo, Reach, Potions & Armor"));
         rows.add(profileRow("Survival", "Coords + Nether, Biome, Light Level, Day/Weather, Waypoints & WAILA"));
         rows.add(profileRow("SMP", "Coords, Ping, TPS, Server IP, Players, Waypoints, Death Tracker & Totems"));
         rows.add(profileRow("Minimal", "Ultra-clean FPS, Coordinates & Ping only"));
         rows.add(profileRow("Cinematic", "Zero clutter - hides HUDs except active Zoom badge"));
-        return renderScrollableRows(g, rows, cx, cy + 22, cw - 10, ch - 22, cw, mx, my, click, accent, accentFg, menuRad);
+        return renderScrollableRows(g, rows, cx, cy, cw - 10, ch, cw, mx, my, click, accent, accentFg, menuRad);
     }
 
     private boolean renderScrollableRows(UiBridge.UiDraw g, List<SettingRow> rows, int cx, int listY, int rw, int listH, int cw, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
@@ -474,117 +492,120 @@ public class SharedModMenu {
 
     private void buildCrosshairRows(List<SettingRow> rows) {
         rows.add(xhairPreviewRow()); rows.add(xhairPixelEditorRow());
-        rows.add(cycleRow("Default Shape", "Choose 'CUSTOM' to use Default Pixel Grid", "pvp_xhair_style", XHAIR_STYLES));
-        rows.add(sliderRow("Custom Pixel Size", "Scale (1x-3x) for CUSTOM", "xhair_pixel_scale", 1, 3, 1, true));
-        rows.add(sliderRow("Size", "Arm length or radius", "xhair_size", 2, 16, 1, true));
-        rows.add(sliderRow("Center Gap", "Center spacing", "xhair_gap", 0, 8, 1, true));
-        rows.add(sliderRow("Thickness", "Pixel width (1-3px)", "xhair_thick", 1, 3, 1, true));
-        rows.add(colorRow("Crosshair Color", "opt:pvp_xhair_color"));
-        rows.add(cycleRow("Attack Indicator", "Cooldown bar or dot below crosshair", "pvp_xhair_atk_ind", ATK_IND_MODES));
-        rows.add(boolRow("Always Show Indicator", "Show even when 100% charged", "pvp_xhair_atk_always", false));
-        rows.add(colorRow("Attack Indicator Color", "opt:pvp_xhair_atk_color"));
-        rows.add(boolRow("Player-in-View Switch", "Change shape/color on target", "pvp_xhair_target", true));
-        rows.add(boolRow("Players Only", "ON = Players | OFF = All Mobs", "pvp_xhair_target_players_only", true));
-        rows.add(sliderRow("Detection Range", "Max distance in blocks", "xhair_range", 3, 32, 1, true));
-        rows.add(cycleRow("In-View Shape", "Choose 'CUSTOM' for Player-in-View Grid", "pvp_xhair_target_style", TARGET_STYLES));
-        rows.add(colorRow("In-View Color", "opt:pvp_xhair_target_color"));
+        rows.add(accordionRow("xh_gen", "SHAPE & COLORS"));
+        if (!foldedAccordions.contains("xh_gen")) {
+            rows.add(cycleRow("Default Shape", "Choose 'CUSTOM' to use Default Pixel Grid", "pvp_xhair_style", XHAIR_STYLES));
+            rows.add(sliderRow("Custom Pixel Size", "Scale (1x-3x) for CUSTOM", "xhair_pixel_scale", 1, 3, 1, true));
+            rows.add(sliderRow("Size", "Arm length or radius", "xhair_size", 2, 16, 1, true));
+            rows.add(sliderRow("Center Gap", "Center spacing", "xhair_gap", 0, 8, 1, true));
+            rows.add(sliderRow("Thickness", "Pixel width (1-3px)", "xhair_thick", 1, 3, 1, true));
+            rows.add(colorRow("Crosshair Color", "opt:pvp_xhair_color"));
+        }
+        rows.add(accordionRow("xh_atk", "ATTACK INDICATOR & TARGET"));
+        if (!foldedAccordions.contains("xh_atk")) {
+            rows.add(cycleRow("Attack Indicator", "Cooldown bar or dot below crosshair", "pvp_xhair_atk_ind", ATK_IND_MODES));
+            rows.add(boolRow("Always Show Indicator", "Show even when 100% charged", "pvp_xhair_atk_always", false));
+            rows.add(colorRow("Attack Indicator Color", "opt:pvp_xhair_atk_color"));
+            rows.add(boolRow("Player-in-View Switch", "Change shape/color on target", "pvp_xhair_target", true));
+            rows.add(boolRow("Players Only", "ON = Players | OFF = All Mobs", "pvp_xhair_target_players_only", true));
+            rows.add(sliderRow("Detection Range", "Max distance in blocks", "xhair_range", 3, 32, 1, true));
+            rows.add(cycleRow("In-View Shape", "Choose 'CUSTOM' for Player-in-View Grid", "pvp_xhair_target_style", TARGET_STYLES));
+            rows.add(colorRow("In-View Color", "opt:pvp_xhair_target_color"));
+        }
     }
-    private void buildZoomRows(List<SettingRow> rows) {
-        rows.add(sliderRow("Zoom Magnification", "Base zoom (2x-12x)", "zoom_fac", 2, 12, 1, true));
-        rows.add(boolRow("Scroll Wheel Zoom", "Scroll while zooming to adjust zoom", "cam_zoom_scroll", true));
-        rows.add(boolRow("Reset Scroll on Release", "Reset when released", "cam_zoom_reset_scroll", true));
-        rows.add(boolRow("Smooth Zoom Easing", "Smooth FOV transitions", "cam_zoom_ease", true));
-        rows.add(boolRow("Slow Mouse While Zoomed", "Precision aiming sensitivity", "cam_zoom_slow", true));
-        rows.add(keybindRow("Zoom Keybind", "Click and press ANY key", "cam_zoom_key", "C"));
-    }
+    private void buildZoomRows(List<SettingRow> rows) { rows.add(sliderRow("Zoom Magnification", "Base zoom (2x-12x)", "zoom_fac", 2, 12, 1, true)); rows.add(boolRow("Scroll Wheel Zoom", "Scroll while zooming to adjust", "cam_zoom_scroll", true)); rows.add(boolRow("Reset Scroll on Release", "Reset when released", "cam_zoom_reset_scroll", true)); rows.add(boolRow("Smooth Zoom Easing", "Smooth FOV transitions", "cam_zoom_ease", true)); rows.add(boolRow("Slow Mouse While Zoomed", "Precision aiming", "cam_zoom_slow", true)); rows.add(keybindRow("Zoom Keybind", "Click and press ANY key", "cam_zoom_key", "C")); }
     private void buildFreeLookRows(List<SettingRow> rows) { rows.add(boolRow("Enable FreeLook 360", "Rotate camera freely 360 degrees", "util_freelook", true)); rows.add(keybindRow("FreeLook Keybind", "Click and press ANY key", "util_freelook_key", "LALT")); }
     private void buildFullbrightRows(List<SettingRow> rows) { rows.add(boolRow("Fullbright", "Max in-world brightness", "util_fullbright", false)); rows.add(sliderRow("Brightness Level", "Gamma multiplier", "util_fullbright_level", 2.0, 15.0, 1.0, false)); }
     private void buildFovRows(List<SettingRow> rows) { rows.add(boolRow("Dynamic FOV", "Shift FOV on sprint/bow", "cam_fov_dynamic", true)); rows.add(sliderRow("FOV Effect Intensity", "0.0x static to 1.5x", "cam_fov_factor", 0.0, 1.5, 0.05, false)); rows.add(boolRow("Sprint FOV Shift", "Zoom out when sprinting", "cam_fov_sprint", true)); rows.add(boolRow("Bow Drawing FOV Zoom", "Zoom in when drawing bow", "cam_fov_bow", true)); }
     private void buildHurtCamRows(List<SettingRow> rows) { rows.add(boolRow("No Hurt Cam", "Disable damage screen shake", "pvp_no_hurtcam", false)); rows.add(sliderRow("Hurt Cam Shake Strength", "0% none to 100% vanilla", "pvp_hurtcam_factor", 0.0, 1.0, 0.05, false)); }
     private void buildLowFireRows(List<SettingRow> rows) { rows.add(lowFirePreviewRow()); rows.add(boolRow("Low Fire Overlay", "Lower first-person flame overlay", "pvp_low_fire", true)); rows.add(sliderRow("Fire Vertical Offset", "Shift flame downward", "fire_offset", -0.70, 0.0, 0.02, false)); }
-
-    private void buildLowShieldRows(List<SettingRow> rows) {
-        rows.add(lowShieldPreviewRow());
-        rows.add(boolRow("Enable Low Shield", "Lower & resize first-person shield", "pvp_low_shield", false));
-        rows.add(boolRow("Only While Blocking", "Apply offset only when holding RMB", "pvp_low_shield_blocking", false));
-        rows.add(sliderRow("Shield Scale", "Resize shield (0.40x - 1.20x)", "pvp_low_shield_scale", 0.40, 1.20, 0.05, false));
-        rows.add(sliderRow("Vertical Y Offset", "Move shield down/up (-0.60 to 0.20)", "pvp_low_shield_y", -0.60, 0.20, 0.02, false));
-        rows.add(sliderRow("Horizontal X Offset", "Shift inward/outward (-0.30 to 0.30)", "pvp_low_shield_x", -0.30, 0.30, 0.02, false));
-    }
+    private void buildLowShieldRows(List<SettingRow> rows) { rows.add(lowShieldPreviewRow()); rows.add(boolRow("Enable Low Shield", "Lower & resize first-person shield", "pvp_low_shield", false)); rows.add(boolRow("Only While Blocking", "Apply offset only when holding RMB", "pvp_low_shield_blocking", false)); rows.add(sliderRow("Shield Scale", "Resize shield (0.40x - 1.20x)", "pvp_low_shield_scale", 0.40, 1.20, 0.05, false)); rows.add(sliderRow("Vertical Y Offset", "Move shield down/up (-0.60 to 0.20)", "pvp_low_shield_y", -0.60, 0.20, 0.02, false)); rows.add(sliderRow("Horizontal X Offset", "Shift inward/outward (-0.30 to 0.30)", "pvp_low_shield_x", -0.30, 0.30, 0.02, false)); }
 
     private void buildViewmodelRows(List<SettingRow> rows) {
         rows.add(viewmodelPreviewRow());
-        rows.add(boolRow("Enable Hand / Viewmodel", "Customize main & off-hand item positions", "vm_enabled", false));
-        rows.add(boolRow("Small Totem", "Shrink Totem of Undying in hand", "pvp_small_totem", false));
-        rows.add(sliderRow("Small Totem Scale", "Totem size (0.35x - 1.00x)", "pvp_small_totem_scale", 0.35, 1.00, 0.05, false));
-        rows.add(sliderRow("Small Totem Y Offset", "Lower totem height (-0.45 to 0.15)", "pvp_small_totem_y", -0.45, 0.15, 0.02, false));
-        rows.add(sliderRow("Main Hand X", "Left/Right offset (-0.50 to 0.50)", "vm_main_x", -0.50, 0.50, 0.02, false));
-        rows.add(sliderRow("Main Hand Y", "Down/Up offset (-0.50 to 0.50)", "vm_main_y", -0.50, 0.50, 0.02, false));
-        rows.add(sliderRow("Main Hand Z", "Forward/Back offset (-0.50 to 0.50)", "vm_main_z", -0.50, 0.50, 0.02, false));
-        rows.add(sliderRow("Main Hand Scale", "Item scale (0.40x - 1.40x)", "vm_main_scale", 0.40, 1.40, 0.05, false));
-        rows.add(sliderRow("Off-Hand X", "Left/Right offset (-0.50 to 0.50)", "vm_off_x", -0.50, 0.50, 0.02, false));
-        rows.add(sliderRow("Off-Hand Y", "Down/Up offset (-0.50 to 0.50)", "vm_off_y", -0.50, 0.50, 0.02, false));
-        rows.add(sliderRow("Off-Hand Z", "Forward/Back offset (-0.50 to 0.50)", "vm_off_z", -0.50, 0.50, 0.02, false));
-        rows.add(sliderRow("Off-Hand Scale", "Item scale (0.40x - 1.40x)", "vm_off_scale", 0.40, 1.40, 0.05, false));
+        rows.add(accordionRow("vm_totem", "SMALL TOTEM & GENERAL"));
+        if (!foldedAccordions.contains("vm_totem")) {
+            rows.add(boolRow("Enable Hand / Viewmodel", "Customize main & off-hand positions", "vm_enabled", false));
+            rows.add(boolRow("Small Totem", "Shrink Totem of Undying in hand", "pvp_small_totem", false));
+            rows.add(sliderRow("Small Totem Scale", "Totem size (0.35x - 1.00x)", "pvp_small_totem_scale", 0.35, 1.00, 0.05, false));
+            rows.add(sliderRow("Small Totem Y Offset", "Lower totem height (-0.45 to 0.15)", "pvp_small_totem_y", -0.45, 0.15, 0.02, false));
+        }
+        rows.add(accordionRow("vm_main", "MAIN HAND POSITION"));
+        if (!foldedAccordions.contains("vm_main")) {
+            rows.add(sliderRow("Main Hand X", "Left/Right (-0.50 to 0.50)", "vm_main_x", -0.50, 0.50, 0.02, false));
+            rows.add(sliderRow("Main Hand Y", "Down/Up (-0.50 to 0.50)", "vm_main_y", -0.50, 0.50, 0.02, false));
+            rows.add(sliderRow("Main Hand Z", "Forward/Back (-0.50 to 0.50)", "vm_main_z", -0.50, 0.50, 0.02, false));
+            rows.add(sliderRow("Main Hand Scale", "Item scale (0.40x - 1.40x)", "vm_main_scale", 0.40, 1.40, 0.05, false));
+        }
+        rows.add(accordionRow("vm_off", "OFF-HAND POSITION"));
+        if (!foldedAccordions.contains("vm_off")) {
+            rows.add(sliderRow("Off-Hand X", "Left/Right (-0.50 to 0.50)", "vm_off_x", -0.50, 0.50, 0.02, false));
+            rows.add(sliderRow("Off-Hand Y", "Down/Up (-0.50 to 0.50)", "vm_off_y", -0.50, 0.50, 0.02, false));
+            rows.add(sliderRow("Off-Hand Z", "Forward/Back (-0.50 to 0.50)", "vm_off_z", -0.50, 0.50, 0.02, false));
+            rows.add(sliderRow("Off-Hand Scale", "Item scale (0.40x - 1.40x)", "vm_off_scale", 0.40, 1.40, 0.05, false));
+        }
     }
 
-    private void buildHitColorRows(List<SettingRow> rows) {
-        rows.add(boolRow("Enable Hit Colorizer", "Replace vanilla red damage flash", "pvp_hit_color", false));
-        rows.add(boolRow("Chroma RGB Hit Flash", "Cycle rainbow colors on damage", "pvp_hit_color_chroma", false));
-        rows.add(sliderRow("Tint Intensity", "Blend strength (10% - 100%)", "pvp_hit_color_alpha", 0.10, 1.00, 0.05, false));
-        rows.add(colorRow("Hit Flash Color", "opt:pvp_hit_color_hex"));
-    }
+    private void buildHitColorRows(List<SettingRow> rows) { rows.add(boolRow("Enable Hit Colorizer", "Replace vanilla red damage flash", "pvp_hit_color", false)); rows.add(boolRow("Chroma RGB Hit Flash", "Cycle rainbow colors on damage", "pvp_hit_color_chroma", false)); rows.add(sliderRow("Tint Intensity", "Blend strength (10% - 100%)", "pvp_hit_color_alpha", 0.10, 1.00, 0.05, false)); rows.add(colorRow("Hit Flash Color", "opt:pvp_hit_color_hex")); }
 
     private void buildHitboxRows(List<SettingRow> rows) {
         rows.add(hitboxPreviewRow());
-        rows.add(boolRow("Enable Custom Hitboxes", "Render customized 3D entity hitboxes", "hb_enabled", false));
-        rows.add(boolRow("Only When F3+B Active", "ON = require F3+B | OFF = always active", "hb_only_f3b", false));
-        rows.add(boolRow("Chroma RGB Hitboxes", "Rainbow animated hitbox outlines", "hb_chroma", false));
-        rows.add(colorRow("Hitbox Color", "opt:hb_color"));
-        rows.add(sliderRow("Line Width", "Stroke thickness (1.0 - 4.0)", "hb_line_width", 1.0, 4.0, 0.5, false));
-        rows.add(sliderRow("Fill Opacity", "Translucent inner box fill (0% - 50%)", "hb_fill_alpha", 0.0, 0.50, 0.02, false));
-        rows.add(boolRow("Show Eye-Height Line", "Red eye-level bounding ring", "hb_eye_line", true));
-        rows.add(boolRow("Show Look Vector", "Blue facing sightline", "hb_look_vec", true));
-        rows.add(boolRow("Players", "Show on other players", "hb_players", true));
-        rows.add(boolRow("Mobs / Living", "Show on mobs & animals", "hb_mobs", true));
-        rows.add(boolRow("Projectiles", "Show on arrows, pearls & fireballs", "hb_projectiles", true));
-        rows.add(boolRow("Dropped Items", "Show on item drops", "hb_items", false));
-        rows.add(boolRow("Hide Self (3rd Person)", "Hide your own hitbox", "hb_hide_self", true));
+        rows.add(accordionRow("hb_style", "STYLE & COLOR"));
+        if (!foldedAccordions.contains("hb_style")) {
+            rows.add(boolRow("Enable Custom Hitboxes", "Render customized 3D entity hitboxes", "hb_enabled", false));
+            rows.add(boolRow("Chroma RGB Hitboxes", "Rainbow animated hitbox outlines", "hb_chroma", false));
+            rows.add(colorRow("Hitbox Color", "opt:hb_color"));
+            rows.add(sliderRow("Line Width", "Stroke thickness (1.0 - 4.0)", "hb_line_width", 1.0, 4.0, 0.5, false));
+            rows.add(sliderRow("Fill Opacity", "Translucent inner box fill (0% - 50%)", "hb_fill_alpha", 0.0, 0.50, 0.02, false));
+        }
+        rows.add(accordionRow("hb_targets", "TARGETS & LINES"));
+        if (!foldedAccordions.contains("hb_targets")) {
+            rows.add(boolRow("Show Eye-Height Line", "Red eye-level bounding ring", "hb_eye_line", true));
+            rows.add(boolRow("Show Look Vector", "Blue facing sightline", "hb_look_vec", true));
+            rows.add(boolRow("Players", "Show on other players", "hb_players", true));
+            rows.add(boolRow("Mobs / Living", "Show on mobs & animals", "hb_mobs", true));
+            rows.add(boolRow("Projectiles", "Show on arrows, pearls & fireballs", "hb_projectiles", true));
+            rows.add(boolRow("Dropped Items", "Show on item drops", "hb_items", false));
+            rows.add(boolRow("Hide Self (3rd Person)", "Hide your own hitbox", "hb_hide_self", true));
+        }
     }
 
-    private void buildBlockBreakRows(List<SettingRow> rows) {
-        rows.add(blockBreakPreviewRow());
-        rows.add(boolRow("Enable Block Break FX", "Render custom 3D animation while mining", "bb_enabled", false));
-        rows.add(cycleRow("Animation Style (5x)", "Shrink, Expand, Rise, Slide Down, or Pulse", "bb_style", BB_STYLES));
-        rows.add(boolRow("Progress Color Gradient", "Shift Green -> Yellow -> Red as block breaks", "bb_progress_color", true));
-        rows.add(colorRow("Static Accent Color", "opt:bb_color"));
-        rows.add(sliderRow("Fill Opacity", "Inner block highlight alpha (0% - 60%)", "bb_fill_alpha", 0.0, 0.60, 0.05, false));
-        rows.add(sliderRow("Outline Width", "Wireframe thickness (1.0 - 4.0)", "bb_line_width", 1.0, 4.0, 0.5, false));
-        rows.add(boolRow("Hide Vanilla Cracks", "Disable default crack texture when enabled", "bb_hide_vanilla", false));
-    }
+    private void buildBlockBreakRows(List<SettingRow> rows) { rows.add(blockBreakPreviewRow()); rows.add(boolRow("Enable Block Break FX", "Render custom 3D animation while mining", "bb_enabled", false)); rows.add(cycleRow("Animation Style (5x)", "Shrink, Expand, Rise, Slide Down, or Pulse", "bb_style", BB_STYLES)); rows.add(boolRow("Progress Color Gradient", "Shift Green -> Yellow -> Red as block breaks", "bb_progress_color", true)); rows.add(colorRow("Static Accent Color", "opt:bb_color")); rows.add(sliderRow("Fill Opacity", "Inner block highlight alpha (0% - 60%)", "bb_fill_alpha", 0.0, 0.60, 0.05, false)); rows.add(sliderRow("Outline Width", "Wireframe thickness (1.0 - 4.0)", "bb_line_width", 1.0, 4.0, 0.5, false)); rows.add(boolRow("Hide Vanilla Cracks", "Disable default crack texture when enabled", "bb_hide_vanilla", false)); }
     private interface SettingRow { int height(); boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad); }
+
+    private SettingRow accordionRow(final String key, final String title) {
+        return new SettingRow() {
+            @Override public int height() { return 22; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                boolean folded = foldedAccordions.contains(key), hov = mx >= x && mx <= x + w && my >= y && my <= y + 22;
+                if (!click) {
+                    g.drawGlassCard(x, y, w, 22, 6, hov ? 0xFF1A1B24 : 0xFF121218, ClientState.UI_BORDER);
+                    g.text((folded ? "> " : "v ") + title, x + 10, y + 7, accent, false);
+                } else if (hov) {
+                    g.playClickSound();
+                    if (folded) foldedAccordions.remove(key); else foldedAccordions.add(key);
+                    return true;
+                }
+                return false;
+            }
+        };
+    }
 
     private SettingRow hitboxPreviewRow() {
         return new SettingRow() {
             @Override public int height() { return 84; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 if (click) return false;
-                ClientConfig cfg = ClientConfig.get();
-                boolean ch = cfg.getBool("hb_chroma", false), eye = cfg.getBool("hb_eye_line", true), look = cfg.getBool("hb_look_vec", true);
+                ClientConfig cfg = ClientConfig.get(); boolean ch = cfg.getBool("hb_chroma", false), eye = cfg.getBool("hb_eye_line", true), look = cfg.getBool("hb_look_vec", true);
                 int col = ch ? ClientState.getChromaColor(2.0, 0.85, 45.0, 0.5, 0.5) : ClientState.parseHexColor(cfg.getString("hb_color", "#22d3ee"), 0xFF22D3EE);
-                double fillA = cfg.getDouble("hb_fill_alpha", 0.12);
-                int thick = Math.max(1, Math.min(3, (int) Math.round(cfg.getDouble("hb_line_width", 2.0) * 0.7)));
-                g.drawGlassCard(x, y, w, 84, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                g.text("3D HITBOX PREVIEW", x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
-                int px = x + 12, py = y + 20, pw = w - 24, ph = 56;
+                double fillA = cfg.getDouble("hb_fill_alpha", 0.12); int thick = Math.max(1, Math.min(3, (int) Math.round(cfg.getDouble("hb_line_width", 2.0) * 0.7)));
+                g.drawGlassCard(x, y, w, 84, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text("3D HITBOX PREVIEW", x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
+                int px = x + 12, py = y + 20, pw = w - 24, ph = 56, cx = px + pw / 2, bx = cx - 14, by = py + 8, bw = 28, bh = 42, ox = 8, oy = -4;
                 g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12);
-                int cx = px + pw / 2, bx = cx - 14, by = py + 8, bw = 28, bh = 42, ox = 8, oy = -4;
                 if (fillA > 0.01) g.fill(bx, by, bx + bw, by + bh, ClientState.withAlpha(col, (int) Math.round(fillA * 255.0)));
                 g.drawBorder(bx + ox, by + oy, bw, bh, ClientState.withAlpha(col, 140));
-                g.drawLine(bx, by, bx + ox, by + oy, 1, ClientState.withAlpha(col, 160));
-                g.drawLine(bx + bw, by, bx + bw + ox, by + oy, 1, ClientState.withAlpha(col, 160));
-                g.drawLine(bx, by + bh, bx + ox, by + bh + oy, 1, ClientState.withAlpha(col, 160));
-                g.drawLine(bx + bw, by + bh, bx + bw + ox, by + bh + oy, 1, ClientState.withAlpha(col, 160));
+                g.drawLine(bx, by, bx + ox, by + oy, 1, ClientState.withAlpha(col, 160)); g.drawLine(bx + bw, by, bx + bw + ox, by + oy, 1, ClientState.withAlpha(col, 160));
+                g.drawLine(bx, by + bh, bx + ox, by + bh + oy, 1, ClientState.withAlpha(col, 160)); g.drawLine(bx + bw, by + bh, bx + bw + ox, by + bh + oy, 1, ClientState.withAlpha(col, 160));
                 g.drawRoundedOutline(bx, by, bw, bh, 0, thick, "solid", col, col);
                 if (eye) g.fill(bx - 1, by + 9, bx + bw + 1, by + 11, 0xFFEF4444);
                 if (look) g.drawLine(cx + 2, by + 10, cx + 30, by + 16, 2, 0xFF3B82F6);
@@ -599,28 +620,21 @@ public class SharedModMenu {
             @Override public int height() { return 84; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 if (click) return false;
-                ClientConfig cfg = ClientConfig.get();
-                String style = cfg.getString("bb_style", "shrink");
-                boolean progCol = cfg.getBool("bb_progress_color", true);
-                double fillA = cfg.getDouble("bb_fill_alpha", 0.30);
+                ClientConfig cfg = ClientConfig.get(); String style = cfg.getString("bb_style", "shrink");
+                boolean progCol = cfg.getBool("bb_progress_color", true); double fillA = cfg.getDouble("bb_fill_alpha", 0.30);
                 float p = (System.currentTimeMillis() % 1800L) / 1800.0F;
-                int col = progCol ? (p < 0.5F ? ClientState.lerpColor(0xFF10B981, 0xFFF59E0B, p * 2.0F) : ClientState.lerpColor(0xFFF59E0B, 0xFFEF4444, (p - 0.5F) * 2.0F))
-                        : ClientState.parseHexColor(cfg.getString("bb_color", "#22d3ee"), 0xFF22D3EE);
+                int col = progCol ? (p < 0.5F ? ClientState.lerpColor(0xFF10B981, 0xFFF59E0B, p * 2.0F) : ClientState.lerpColor(0xFFF59E0B, 0xFFEF4444, (p - 0.5F) * 2.0F)) : ClientState.parseHexColor(cfg.getString("bb_color", "#22d3ee"), 0xFF22D3EE);
                 g.drawGlassCard(x, y, w, 84, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                 g.text("BLOCK BREAK PREVIEW: " + style.toUpperCase() + " (" + Math.round(p * 100) + "%)", x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
-                int px = x + 12, py = y + 20, pw = w - 24, ph = 56;
-                g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12);
-                int sz = 40, bx = px + pw / 2 - sz / 2, by = py + 8;
-                g.fill(bx, by, bx + sz, by + sz, 0xFF3F3F46);
-                g.drawBorder(bx, by, sz, sz, 0x66FFFFFF);
+                int px = x + 12, py = y + 20, pw = w - 24, ph = 56, sz = 40, bx = px + pw / 2 - sz / 2, by = py + 8;
+                g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12); g.fill(bx, by, bx + sz, by + sz, 0xFF3F3F46); g.drawBorder(bx, by, sz, sz, 0x66FFFFFF);
                 int rx = bx, ry = by, rw = sz, rh = sz;
                 if ("shrink".equals(style)) { int ins = Math.round((sz * 0.45F) * p); rx += ins; ry += ins; rw = Math.max(4, sz - ins * 2); rh = Math.max(4, sz - ins * 2); }
                 else if ("expand".equals(style)) { int ins = Math.round((sz * 0.45F) * (1.0F - p)); rx += ins; ry += ins; rw = Math.max(4, sz - ins * 2); rh = Math.max(4, sz - ins * 2); }
                 else if ("rise".equals(style)) { rh = Math.max(3, Math.round(sz * p)); ry = by + sz - rh; }
                 else if ("slide_down".equals(style)) { rh = Math.max(3, Math.round(sz * (1.0F - p))); ry = by + sz - rh; }
                 else { int ins = Math.round(4.0F * (0.5F + 0.5F * (float) Math.sin(p * Math.PI * 6.0))); rx += ins; ry += ins; rw -= ins * 2; rh -= ins * 2; }
-                g.fill(rx, ry, rx + rw, ry + rh, ClientState.withAlpha(col, (int) Math.round(fillA * 255.0)));
-                g.drawBorder(rx, ry, rw, rh, col);
+                g.fill(rx, ry, rx + rw, ry + rh, ClientState.withAlpha(col, (int) Math.round(fillA * 255.0))); g.drawBorder(rx, ry, rw, rh, col);
                 return false;
             }
         };
@@ -631,19 +645,16 @@ public class SharedModMenu {
             @Override public int height() { return 86; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 if (click) return false;
-                ClientConfig cfg = ClientConfig.get();
-                boolean vmOn = cfg.getBool("vm_enabled", false), smTotem = cfg.getBool("pvp_small_totem", false);
+                ClientConfig cfg = ClientConfig.get(); boolean vmOn = cfg.getBool("vm_enabled", false), smTotem = cfg.getBool("pvp_small_totem", false);
                 g.drawGlassCard(x, y, w, 86, menuRad, 0xFF14141B, ClientState.UI_BORDER);
                 g.text("FIRST-PERSON HANDS PREVIEW" + (vmOn ? " (ACTIVE)" : " (VANILLA)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
                 int px = x + 12, py = y + 20, pw = w - 24, ph = 58;
-                g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12);
-                g.fill(px + pw / 2 - 1, py + ph / 2 - 1, px + pw / 2 + 1, py + ph / 2 + 1, 0x55FFFFFF);
+                g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12); g.fill(px + pw / 2 - 1, py + ph / 2 - 1, px + pw / 2 + 1, py + ph / 2 + 1, 0x55FFFFFF);
                 double mxo = vmOn ? cfg.getDouble("vm_main_x", 0.0) : 0.0, myo = vmOn ? cfg.getDouble("vm_main_y", 0.0) : 0.0, msc = vmOn ? cfg.getDouble("vm_main_scale", 1.0) : 1.0;
                 int rx = px + pw - 38 + (int) Math.round(mxo * 36.0), ry = py + ph - 26 - (int) Math.round(myo * 30.0), rsz = Math.max(8, (int) Math.round(18.0 * msc));
                 g.drawRoundedRect(rx, ry, rsz, rsz, 3, 0xFF22D3EE); g.text("MAIN", rx, ry - 9, ClientState.UI_TEXT_DIM, false);
                 double oxo = vmOn ? cfg.getDouble("vm_off_x", 0.0) : 0.0, oyo = vmOn ? cfg.getDouble("vm_off_y", 0.0) : 0.0;
-                double osc = (vmOn ? cfg.getDouble("vm_off_scale", 1.0) : 1.0) * (smTotem ? cfg.getDouble("pvp_small_totem_scale", 0.60) : 1.0);
-                double tyOff = smTotem ? cfg.getDouble("pvp_small_totem_y", -0.12) : 0.0;
+                double osc = (vmOn ? cfg.getDouble("vm_off_scale", 1.0) : 1.0) * (smTotem ? cfg.getDouble("pvp_small_totem_scale", 0.60) : 1.0), tyOff = smTotem ? cfg.getDouble("pvp_small_totem_y", -0.12) : 0.0;
                 int lx = px + 24 + (int) Math.round(oxo * 36.0), ly = py + ph - 24 - (int) Math.round((oyo + tyOff) * 30.0), lsz = Math.max(6, (int) Math.round(16.0 * osc));
                 g.drawRoundedRect(lx, ly, lsz, lsz, 3, smTotem ? 0xFFFACC15 : 0xFFA1A1AA); g.text(smTotem ? "TOTEM" : "OFF", lx, ly - 9, ClientState.UI_TEXT_DIM, false);
                 return false;
@@ -658,11 +669,9 @@ public class SharedModMenu {
                 if (click) return false;
                 ClientConfig cfg = ClientConfig.get(); boolean en = cfg.getBool("pvp_low_shield", false);
                 double sc = en ? cfg.getDouble("pvp_low_shield_scale", 0.85) : 1.0, yOff = en ? cfg.getDouble("pvp_low_shield_y", -0.22) : 0.0, xOff = en ? cfg.getDouble("pvp_low_shield_x", 0.0) : 0.0;
-                g.drawGlassCard(x, y, w, 80, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                g.text("FIRST-PERSON SHIELD PREVIEW" + (en ? " (LOWERED)" : " (VANILLA)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
-                int px = x + 12, py = y + 20, pw = w - 24, ph = 52;
+                g.drawGlassCard(x, y, w, 80, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text("FIRST-PERSON SHIELD PREVIEW" + (en ? " (LOWERED)" : " (VANILLA)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
+                int px = x + 12, py = y + 20, pw = w - 24, ph = 52, sw0 = Math.max(12, (int) Math.round(22.0 * sc)), sh0 = Math.max(18, (int) Math.round(36.0 * sc));
                 g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12); g.fill(px + pw / 2 - 1, py + ph / 2 - 1, px + pw / 2 + 1, py + ph / 2 + 1, 0x55FFFFFF);
-                int sw0 = Math.max(12, (int) Math.round(22.0 * sc)), sh0 = Math.max(18, (int) Math.round(36.0 * sc));
                 int sx = px + 26 + (int) Math.round(xOff * 42.0), sy = py + ph - sh0 - 4 - (int) Math.round(yOff * 36.0);
                 g.drawGlassCard(sx, sy, sw0, sh0, 3, 2, "solid", 0xFF785234, 0xFFD4D4D8, 0xFFD4D4D8);
                 g.fill(sx + sw0 / 2 - 2, sy + sh0 / 2 - 3, sx + sw0 / 2 + 2, sy + sh0 / 2 + 3, 0xFFD4D4D8);
@@ -678,17 +687,11 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 if (click) return false;
                 ClientConfig cfg = ClientConfig.get(); double offset = cfg.getDouble("pvp_low_fire_offset", -0.32); boolean en = cfg.getBool("pvp_low_fire", true);
-                g.drawGlassCard(x, y, w, 76, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                g.text("FIRST-PERSON FIRE PREVIEW" + (en ? " (LOW FIRE)" : " (VANILLA)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
+                g.drawGlassCard(x, y, w, 76, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text("FIRST-PERSON FIRE PREVIEW" + (en ? " (LOW FIRE)" : " (VANILLA)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
                 int pw = w - 24, ph = 48, px0 = x + 12, py0 = y + 20;
                 g.drawRoundedRect(px0, py0, pw, ph, 6, 0xFF0C0D12); g.fill(px0 + pw / 2 - 1, py0 + ph / 2 - 1, px0 + pw / 2 + 1, py0 + ph / 2 + 1, 0x55FFFFFF);
-                float bob = (float) Math.sin(System.currentTimeMillis() / 130.0) * 2.0F;
-                int baseH = en ? Math.max(4, (int) Math.round(ph * (0.68 + offset))) : Math.round(ph * 0.88F);
-                for (int k = 0; k < 6; k++) {
-                    int fx = px0 + (k * pw) / 6, fw = pw / 6 + 2, fh = Math.max(4, baseH + ((k % 2 == 0) ? Math.round(bob) : -Math.round(bob)));
-                    g.fill(fx, py0 + ph - fh, fx + fw, py0 + ph, 0xB8EA580C);
-                    g.fill(fx + 3, py0 + ph - Math.max(2, fh - 4), fx + fw - 3, py0 + ph, 0xCCFACC15);
-                }
+                float bob = (float) Math.sin(System.currentTimeMillis() / 130.0) * 2.0F; int baseH = en ? Math.max(4, (int) Math.round(ph * (0.68 + offset))) : Math.round(ph * 0.88F);
+                for (int k = 0; k < 6; k++) { int fx = px0 + (k * pw) / 6, fw = pw / 6 + 2, fh = Math.max(4, baseH + ((k % 2 == 0) ? Math.round(bob) : -Math.round(bob))); g.fill(fx, py0 + ph - fh, fx + fw, py0 + ph, 0xB8EA580C); g.fill(fx + 3, py0 + ph - Math.max(2, fh - 4), fx + fw - 3, py0 + ph, 0xCCFACC15); }
                 g.text("Screen Covered: " + Math.round((baseH / (float) ph) * 100) + "%", px0 + 8, py0 + 8, 0xFFFFFFFF, true);
                 return false;
             }
@@ -703,10 +706,7 @@ public class SharedModMenu {
                 if (!click) { g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, wp.enabled ? col : ClientState.UI_BORDER); g.text(wp.x + ", " + wp.y + ", " + wp.z + "  (" + wp.dimension.replace("minecraft:", "") + ")", x + 30, y + 22, ClientState.UI_TEXT_DIM, false); }
                 if (mx >= x + 6 && mx <= x + 24 && my >= y + 9 && my <= y + 29) { hoveredTooltip = "Cycle Waypoint Color"; if (click) { g.playClickSound(); ClientConfig.get().cycleWaypointColor(wp); return true; } }
                 if (!click) g.drawCircleFilled(x + 15, y + 19, 6, col);
-                if (drawBtn(g, "wpn_" + wp.id, x + 28, y + 5, 76, 15, 4, wp.name, 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
-                    int idx = 0; for (int i = 0; i < WP_NAME_PRESETS.length; i++) if (WP_NAME_PRESETS[i].equalsIgnoreCase(wp.name)) idx = (i + 1) % WP_NAME_PRESETS.length;
-                    wp.name = WP_NAME_PRESETS[idx]; ClientConfig.get().save(); return true;
-                }
+                if (drawBtn(g, "wpn_" + wp.id, x + 28, y + 5, 76, 15, 4, wp.name, 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { int idx = 0; for (int i = 0; i < WP_NAME_PRESETS.length; i++) if (WP_NAME_PRESETS[i].equalsIgnoreCase(wp.name)) idx = (i + 1) % WP_NAME_PRESETS.length; wp.name = WP_NAME_PRESETS[idx]; ClientConfig.get().save(); return true; }
                 if (drawSwitch(g, "wpt_" + wp.id, x + w - 82, y + 10, 38, 18, wp.enabled, accent, accentFg, mx, my, click)) { wp.enabled = !wp.enabled; ClientConfig.get().save(); return true; }
                 if (drawBtn(g, "wpd_" + wp.id, x + w - 38, y + 10, 28, 18, 4, "Del", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) { ClientConfig.get().removeWaypoint(wp.id); return true; }
                 return false;
@@ -721,7 +721,7 @@ public class SharedModMenu {
                 boolean listening = optId.equals(listeningKeyOptId); String cur = ClientConfig.get().getString(optId, def).toUpperCase();
                 if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, listening ? accent : ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 int bw = listening ? 104 : 84;
-                if (drawBtn(g, "kb_" + optId, x + w - bw - 10, y + 8, bw, 20, Math.max(2, menuRad / 2), listening ? "> PRESS KEY <" : cur, listening ? accent : 0xFF1E1E28, listening ? accentFg : ClientState.UI_TEXT, listening, mx, my, click)) { listeningKeyOptId = listening ? null : optId; searchFocused = false; return true; }
+                if (drawBtn(g, "kb_" + optId, x + w - bw - 10, y + 8, bw, 20, Math.max(2, menuRad / 2), listening ? "> PRESS KEY <" : cur, listening ? accent : 0xFF1E1E28, listening ? accentFg : ClientState.UI_TEXT, listening, mx, my, click)) { listeningKeyOptId = listening ? null : optId; searchFocused = false; accountInputFocused = false; return true; }
                 return false;
             }
         };
@@ -761,8 +761,7 @@ public class SharedModMenu {
                 if (drawSwitch(g, "mb_" + modId + "_" + field, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) {
                     if ("bg".equals(field)) m.bg = !m.bg; else if ("border".equals(field)) m.border = !m.border; else if ("chroma".equals(field)) m.chroma = !m.chroma;
                     else if ("hideInF1".equals(field)) m.hideInF1 = !m.hideInF1; else if ("hideInChat".equals(field)) m.hideInChat = !m.hideInChat;
-                    else if ("hideInInventory".equals(field)) m.hideInInventory = !m.hideInInventory; else if ("hideInF3".equals(field)) m.hideInF3 = !m.hideInF3;
-                    else m.shadow = !m.shadow;
+                    else if ("hideInInventory".equals(field)) m.hideInInventory = !m.hideInInventory; else if ("hideInF3".equals(field)) m.hideInF3 = !m.hideInF3; else m.shadow = !m.shadow;
                     ClientConfig.get().save(); return true;
                 }
                 return false;
@@ -949,7 +948,7 @@ public class SharedModMenu {
         if ("global_hud_rounding".equals(key)) return cfg.getDouble("global_hud_rounding", -1.0);
         if ("global_hud_opacity".equals(key)) return cfg.getDouble("global_hud_opacity", -1.0);
         if ("ui_menu_rounding".equals(key)) return cfg.getDouble("ui_menu_rounding", 10.0);
-        if ("ui_card_width".equals(key)) return cfg.getDouble("ui_card_width", 140);
+        if ("ui_card_width".equals(key)) return cfg.getDouble("ui_card_width", 138);
         if ("ui_anim_speed".equals(key)) return cfg.getDouble("ui_anim_speed", 1.0);
         if ("util_fullbright_level".equals(key)) return cfg.getDouble("util_fullbright_level", 12.0);
         if ("xhair_pixel_scale".equals(key)) return cfg.getDouble("pvp_xhair_pixel_scale", 1);
@@ -1073,7 +1072,7 @@ public class SharedModMenu {
     }
 
     private String getModTitle(String id) { for (ModEntry m : ALL_MODS) if (m.id.equals(id)) return m.name; return "Module Settings"; }
-    private String getMenuTitle(String id) { return "favorites".equals(id) ? "Favorites" : "system".equals(id) ? "System & Perf" : "pvp".equals(id) ? "PvP & Combat" : "world".equals(id) ? "World & Survival" : "server".equals(id) ? "Server & Minigames" : "visuals".equals(id) ? "Visuals" : "utility".equals(id) ? "Core Utilities" : "All Modules"; }
+    private String getMenuTitle(String id) { return "favorites".equals(id) ? "Favorites" : "system".equals(id) ? "System & Perf" : "pvp".equals(id) ? "PvP & Combat" : "world".equals(id) ? "World & Survival" : "server".equals(id) ? "Server & Minigames" : "visuals".equals(id) ? "Visuals & HUD" : "utility".equals(id) ? "Core Utilities" : "All Mods"; }
     private String trimToWidth(UiBridge.UiDraw g, String s, int maxW) { if (g.textWidth(s) <= maxW) return s; while (s.length() > 3 && g.textWidth(s + "..") > maxW) s = s.substring(0, s.length() - 1); return s + ".."; }
 
     private List<String> wrapText(UiBridge.UiDraw g, String text, int maxW, int maxLines) {

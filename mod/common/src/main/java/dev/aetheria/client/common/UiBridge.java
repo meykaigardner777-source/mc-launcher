@@ -11,6 +11,9 @@ public final class UiBridge {
         void popTransform();
 
         default void playClickSound() {}
+        default String currentUsername() { return "Player"; }
+        default String currentUuid() { return ""; }
+        default boolean switchAccount(String username, String uuid) { return false; }
         default void drawEntity(int x, int y, int size, float mouseX, float mouseY) {}
         default void drawPaperdoll(int x1, int y1, int x2, int y2, int size, float mouseX, float mouseY) {
             pushTransform(x1, y1, 1.0F);

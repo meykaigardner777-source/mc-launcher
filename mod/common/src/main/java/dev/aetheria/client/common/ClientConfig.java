@@ -10,21 +10,29 @@ public class ClientConfig {
     private static final ClientConfig INSTANCE = new ClientConfig();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String[] WP_COLORS = {"#22d3ee", "#10b981", "#f59e0b", "#ef4444", "#a855f7", "#ffffff"};
+    private static final String[] ACC_TAGS = {"Main", "PvP", "SMP", "Alt", "Test"};
 
     private Path configPath;
     private long lastPollMs = 0L, lastFileMtimeMs = 0L;
 
     public String menuKey = "RSHIFT";
     public String activeProfile = "PvP";
+    public String activeAccountId = "";
     public long updatedAt = 0L;
     public final Map<String, HudModule> hudModules = new LinkedHashMap<String, HudModule>();
     public final Map<String, JsonElement> options = new LinkedHashMap<String, JsonElement>();
     public final List<Waypoint> waypoints = new ArrayList<Waypoint>();
+    public final List<AccountEntry> accounts = new ArrayList<AccountEntry>();
 
     public static class Waypoint {
         public String id, name, dimension = "minecraft:overworld", color = "#22d3ee";
         public int x, y, z;
         public boolean enabled = true;
+    }
+
+    public static class AccountEntry {
+        public String id, name, type = "offline", tag = "Alt", uuid = "";
+        public boolean pinned = false;
     }
 
     public static class HudModule {
@@ -153,9 +161,9 @@ public class ClientConfig {
 
         setDefaultOpt("global_hud_rounding", Integer.valueOf(-1));
         setDefaultOpt("global_hud_opacity", Double.valueOf(-1.0));
-        setDefaultOpt("ui_menu_layout", "topbar");
+        setDefaultOpt("ui_menu_layout", "oneclient");
         setDefaultOpt("ui_switch_style", "pill");
-        setDefaultOpt("ui_card_width", Integer.valueOf(140));
+        setDefaultOpt("ui_card_width", Integer.valueOf(138));
         setDefaultOpt("ui_menu_rounding", Integer.valueOf(10));
         setDefaultOpt("ui_menu_opacity", Double.valueOf(0.92));
         setDefaultOpt("ui_accent", "white");
@@ -308,6 +316,46 @@ public class ClientConfig {
         hudModules.put(id, m);
     }
 
+    public synchronized void addAccount(String name, String type, String tag) {
+        if (name == null || name.trim().isEmpty()) return;
+        String clean = name.trim();
+        for (AccountEntry a : accounts) {
+            if (clean.equalsIgnoreCase(a.name)) { activeAccountId = a.id; save(); return; }
+        }
+        AccountEntry a = new AccountEntry();
+        a.id = "acc_" + System.currentTimeMillis() + "_" + accounts.size();
+        a.name = clean;
+        a.type = (type == null || type.isEmpty()) ? "offline" : type;
+        a.tag = (tag == null || tag.isEmpty()) ? "Alt" : tag;
+        a.uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8)).toString();
+        accounts.add(a);
+        activeAccountId = a.id;
+        save();
+    }
+
+    public synchronized void removeAccount(String id) {
+        for (int i = accounts.size() - 1; i >= 0; i--) if (id.equals(accounts.get(i).id)) accounts.remove(i);
+        if (id.equals(activeAccountId)) activeAccountId = accounts.isEmpty() ? "" : accounts.get(0).id;
+        save();
+    }
+
+    public synchronized void moveAccount(String id, int delta) {
+        for (int i = 0; i < accounts.size(); i++) {
+            if (id.equals(accounts.get(i).id)) {
+                int j = Math.max(0, Math.min(accounts.size() - 1, i + delta));
+                if (i != j) { AccountEntry tmp = accounts.remove(i); accounts.add(j, tmp); save(); }
+                return;
+            }
+        }
+    }
+
+    public synchronized void cycleAccountTag(AccountEntry a) {
+        int next = 0;
+        for (int i = 0; i < ACC_TAGS.length; i++) if (ACC_TAGS[i].equalsIgnoreCase(a.tag)) next = (i + 1) % ACC_TAGS.length;
+        a.tag = ACC_TAGS[next];
+        save();
+    }
+
     public synchronized void addWaypointAt(String name, int x, int y, int z, String dim) {
         Waypoint w = new Waypoint();
         w.id = "wp_" + System.currentTimeMillis() + "_" + waypoints.size();
@@ -387,10 +435,26 @@ public class ClientConfig {
             JsonObject root = new JsonParser().parse(raw).getAsJsonObject();
             if (root.has("menuKey") && !root.get("menuKey").isJsonNull()) menuKey = root.get("menuKey").getAsString();
             if (root.has("activeProfile") && !root.get("activeProfile").isJsonNull()) activeProfile = root.get("activeProfile").getAsString();
+            if (root.has("activeAccountId") && !root.get("activeAccountId").isJsonNull()) activeAccountId = root.get("activeAccountId").getAsString();
             if (root.has("updatedAt")) updatedAt = root.get("updatedAt").getAsLong();
 
             if (root.has("options") && root.get("options").isJsonObject()) {
                 for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("options").entrySet()) options.put(e.getKey(), e.getValue());
+            }
+            if (root.has("accounts") && root.get("accounts").isJsonArray()) {
+                accounts.clear();
+                for (JsonElement el : root.getAsJsonArray("accounts")) {
+                    if (!el.isJsonObject()) continue;
+                    JsonObject o = el.getAsJsonObject();
+                    AccountEntry a = new AccountEntry();
+                    a.id = o.has("id") ? o.get("id").getAsString() : ("acc_" + accounts.size());
+                    a.name = o.has("name") ? o.get("name").getAsString() : "Player";
+                    a.type = o.has("type") ? o.get("type").getAsString() : "offline";
+                    a.tag = o.has("tag") ? o.get("tag").getAsString() : "Alt";
+                    a.uuid = o.has("uuid") ? o.get("uuid").getAsString() : "";
+                    a.pinned = o.has("pinned") && o.get("pinned").getAsBoolean();
+                    accounts.add(a);
+                }
             }
             if (root.has("waypoints") && root.get("waypoints").isJsonArray()) {
                 waypoints.clear();
@@ -480,6 +544,7 @@ public class ClientConfig {
         root.addProperty("updatedAt", Long.valueOf(updatedAt));
         root.addProperty("menuKey", menuKey);
         root.addProperty("activeProfile", activeProfile);
+        root.addProperty("activeAccountId", activeAccountId);
 
         JsonObject mods = new JsonObject();
         for (Map.Entry<String, HudModule> e : hudModules.entrySet()) {
@@ -536,6 +601,16 @@ public class ClientConfig {
             mods.add(e.getKey(), o);
         }
         root.add("hudModules", mods);
+
+        JsonArray accArr = new JsonArray();
+        for (AccountEntry a : accounts) {
+            JsonObject ao = new JsonObject();
+            ao.addProperty("id", a.id); ao.addProperty("name", a.name);
+            ao.addProperty("type", a.type); ao.addProperty("tag", a.tag);
+            ao.addProperty("uuid", a.uuid); ao.addProperty("pinned", Boolean.valueOf(a.pinned));
+            accArr.add(ao);
+        }
+        root.add("accounts", accArr);
 
         JsonArray wpArr = new JsonArray();
         for (Waypoint w : waypoints) {
