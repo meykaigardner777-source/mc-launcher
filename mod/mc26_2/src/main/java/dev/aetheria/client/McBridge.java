@@ -332,11 +332,11 @@ public final class McBridge {
             @Override public float pitch() { return mc.player.getXRot(); }
             @Override public boolean isSneaking() { return mc.player.isShiftKeyDown(); }
             @Override public boolean isMoveCtrl() { return mc.options.keySprint.isDown(); }
-            @Override public double camX() { Camera c = mc.gameRenderer.getMainCamera(); return c != null && c.isInitialized() ? c.position().x() : posX(); }
-            @Override public double camY() { Camera c = mc.gameRenderer.getMainCamera(); return c != null && c.isInitialized() ? c.position().y() : posY() + 1.62; }
-            @Override public double camZ() { Camera c = mc.gameRenderer.getMainCamera(); return c != null && c.isInitialized() ? c.position().z() : posZ(); }
-            @Override public float camYaw() { Camera c = mc.gameRenderer.getMainCamera(); return c != null && c.isInitialized() ? c.yRot() : yaw(); }
-            @Override public float camPitch() { Camera c = mc.gameRenderer.getMainCamera(); return c != null && c.isInitialized() ? c.xRot() : pitch(); }
+            @Override public double camX() { Camera c = mc.gameRenderer.mainCamera(); return c != null ? c.position().x : posX(); }
+            @Override public double camY() { Camera c = mc.gameRenderer.mainCamera(); return c != null ? c.position().y : posY() + 1.62; }
+            @Override public double camZ() { Camera c = mc.gameRenderer.mainCamera(); return c != null ? c.position().z : posZ(); }
+            @Override public float camYaw() { Camera c = mc.gameRenderer.mainCamera(); return c != null ? c.yRot() : yaw(); }
+            @Override public float camPitch() { Camera c = mc.gameRenderer.mainCamera(); return c != null ? c.xRot() : pitch(); }
             @Override public String scoreboardTitle() {
                 try {
                     if (mc.level == null) return "";
