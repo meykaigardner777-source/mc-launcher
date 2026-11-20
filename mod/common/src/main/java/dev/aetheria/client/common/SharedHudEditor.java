@@ -40,8 +40,9 @@ public class SharedHudEditor {
         for (ClientConfig.HudModule m : cfg.hudModules.values()) {
             if (!m.enabled) continue;
             SharedHudRenderer.renderModule(g, d, m, sw, sh, true, true);
-            int[] b = SharedHudRenderer.getModulePixelBounds(g, d, m, sw, sh);
+            int[] b = SharedHudRenderer.getModulePixelBounds(g, d, m, sw, sh, true);
             int bx = b[0], by = b[1], bw = b[2], bh = b[3];
+            if (bw <= 0 || bh <= 0) continue;
             int rad = globalRad >= 0 ? globalRad : Math.max(0, Math.min(30, m.borderRadius));
             boolean sel = m.id.equals(primaryId) || selectedIds.contains(m.id);
             boolean hov = mx >= bx && mx <= bx + bw && my >= by && my <= by + bh;
@@ -63,7 +64,6 @@ public class SharedHudEditor {
             }
         }
 
-        // Tiny top-center micro pill so bottom & hotbar area are 100% unobstructed
         drawOrHandleTopPill(g, sw, mx, my, false, null, accent);
     }
 
@@ -76,7 +76,7 @@ public class SharedHudEditor {
         if (button == 0 && primaryId != null) {
             ClientConfig.HudModule sel = cfg.hudModules.get(primaryId);
             if (sel != null && sel.enabled) {
-                int[] b = SharedHudRenderer.getModulePixelBounds(g, d, sel, sw, sh);
+                int[] b = SharedHudRenderer.getModulePixelBounds(g, d, sel, sw, sh, true);
                 int closeX = b[0] + b[2] - 3, closeY = b[1] - 5;
                 if (Math.hypot(mx - closeX, my - closeY) <= 8.0) {
                     g.playClickSound(); pushUndo();
@@ -100,7 +100,8 @@ public class SharedHudEditor {
         for (int i = list.size() - 1; i >= 0; i--) {
             ClientConfig.HudModule m = list.get(i);
             if (!m.enabled) continue;
-            int[] b = SharedHudRenderer.getModulePixelBounds(g, d, m, sw, sh);
+            int[] b = SharedHudRenderer.getModulePixelBounds(g, d, m, sw, sh, true);
+            if (b[2] <= 0 || b[3] <= 0) continue;
             if (mx >= b[0] - 2 && mx <= b[0] + b[2] + 4 && my >= b[1] - 2 && my <= b[1] + b[3] + 4) {
                 if (button == 1 && actions != null) { g.playClickSound(); primaryId = m.id; actions.openModSettings(m.id); return true; }
                 if (button == 0) {
@@ -120,7 +121,7 @@ public class SharedHudEditor {
                 }
             }
         }
-        if (button == 0 && !shiftHeld) selectedIds.clear();
+        if (button == 0 && !shiftHeld) { selectedIds.clear(); primaryId = null; }
         return false;
     }
 
@@ -145,7 +146,7 @@ public class SharedHudEditor {
                 if (cfg.getBool("hud_snap_grid", true)) { nx = Math.round(nx * 40.0) / 40.0; ny = Math.round(ny * 40.0) / 40.0; }
                 dm.x = Math.max(0.0, Math.min(1.0, nx)); dm.y = Math.max(0.0, Math.min(1.0, ny));
                 if (ent.getKey().equals(draggingId) && cfg.getBool("hud_align_guides", true)) {
-                    int[] b = SharedHudRenderer.getModulePixelBounds(g, d, dm, sw, sh);
+                    int[] b = SharedHudRenderer.getModulePixelBounds(g, d, dm, sw, sh, true);
                     int cx = b[0] + b[2] / 2, cy = b[1] + b[3] / 2;
                     if (Math.abs(cx - sw / 2) <= 5) { guideX = Integer.valueOf(sw / 2); dm.x = Math.max(0.0, Math.min(1.0, dm.x + (sw / 2.0 - cx) / sw)); }
                     if (Math.abs(cy - sh / 2) <= 5) { guideY = Integer.valueOf(sh / 2); dm.y = Math.max(0.0, Math.min(1.0, dm.y + (sh / 2.0 - cy) / sh)); }
@@ -160,6 +161,30 @@ public class SharedHudEditor {
         guideX = null; guideY = null;
         if (draggingId != null || resizingId != null) { draggingId = null; resizingId = null; ClientConfig.get().save(); return true; }
         return false;
+    }
+
+    public boolean keyPressed(int keyCode, int sw, int sh) {
+        if (primaryId == null && selectedIds.isEmpty()) return false;
+        int step = shiftHeld ? 5 : 1;
+        double dx = 0.0, dy = 0.0;
+        if (keyCode == 262) dx = step / Math.max(1.0, sw);       // RIGHT
+        else if (keyCode == 263) dx = -step / Math.max(1.0, sw); // LEFT
+        else if (keyCode == 264) dy = step / Math.max(1.0, sh);  // DOWN
+        else if (keyCode == 265) dy = -step / Math.max(1.0, sh); // UP
+        else return false;
+
+        pushUndo();
+        ClientConfig cfg = ClientConfig.get();
+        Set<String> targets = selectedIds.isEmpty() ? Collections.singleton(primaryId) : selectedIds;
+        for (String id : targets) {
+            ClientConfig.HudModule m = cfg.hudModules.get(id);
+            if (m != null) {
+                m.x = Math.max(0.0, Math.min(1.0, m.x + dx));
+                m.y = Math.max(0.0, Math.min(1.0, m.y + dy));
+            }
+        }
+        cfg.save();
+        return true;
     }
 
     private void pushUndo() {
@@ -196,7 +221,7 @@ public class SharedHudEditor {
         if (click && (mx < pillX || mx > pillX + pillW || my < pillY || my > pillY + pillH)) return false;
 
         ClientConfig cfg = ClientConfig.get();
-        ClientConfig.HudModule sel = cfg.hudModules.get(primaryId);
+        ClientConfig.HudModule sel = primaryId == null ? null : cfg.hudModules.get(primaryId);
         if (!click) {
             g.drawGlassCard(pillX, pillY, pillW, pillH, 11, 0xD809090B, ClientState.UI_BORDER);
             String hint = selectedIds.size() > 1 ? (selectedIds.size() + " sel") : (sel != null && sel.enabled ? (sel.label + " " + String.format("%.1fx", Double.valueOf(sel.scale))) : "Drag | RClick=Cfg");
