@@ -12,12 +12,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class OptionInstanceMixin {
     @Inject(method = "get", at = @At("RETURN"), cancellable = true, require = 0)
     private void aetheria$optOverrides(CallbackInfoReturnable<Object> cir) {
-        ClientConfig cfg = ClientConfig.get(); Minecraft mc = Minecraft.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
-        if (cfg.getBool("util_fullbright", false) && mc.level != null && (Object) this == mc.options.gamma()) {
-            cir.setReturnValue(Double.valueOf(cfg.getDouble("util_fullbright_level", 12.0)));
-        } else if (cfg.getBool("perf_unfocused_fps", true) && !mc.isWindowActive() && (Object) this == mc.options.framerateLimit()) {
-            cir.setReturnValue(Integer.valueOf(30));
+        if ((Object) this == mc.options.gamma()) {
+            ClientConfig cfg = ClientConfig.get();
+            if (mc.level != null && cfg.getBool("util_fullbright", false)) {
+                cir.setReturnValue(Double.valueOf(cfg.getDouble("util_fullbright_level", 12.0)));
+            }
+        } else if ((Object) this == mc.options.framerateLimit()) {
+            if (mc.getWindow() != null && !mc.isWindowActive() && ClientConfig.get().getBool("perf_unfocused_fps", true)) {
+                cir.setReturnValue(Integer.valueOf(30));
+            }
         }
     }
 }
