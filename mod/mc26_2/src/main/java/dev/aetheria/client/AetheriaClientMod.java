@@ -47,7 +47,7 @@ public class AetheriaClientMod implements ClientModInitializer {
                 mc.player.setSprinting(true);
             }
             if (cfg.getBool("pvp_togglesneak", false)) {
-                boolean sk = mc.options.keyShift.isDown();
+                ClientState.setBypassToggleSneak(true); boolean sk; try { sk = mc.options.keyShift.isDown(); } finally { ClientState.setBypassToggleSneak(false); }
                 if (sk && !prevSneakDown) ClientState.toggleSneak();
                 prevSneakDown = sk;
                 if (ClientState.isToggleSneaking()) mc.player.setShiftKeyDown(true);

@@ -130,6 +130,9 @@ public final class ClientState {
     public static boolean isToggleSneaking() { return toggleSneaking; }
     public static void setToggleSneaking(boolean active) { toggleSneaking = active; }
     public static void toggleSneak() { toggleSneaking = !toggleSneaking; }
+    private static volatile boolean bypassToggleSneak = false;
+    public static boolean isBypassToggleSneak() { return bypassToggleSneak; }
+    public static void setBypassToggleSneak(boolean bypass) { bypassToggleSneak = bypass; }
 
     public static void recordAttack(double distance) { long now = System.currentTimeMillis(); comboCount = (now - lastHitTimeMs < 4000L) ? comboCount + 1 : 1; lastHitTimeMs = now; lastReachBlocks = distance; swingsLanded++; }
     public static void tickComboTimeout() { if (comboCount > 0 && System.currentTimeMillis() - lastHitTimeMs > 4000L) comboCount = 0; }

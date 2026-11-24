@@ -27,7 +27,7 @@ public class AetheriaTitleScreen extends Screen {
                 try { mc.gui.setScreen((Screen) Class.forName("com.mojang.realmsclient.RealmsMainScreen").getConstructor(Screen.class).newInstance(AetheriaTitleScreen.this)); }
                 catch (Throwable ignored) { mc.gui.setScreen(new JoinMultiplayerScreen(AetheriaTitleScreen.this)); }
             }
-            @Override public void openOptions() { mc.gui.setScreen(new OptionsScreen(AetheriaTitleScreen.this, mc.options)); }
+            @Override public void openOptions() { mc.gui.setScreen(new OptionsScreen(AetheriaTitleScreen.this, mc.options, false)); }
             @Override public void openClientMenu() { mc.gui.setScreen(new ModMenuScreen()); }
             @Override public void quitGame() { mc.gui.setScreen(new ConfirmScreen(b -> { if (b) mc.stop(); else mc.gui.setScreen(AetheriaTitleScreen.this); }, Component.literal("Quit Game"), Component.literal("Exit Minecraft?"))); }
             @Override public void exitEditor() { mc.gui.setScreen(new AetheriaTitleScreen(false)); }
