@@ -1,4 +1,4 @@
-﻿package dev.aetheria.client;
+package dev.aetheria.client;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
