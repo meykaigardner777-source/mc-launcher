@@ -26,66 +26,75 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.*;
 import net.minecraft.world.scores.*;
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public final class McBridge {
-    private static final Identifier CIRCLE_TEX = Identifier.fromNamespaceAndPath("aetheria", "circle_aa_256");
-    private static final Identifier RING_TEX_1 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_1_256");
-    private static final Identifier RING_TEX_2 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_2_256");
-    private static final Identifier RING_TEX_3 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_3_256");
+    private static final Identifier CIRCLE_TEX = Identifier.fromNamespaceAndPath("aetheria", "circle_aa_512");
+    private static final Identifier RING_TEX_1 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_1_512");
+    private static final Identifier RING_TEX_2 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_2_512");
+    private static final Identifier RING_TEX_3 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_3_512");
     private static boolean texturesInit = false, debugChecked = false;
     private static Method debugMethod = null;
     private static Object debugTarget = null;
+    private static long lastEntCountMs = 0L;
+    private static int cachedEntCount = 0;
 
     private McBridge() {}
+
+    private static void regAaTex(Minecraft mc, Identifier id, String name, NativeImage img) {
+        DynamicTexture dt = new DynamicTexture(() -> name, img);
+        AetheriaCleanFont.enableLinearFilter(dt);
+        mc.getTextureManager().register(id, dt);
+    }
+
+    private static void setQuadPixel(NativeImage img, int s, int x, int y, int argb) {
+        int mx = s - 1 - x, my = s - 1 - y;
+        img.setPixel(x, y, argb); img.setPixel(mx, y, argb);
+        img.setPixel(x, my, argb); img.setPixel(mx, my, argb);
+    }
 
     private static void ensureTextures(Minecraft mc) {
         if (texturesInit || mc == null) return;
         texturesInit = true;
         try {
-            int s = 256; double center = 128.0, rad = 127.0;
+            int s = 512, half = 256; double center = 256.0, rad = 255.0;
             NativeImage circleImg = new NativeImage(NativeImage.Format.RGBA, s, s, false);
             NativeImage ring1 = new NativeImage(NativeImage.Format.RGBA, s, s, false);
             NativeImage ring2 = new NativeImage(NativeImage.Format.RGBA, s, s, false);
             NativeImage ring3 = new NativeImage(NativeImage.Format.RGBA, s, s, false);
-            for (int py = 0; py < s; py++) {
-                for (int px = 0; px < s; px++) {
+            for (int py = 0; py < half; py++) {
+                for (int px = 0; px < half; px++) {
                     double d = Math.hypot(px + 0.5 - center, py + 0.5 - center);
-                    double aFill = Math.max(0.0, Math.min(1.0, rad - d));
-                    circleImg.setPixel(px, py, (((int) Math.round(aFill * 255.0)) << 24) | 0x00FFFFFF);
-                    ring1.setPixel(px, py, (((int) Math.round(Math.min(aFill, Math.max(0.0, Math.min(1.0, d - 110.0))) * 255.0)) << 24) | 0x00FFFFFF);
-                    ring2.setPixel(px, py, (((int) Math.round(Math.min(aFill, Math.max(0.0, Math.min(1.0, d - 96.0))) * 255.0)) << 24) | 0x00FFFFFF);
-                    ring3.setPixel(px, py, (((int) Math.round(Math.min(aFill, Math.max(0.0, Math.min(1.0, d - 80.0))) * 255.0)) << 24) | 0x00FFFFFF);
+                    double aFill = Math.max(0.0, Math.min(1.0, (rad - d) * 0.5));
+                    setQuadPixel(circleImg, s, px, py, (((int) Math.round(aFill * 255.0)) << 24) | 0x00FFFFFF);
+                    setQuadPixel(ring1, s, px, py, (((int) Math.round(Math.min(aFill, Math.max(0.0, Math.min(1.0, (d - 224.0) * 0.5))) * 255.0)) << 24) | 0x00FFFFFF);
+                    setQuadPixel(ring2, s, px, py, (((int) Math.round(Math.min(aFill, Math.max(0.0, Math.min(1.0, (d - 200.0) * 0.5))) * 255.0)) << 24) | 0x00FFFFFF);
+                    setQuadPixel(ring3, s, px, py, (((int) Math.round(Math.min(aFill, Math.max(0.0, Math.min(1.0, (d - 176.0) * 0.5))) * 255.0)) << 24) | 0x00FFFFFF);
                 }
             }
-            mc.getTextureManager().register(CIRCLE_TEX, new DynamicTexture(() -> "aetheria_circle_aa_256", circleImg));
-            mc.getTextureManager().register(RING_TEX_1, new DynamicTexture(() -> "aetheria_ring_aa_1_256", ring1));
-            mc.getTextureManager().register(RING_TEX_2, new DynamicTexture(() -> "aetheria_ring_aa_2_256", ring2));
-            mc.getTextureManager().register(RING_TEX_3, new DynamicTexture(() -> "aetheria_ring_aa_3_256", ring3));
+            regAaTex(mc, CIRCLE_TEX, "aetheria_circle_aa_512", circleImg);
+            regAaTex(mc, RING_TEX_1, "aetheria_ring_aa_1_512", ring1);
+            regAaTex(mc, RING_TEX_2, "aetheria_ring_aa_2_512", ring2);
+            regAaTex(mc, RING_TEX_3, "aetheria_ring_aa_3_512", ring3);
         } catch (Throwable ignored) {}
     }
 
     private static boolean checkDebugOverlayVisible(Minecraft mc) {
         if (!debugChecked && mc != null) {
             debugChecked = true;
-            try {
-                Object entries = mc.getClass().getField("debugEntries").get(mc);
-                if (entries != null) { debugTarget = entries; debugMethod = entries.getClass().getMethod("isOverlayVisible"); }
-            } catch (Throwable ignored) {}
-            if (debugMethod == null) {
-                try {
-                    Object ov = mc.getClass().getMethod("getDebugOverlay").invoke(mc);
-                    if (ov != null) { debugTarget = ov; debugMethod = ov.getClass().getMethod("showDebugScreen"); }
-                } catch (Throwable ignored) {}
-            }
+            try { Field f = mc.getClass().getField("debugEntries"); Object e = f.get(mc); if (e != null) { debugTarget = e; debugMethod = e.getClass().getMethod("isOverlayVisible"); } } catch (Throwable ignored) {}
+            if (debugMethod == null) try { Field f = mc.getClass().getDeclaredField("debugEntries"); f.setAccessible(true); Object e = f.get(mc); if (e != null) { debugTarget = e; debugMethod = e.getClass().getMethod("isOverlayVisible"); } } catch (Throwable ignored) {}
+            if (debugMethod == null) try { Object e = mc.getClass().getMethod("debugEntries").invoke(mc); if (e != null) { debugTarget = e; debugMethod = e.getClass().getMethod("isOverlayVisible"); } } catch (Throwable ignored) {}
+            if (debugMethod == null) try { Object ov = mc.getClass().getMethod("getDebugOverlay").invoke(mc); if (ov != null) { debugTarget = ov; debugMethod = ov.getClass().getMethod("showDebugScreen"); } } catch (Throwable ignored) {}
         }
-        if (debugTarget != null && debugMethod != null) {
-            try { return Boolean.TRUE.equals(debugMethod.invoke(debugTarget)); } catch (Throwable ignored) {}
-        }
+        if (debugTarget != null && debugMethod != null) { try { return Boolean.TRUE.equals(debugMethod.invoke(debugTarget)); } catch (Throwable ignored) {} }
         return false;
     }
 
@@ -106,26 +115,21 @@ public final class McBridge {
         }
 
         if (cfg.getBool("hb_enabled", false)) {
-            int col = cfg.getBool("hb_chroma", false)
-                ? ClientState.getChromaColor(1.5, 0.85, 45.0, 0.5, 0.5)
-                : ClientState.parseHexColor(cfg.getString("hb_color", "#22d3ee"), 0xFF22D3EE);
+            int col = cfg.getBool("hb_chroma", false) ? ClientState.getChromaColor(1.5, 0.85, 45.0, 0.5, 0.5) : ClientState.parseHexColor(cfg.getString("hb_color", "#22d3ee"), 0xFF22D3EE);
             float lw = (float) Math.max(1.0, Math.min(5.0, cfg.getDouble("hb_line_width", 2.0)));
             int fill = ClientState.scaleAlpha(col, cfg.getDouble("hb_fill_alpha", 0.12));
-            boolean doPlayers = cfg.getBool("hb_players", true), doMobs = cfg.getBool("hb_mobs", true);
-            boolean doItems = cfg.getBool("hb_items", false), doProj = cfg.getBool("hb_projectiles", true);
+            boolean doPlayers = cfg.getBool("hb_players", true), doMobs = cfg.getBool("hb_mobs", true), doItems = cfg.getBool("hb_items", false), doProj = cfg.getBool("hb_projectiles", true);
             boolean hideSelf = cfg.getBool("hb_hide_self", true), eyeLine = cfg.getBool("hb_eye_line", true), lookVec = cfg.getBool("hb_look_vec", true);
-
             for (Entity e : mc.level.entitiesForRendering()) {
                 if (e == mc.player && hideSelf) continue;
-                if (e.distanceToSqr(mc.player) > 64.0 * 64.0) continue;
-                boolean match = (e instanceof Player && doPlayers) || (e instanceof ItemEntity && doItems)
-                    || (e instanceof Projectile && doProj) || (e instanceof LivingEntity && !(e instanceof Player) && doMobs);
+                if (e.distanceToSqr(mc.player) > 4096.0) continue;
+                boolean match = (e instanceof Player && doPlayers) || (e instanceof ItemEntity && doItems) || (e instanceof Projectile && doProj) || (e instanceof LivingEntity && !(e instanceof Player) && doMobs);
                 if (!match) continue;
                 AABB bb = e.getBoundingBox();
                 Gizmos.cuboid(bb, (fill >>> 24) > 2 ? GizmoStyle.strokeAndFill(col, lw, fill) : GizmoStyle.stroke(col, lw));
                 if (e instanceof LivingEntity) {
                     if (eyeLine) { double ey = e.getEyeY(); Gizmos.cuboid(new AABB(bb.minX, ey - 0.01, bb.minZ, bb.maxX, ey + 0.01, bb.maxZ), GizmoStyle.stroke(0xFFEF4444, Math.max(1.0F, lw * 0.8F))); }
-                    if (lookVec) { Vec3 eyePos = e.getEyePosition(1.0F); Gizmos.line(eyePos, eyePos.add(e.getViewVector(1.0F).scale(2.0)), 0xFF3B82F6, Math.max(1.0F, lw * 0.8F)); }
+                    if (lookVec) { Vec3 ep = e.getEyePosition(1.0F); Gizmos.line(ep, ep.add(e.getViewVector(1.0F).scale(2.0)), 0xFF3B82F6, Math.max(1.0F, lw * 0.8F)); }
                 }
             }
         }
@@ -223,10 +227,10 @@ public final class McBridge {
                 ensureTextures(mc);
                 g.fill(x + r, y, x + w - r, y + h, argb);
                 if (h > r * 2) { g.fill(x, y + r, x + r, y + h - r, argb); g.fill(x + w - r, y + r, x + w, y + h - r, argb); }
-                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x, y, 0.0F, 0.0F, r, r, 128, 128, 256, 256, argb);
-                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x + w - r, y, 128.0F, 0.0F, r, r, 128, 128, 256, 256, argb);
-                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x + w - r, y + h - r, 128.0F, 128.0F, r, r, 128, 128, 256, 256, argb);
-                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x, y + h - r, 0.0F, 128.0F, r, r, 128, 128, 256, 256, argb);
+                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x, y, 0.0F, 0.0F, r, r, 256, 256, 512, 512, argb);
+                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x + w - r, y, 256.0F, 0.0F, r, r, 256, 256, 512, 512, argb);
+                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x + w - r, y + h - r, 256.0F, 256.0F, r, r, 256, 256, 512, 512, argb);
+                g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, x, y + h - r, 0.0F, 256.0F, r, r, 256, 256, 512, 512, argb);
             }
             @Override public void drawRoundedOutline(int x, int y, int w, int h, int r, int thickness, String style, int argb, int argb2) {
                 if (g == null || w <= 1 || h <= 1 || thickness <= 0 || ((argb >>> 24) & 0xFF) == 0) return;
@@ -236,14 +240,14 @@ public final class McBridge {
                 if (r > 1) {
                     ensureTextures(mc);
                     Identifier ring = t >= 3 ? RING_TEX_3 : (t == 2 ? RING_TEX_2 : RING_TEX_1);
-                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x, y, 0.0F, 0.0F, r, r, 128, 128, 256, 256, argb);
-                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x + w - r, y, 128.0F, 0.0F, r, r, 128, 128, 256, 256, argb2);
-                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x + w - r, y + h - r, 128.0F, 128.0F, r, r, 128, 128, 256, 256, argb2);
-                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x, y + h - r, 0.0F, 128.0F, r, r, 128, 128, 256, 256, argb);
+                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x, y, 0.0F, 0.0F, r, r, 256, 256, 512, 512, argb);
+                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x + w - r, y, 256.0F, 0.0F, r, r, 256, 256, 512, 512, argb2);
+                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x + w - r, y + h - r, 256.0F, 256.0F, r, r, 256, 256, 512, 512, argb2);
+                    g.blit(RenderPipelines.GUI_TEXTURED, ring, x, y + h - r, 0.0F, 256.0F, r, r, 256, 256, 512, 512, argb);
                 }
             }
-            @Override public void drawCircleFilled(int cx, int cy, int r, int argb) { if (g != null && r > 0 && ((argb >>> 24) & 0xFF) != 0) { ensureTextures(mc); g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, cx - r, cy - r, 0.0F, 0.0F, r * 2, r * 2, 256, 256, 256, 256, argb); } }
-            @Override public void drawCircle(int cx, int cy, int r, int t, int col) { if (g != null && r > 0 && ((col >>> 24) & 0xFF) != 0) { ensureTextures(mc); g.blit(RenderPipelines.GUI_TEXTURED, t >= 3 ? RING_TEX_3 : (t == 2 ? RING_TEX_2 : RING_TEX_1), cx - r, cy - r, 0.0F, 0.0F, r * 2, r * 2, 256, 256, 256, 256, col); } }
+            @Override public void drawCircleFilled(int cx, int cy, int r, int argb) { if (g != null && r > 0 && ((argb >>> 24) & 0xFF) != 0) { ensureTextures(mc); g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE_TEX, cx - r, cy - r, 0.0F, 0.0F, r * 2, r * 2, 512, 512, 512, 512, argb); } }
+            @Override public void drawCircle(int cx, int cy, int r, int t, int col) { if (g != null && r > 0 && ((col >>> 24) & 0xFF) != 0) { ensureTextures(mc); g.blit(RenderPipelines.GUI_TEXTURED, t >= 3 ? RING_TEX_3 : (t == 2 ? RING_TEX_2 : RING_TEX_1), cx - r, cy - r, 0.0F, 0.0F, r * 2, r * 2, 512, 512, 512, 512, col); } }
             @Override public void drawPaperdoll(int x1, int y1, int x2, int y2, int size, float mouseX, float mouseY) {
                 if (g == null || mc.player == null) return;
                 try {
@@ -266,9 +270,7 @@ public final class McBridge {
                     try { String n = mc.getSingleplayerServer().getWorldData().getLevelName(); if (n != null && !n.isEmpty()) return "sp:" + n.toLowerCase(); } catch (Throwable ignored) {}
                     return "sp:local";
                 }
-                if (mc.getCurrentServer() != null && mc.getCurrentServer().ip != null && !mc.getCurrentServer().ip.isEmpty()) {
-                    return "srv:" + mc.getCurrentServer().ip.trim().toLowerCase();
-                }
+                if (mc.getCurrentServer() != null && mc.getCurrentServer().ip != null && !mc.getCurrentServer().ip.isEmpty()) return "srv:" + mc.getCurrentServer().ip.trim().toLowerCase();
                 return "global";
             }
             @Override public boolean showSurvivalBars() { return mc.player != null && !mc.player.getAbilities().instabuild && !mc.player.isSpectator(); }
@@ -337,18 +339,40 @@ public final class McBridge {
             @Override public double camZ() { Camera c = mc.gameRenderer.mainCamera(); return c != null ? c.position().z : posZ(); }
             @Override public float camYaw() { Camera c = mc.gameRenderer.mainCamera(); return c != null ? c.yRot() : yaw(); }
             @Override public float camPitch() { Camera c = mc.gameRenderer.mainCamera(); return c != null ? c.xRot() : pitch(); }
+            @Override public double[] projectWorldToScreen(double wx, double wy, double wz, int sw, int sh) {
+                double dx = wx - camX(), dy = wy - camY(), dz = wz - camZ();
+                double yr = Math.toRadians(camYaw()), pr = Math.toRadians(camPitch());
+                double cp = Math.cos(pr), sp = Math.sin(pr), sy = Math.sin(yr), cy = Math.cos(yr);
+                double cr = dx * (-cy) + dz * (-sy);
+                double cu = dx * (-sy * sp) + dy * cp + dz * (cy * sp);
+                double cf = dx * (-sy * cp) + dy * (-sp) + dz * (cy * cp);
+                float[] b16 = new float[16]; ClientState.getWorldBobMatrix(b16);
+                Vector4f v = new Vector4f((float) cr, (float) cu, (float) -cf, 1.0F).mul(new Matrix4f().set(b16));
+                double vx = v.x, vy = v.y, vz = -v.z;
+                double tanHalf = Math.tan(Math.toRadians(Math.max(5.0, ClientState.getLastWorldFov())) * 0.5);
+                double sx = (sw * 0.5) + (vx / (Math.max(0.05, vz) * tanHalf)) * (sh * 0.5);
+                double syPos = (sh * 0.5) - (vy / (Math.max(0.05, vz) * tanHalf)) * (sh * 0.5);
+                return new double[]{sx, syPos, vz, vx, vy};
+            }
+            private Objective getSidebarObj(Scoreboard sb) {
+                Objective obj = sb.getDisplayObjective(DisplaySlot.SIDEBAR);
+                if (obj == null && mc.player != null) {
+                    PlayerTeam team = sb.getPlayersTeam(mc.player.getScoreboardName());
+                    if (team != null && team.getColor() != null) {
+                        DisplaySlot ts = DisplaySlot.teamColorToSlot(team.getColor());
+                        if (ts != null) obj = sb.getDisplayObjective(ts);
+                    }
+                }
+                return obj;
+            }
             @Override public String scoreboardTitle() {
-                try {
-                    if (mc.level == null) return "";
-                    Objective obj = mc.level.getScoreboard().getDisplayObjective(DisplaySlot.SIDEBAR);
-                    return obj != null ? obj.getDisplayName().getString() : "";
-                } catch (Throwable t) { return ""; }
+                try { if (mc.level == null) return ""; Objective obj = getSidebarObj(mc.level.getScoreboard()); return obj != null ? obj.getDisplayName().getString() : ""; }
+                catch (Throwable t) { return ""; }
             }
             @Override public String[] scoreboardLines() {
                 try {
                     if (mc.level == null) return new String[0];
-                    Scoreboard sb = mc.level.getScoreboard();
-                    Objective obj = sb.getDisplayObjective(DisplaySlot.SIDEBAR);
+                    Scoreboard sb = mc.level.getScoreboard(); Objective obj = getSidebarObj(sb);
                     if (obj == null) return new String[0];
                     List<PlayerScoreEntry> scores = new ArrayList<>();
                     for (PlayerScoreEntry e : sb.listPlayerScores(obj)) if (!e.isHidden()) scores.add(e);
@@ -371,7 +395,11 @@ public final class McBridge {
             @Override public int foodLevel() { return mc.player.getFoodData().getFoodLevel(); } @Override public float saturation() { return mc.player.getFoodData().getSaturationLevel(); }
             @Override public int airSupply() { return mc.player.getAirSupply(); } @Override public int maxAirSupply() { return mc.player.getMaxAirSupply(); }
             @Override public int onlinePlayers() { return mc.getConnection() != null ? mc.getConnection().getOnlinePlayers().size() : 1; }
-            @Override public int renderedEntities() { int c = 0; for (Entity ignored : mc.level.entitiesForRendering()) c++; return c; }
+            @Override public int renderedEntities() {
+                long now = System.currentTimeMillis();
+                if (now - lastEntCountMs >= 50L) { lastEntCountMs = now; int c = 0; for (Entity ignored : mc.level.entitiesForRendering()) c++; cachedEntCount = c; }
+                return cachedEntCount;
+            }
             @Override public int totalEntities() { return renderedEntities(); }
             @Override public String lookingAtBlock() { return mc.hitResult instanceof BlockHitResult bhr ? mc.level.getBlockState(bhr.getBlockPos()).getBlock().getName().getString() : "Air"; }
             @Override public String lookingAtEntity() { return mc.hitResult instanceof EntityHitResult ehr ? ehr.getEntity().getName().getString() : "None"; }
@@ -384,7 +412,7 @@ public final class McBridge {
                 for (Entity e : mc.level.entitiesForRendering()) {
                     if (e == mc.player || !(e instanceof LivingEntity) || !e.isAlive()) continue;
                     double dx = e.getX() - mc.player.getX(), dz = e.getZ() - mc.player.getZ();
-                    if (dx * dx + dz * dz > 48.0 * 48.0) continue;
+                    if (dx * dx + dz * dz > 2304.0) continue;
                     pts.add(-(int) Math.round((dx * cos + dz * sin) * 0.55)); pts.add((int) Math.round((-dx * sin + dz * cos) * 0.55));
                     if (pts.size() >= 64) break;
                 }
@@ -403,7 +431,7 @@ public final class McBridge {
             @Override public double gammaPercent() { return ((Number) mc.options.gamma().get()).doubleValue() * 100.0; }
             @Override public boolean isF1Hidden() { return mc.gui.hud.isHidden(); }
             @Override public boolean isChatOpen() { return mc.gui.screen() != null && mc.gui.screen().getClass().getSimpleName().contains("Chat"); }
-            @Override public boolean isInventoryOpen() { return mc.gui.screen() != null && !isChatOpen(); }
+            @Override public boolean isInventoryOpen() { return mc.gui.screen() != null && !isChatOpen() && !(mc.gui.screen() instanceof HudEditorScreen); }
             @Override public boolean isF3Open() { return checkDebugOverlayVisible(mc); }
         };
     }

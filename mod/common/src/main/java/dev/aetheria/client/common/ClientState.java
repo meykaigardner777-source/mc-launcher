@@ -10,8 +10,9 @@ public final class ClientState {
     public static final int UI_INPUT = 0x99121215, UI_BORDER = 0xFF27272A, UI_BORDER_HOV = 0xFF3F3F46, UI_TEXT = 0xFFF4F4F5, UI_TEXT_MUTED = 0xFFA1A1AA, UI_TEXT_DIM = 0xFF71717A, UI_DANGER = 0xFFEF4444;
 
     private static final Deque<Long> LEFT_CLICKS = new ArrayDeque<Long>(), RIGHT_CLICKS = new ArrayDeque<Long>();
-    private static volatile boolean leftDown = false, rightDown = false, zooming = false, freeLook = false, toggleSneaking = false;
-    private static volatile float currentZoomDivisor = 1.0f, scrollZoomOffset = 0.0f, freeLookYaw = 0.0f, freeLookPitch = 0.0f;
+    private static volatile boolean leftDown = false, rightDown = false, zooming = false, freeLook = false, toggleSneaking = false, bypassToggleSneak = false;
+    private static volatile float currentZoomDivisor = 1.0f, scrollZoomOffset = 0.0f, freeLookYaw = 0.0f, freeLookPitch = 0.0f, lastWorldFov = 70.0f;
+    private static final float[] WORLD_BOB_MATRIX = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
     private static long lastZoomFrameNs = 0L, lastHitTimeMs = 0L;
     private static int comboCount = 0, swingsTotal = 0, swingsLanded = 0, killCount = 0, deathCount = 0;
     private static double lastReachBlocks = 0.0;
@@ -111,13 +112,37 @@ public final class ClientState {
         float step = (float) (verticalDelta * Math.max(0.5, (ClientConfig.get().getZoomFactor() + scrollZoomOffset) * 0.2));
         scrollZoomOffset = Math.max(-2.5f, Math.min(20.0f, scrollZoomOffset + step));
     }
-    public static float getSmoothedZoomDivisor() {
-        ClientConfig cfg = ClientConfig.get(); float target = zooming ? Math.max(1.5f, Math.min(24.0f, (float) cfg.getZoomFactor() + scrollZoomOffset)) : 1.0f;
-        long now = System.nanoTime(); float dt = lastZoomFrameNs == 0L ? 0.016f : Math.min(0.1f, (now - lastZoomFrameNs) / 1_000_000_000.0f); lastZoomFrameNs = now;
+    public static float stepZoomDivisor() {
+        ClientConfig cfg = ClientConfig.get();
+        float target = zooming ? Math.max(1.5f, Math.min(24.0f, (float) cfg.getZoomFactor() + scrollZoomOffset)) : 1.0f;
+        long now = System.nanoTime();
+        float dt = lastZoomFrameNs == 0L ? 0.016f : Math.min(0.1f, (now - lastZoomFrameNs) / 1_000_000_000.0f);
+        lastZoomFrameNs = now;
         if (!cfg.getBool("cam_zoom_ease", true)) { currentZoomDivisor = target; return currentZoomDivisor; }
         currentZoomDivisor += (target - currentZoomDivisor) * Math.min(1.0f, dt * 18.0f);
-        if (Math.abs(target - currentZoomDivisor) < 0.01f) currentZoomDivisor = target;
+        if (Math.abs(target - currentZoomDivisor) < 0.005f) currentZoomDivisor = target;
         return Math.max(1.0f, currentZoomDivisor);
+    }
+    public static float getSmoothedZoomDivisor() {
+        long now = System.nanoTime();
+        if (lastZoomFrameNs == 0L || (now - lastZoomFrameNs) > 4_000_000L) return stepZoomDivisor();
+        return Math.max(1.0f, currentZoomDivisor);
+    }
+    public static void setLastWorldFov(float fov) { lastWorldFov = Math.max(5.0f, Math.min(170.0f, fov)); }
+    public static float getLastWorldFov() { return lastWorldFov; }
+    public static void resetWorldBobMatrix() {
+        synchronized (WORLD_BOB_MATRIX) {
+            Arrays.fill(WORLD_BOB_MATRIX, 0.0f);
+            WORLD_BOB_MATRIX[0] = 1.0f; WORLD_BOB_MATRIX[5] = 1.0f; WORLD_BOB_MATRIX[10] = 1.0f; WORLD_BOB_MATRIX[15] = 1.0f;
+        }
+    }
+    public static void setWorldBobMatrix(float[] m16) {
+        if (m16 == null || m16.length < 16) return;
+        synchronized (WORLD_BOB_MATRIX) { System.arraycopy(m16, 0, WORLD_BOB_MATRIX, 0, 16); }
+    }
+    public static void getWorldBobMatrix(float[] out16) {
+        if (out16 == null || out16.length < 16) return;
+        synchronized (WORLD_BOB_MATRIX) { System.arraycopy(WORLD_BOB_MATRIX, 0, out16, 0, 16); }
     }
     public static boolean shouldSlowMouse() { return zooming && ClientConfig.get().getBool("cam_zoom_slow", true); }
     public static boolean shouldCancelVanillaCrosshair() { return !"vanilla".equalsIgnoreCase(ClientConfig.get().getString("pvp_xhair_style", "classic")); }
@@ -130,6 +155,8 @@ public final class ClientState {
     public static boolean isToggleSneaking() { return toggleSneaking; }
     public static void setToggleSneaking(boolean active) { toggleSneaking = active; }
     public static void toggleSneak() { toggleSneaking = !toggleSneaking; }
+    public static boolean isBypassToggleSneak() { return bypassToggleSneak; }
+    public static void setBypassToggleSneak(boolean bypass) { bypassToggleSneak = bypass; }
 
     public static void recordAttack(double distance) { long now = System.currentTimeMillis(); comboCount = (now - lastHitTimeMs < 4000L) ? comboCount + 1 : 1; lastHitTimeMs = now; lastReachBlocks = distance; swingsLanded++; }
     public static void tickComboTimeout() { if (comboCount > 0 && System.currentTimeMillis() - lastHitTimeMs > 4000L) comboCount = 0; }
@@ -141,8 +168,11 @@ public final class ClientState {
         if (prevFrameNs > 0L) {
             FRAMETIMES[frameIdx] = Math.min(100.0f, (now - prevFrameNs) / 1_000_000.0f);
             frameIdx = (frameIdx + 1) % FRAMETIMES.length;
-            float[] sorted = FRAMETIMES.clone(); Arrays.sort(sorted);
-            onePctLowFps = Math.max(1, Math.round(1000.0f / Math.max(1.0f, sorted[sorted.length - 1])));
+            if ((frameIdx & 3) == 0) {
+                float worst = 1.0f;
+                for (int i = 0; i < FRAMETIMES.length; i++) if (FRAMETIMES[i] > worst) worst = FRAMETIMES[i];
+                onePctLowFps = Math.max(1, Math.round(1000.0f / worst));
+            }
         }
         prevFrameNs = now;
         if (currentFps > 0) { if (currentFps < minFps) minFps = currentFps; if (currentFps > maxFps) maxFps = currentFps; }
@@ -229,7 +259,12 @@ public final class ClientState {
         return best == null ? "No Active WPs" : (best.name + ": " + Math.round(bestDist) + "m");
     }
 
-    public static synchronized void pushPickup(String txt) { PICKUP_FEED.addFirst(txt); while (PICKUP_FEED.size() > 4) PICKUP_FEED.removeLast(); }
+    public static synchronized void pushPickup(String txt) {
+        if (txt == null || txt.isEmpty()) return;
+        PICKUP_FEED.addFirst(txt);
+        while (PICKUP_FEED.size() > 4) PICKUP_FEED.removeLast();
+    }
+    public static synchronized boolean hasPickups() { return !PICKUP_FEED.isEmpty(); }
     public static synchronized String[] getRecentPickups() { return PICKUP_FEED.isEmpty() ? new String[]{"No Recent Pickups"} : PICKUP_FEED.toArray(new String[0]); }
     public static synchronized String[] getChatMentions() { return CHAT_MENTIONS.isEmpty() ? new String[]{"No New Mentions"} : CHAT_MENTIONS.toArray(new String[0]); }
     public static String getGcSummary() {

@@ -15,7 +15,9 @@
     "ItemInHandRendererMixin",
     "LivingEntityRendererMixin",
     "MultiPlayerGameModeMixin",
-    "ClientLevelMixin"
+    "ClientLevelMixin",
+    "TitleScreenMixin",
+    "KeyMappingMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

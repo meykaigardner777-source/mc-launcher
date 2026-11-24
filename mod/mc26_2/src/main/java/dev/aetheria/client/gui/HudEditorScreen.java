@@ -6,6 +6,7 @@ import dev.aetheria.client.common.SharedHudEditor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
@@ -16,11 +17,9 @@ public class HudEditorScreen extends Screen {
 
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float pt) {
         Minecraft mc = Minecraft.getInstance();
-        editor.setShiftHeld(InputConstants.isKeyDown(mc.getWindow(), InputConstants.KEY_LSHIFT)
-                || InputConstants.isKeyDown(mc.getWindow(), InputConstants.KEY_RSHIFT));
+        editor.setShiftHeld(InputConstants.isKeyDown(mc.getWindow(), InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(mc.getWindow(), InputConstants.KEY_RSHIFT));
         editor.render(McBridge.draw(g, mc), McBridge.data(mc), this.width, this.height, mx, my);
     }
-
     @Override public boolean mouseClicked(MouseButtonEvent event, boolean dbl) {
         int btn = event.button() == InputConstants.MOUSE_BUTTON_LEFT ? 0 : (event.button() == InputConstants.MOUSE_BUTTON_RIGHT ? 1 : -1);
         if (btn >= 0) {
@@ -32,17 +31,7 @@ public class HudEditorScreen extends Screen {
         }
         return super.mouseClicked(event, dbl);
     }
-
-    @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
-            Minecraft mc = Minecraft.getInstance();
-            if (editor.mouseDragged(McBridge.draw(null, mc), McBridge.data(mc), this.width, this.height, event.x(), event.y())) return true;
-        }
-        return super.mouseDragged(event, dx, dy);
-    }
-
-    @Override public boolean mouseReleased(MouseButtonEvent event) {
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && editor.mouseReleased()) return true;
-        return super.mouseReleased(event);
-    }
+    @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) { return (event.button() == InputConstants.MOUSE_BUTTON_LEFT && editor.mouseDragged(McBridge.draw(null, Minecraft.getInstance()), McBridge.data(Minecraft.getInstance()), this.width, this.height, event.x(), event.y())) || super.mouseDragged(event, dx, dy); }
+    @Override public boolean mouseReleased(MouseButtonEvent event) { return (event.button() == InputConstants.MOUSE_BUTTON_LEFT && editor.mouseReleased()) || super.mouseReleased(event); }
+    @Override public boolean keyPressed(KeyEvent event) { return editor.keyPressed(event.key(), this.width, this.height) || super.keyPressed(event); }
 }

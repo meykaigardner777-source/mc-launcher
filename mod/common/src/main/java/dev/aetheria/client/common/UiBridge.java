@@ -120,6 +120,7 @@ public final class UiBridge {
         default double posX() { return x(); } default double posY() { return y(); } default double posZ() { return z(); }
         default double camX() { return posX(); } default double camY() { return posY() + 1.62; } default double camZ() { return posZ(); }
         default float camYaw() { return yaw(); } default float camPitch() { return pitch(); }
+        default double[] projectWorldToScreen(double wx, double wy, double wz, int sw, int sh) { return null; }
         default String scoreboardTitle() { return ""; } default String[] scoreboardLines() { return new String[0]; }
         default int blockLight() { return 15; } default int skyLight() { return 15; }
         default long worldTime() { return 6000L; } default int moonPhase() { return 0; } default String weather() { return "Clear"; }

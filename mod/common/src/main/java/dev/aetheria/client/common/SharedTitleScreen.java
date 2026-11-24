@@ -17,7 +17,7 @@ public class SharedTitleScreen {
     private boolean editorMode, catalogOpen = false, accountOpen = false, accInputFocused = false;
     private String selectedId = "logo", draggingId = null, resizingId = null, accInput = "";
     private double dragStartMx = 0, dragStartMy = 0, dragOrigX = 0, dragOrigY = 0, resizeStartScale = 1.0, resizeStartX = 0;
-    private int lastSw = 854, lastSh = 480;
+    private int lastSw = 854, lastSh = 480, accScroll = 0;
     private final float[] stars = new float[180];
 
     public SharedTitleScreen() { this(false); }
@@ -25,12 +25,17 @@ public class SharedTitleScreen {
         this.editorMode = editorMode;
         Random rng = new Random(2602L);
         for (int i = 0; i < stars.length; i += 3) {
-            stars[i] = rng.nextFloat(); stars[i + 1] = rng.nextFloat(); stars[i + 2] = 0.25F + rng.nextFloat() * 0.75F;
+            stars[i] = rng.nextFloat();
+            stars[i + 1] = rng.nextFloat();
+            stars[i + 2] = 0.25F + rng.nextFloat() * 0.75F;
         }
     }
 
+    public boolean isEditorMode() { return editorMode; }
+
     public void render(UiBridge.UiDraw g, int sw, int sh, int mx, int my) {
-        this.lastSw = Math.max(1, sw); this.lastSh = Math.max(1, sh);
+        this.lastSw = Math.max(1, sw);
+        this.lastSh = Math.max(1, sh);
         ClientConfig cfg = ClientConfig.get();
         if (cfg.titleWidgets.isEmpty()) cfg.resetTitleLayout();
         int accent = ClientState.getAccentColor(), accentFg = ClientState.getAccentFg();
@@ -56,7 +61,8 @@ public class SharedTitleScreen {
                     g.drawRoundedOutline(b[0] - 2, b[1] - 2, b[2] + 4, b[3] + 4, tw.borderRadius + 2, 2, "solid", accent, accent);
                     g.drawCircleFilled(b[0] + b[2] + 1, b[1] + b[3] + 1, 4, accent);
                     int cx = b[0] + b[2] - 3, cy = b[1] - 4;
-                    g.drawCircleFilled(cx, cy, 5, 0xFFEF4444); g.text("x", cx - 2, cy - 4, 0xFFFFFFFF, false);
+                    g.drawCircleFilled(cx, cy, 5, 0xFFEF4444);
+                    g.text("x", cx - 2, cy - 4, 0xFFFFFFFF, false);
                 } else if (hov) {
                     g.drawRoundedOutline(b[0] - 1, b[1] - 1, b[2] + 2, b[3] + 2, tw.borderRadius + 1, 1, "solid", ClientState.UI_BORDER_HOV, ClientState.UI_BORDER_HOV);
                 }
@@ -69,7 +75,8 @@ public class SharedTitleScreen {
     }
 
     public boolean mouseClicked(UiBridge.UiDraw g, int sw, int sh, double mx, double my, HostActions actions) {
-        this.lastSw = Math.max(1, sw); this.lastSh = Math.max(1, sh);
+        this.lastSw = Math.max(1, sw);
+        this.lastSh = Math.max(1, sh);
         ClientConfig cfg = ClientConfig.get();
         int accent = ClientState.getAccentColor(), accentFg = ClientState.getAccentFg();
         int ix = (int) mx, iy = (int) my;
@@ -77,11 +84,13 @@ public class SharedTitleScreen {
         if (drawTopToolbar(g, sw, ix, iy, true, actions, accent, accentFg)) return true;
         if (catalogOpen) {
             if (renderCatalogPopup(g, sw, sh, ix, iy, true, accent, accentFg)) return true;
-            catalogOpen = false; return true;
+            catalogOpen = false;
+            return true;
         }
         if (!editorMode && accountOpen) {
             if (renderAccountPopup(g, sw, sh, ix, iy, true, accent, accentFg)) return true;
-            accountOpen = false; accInputFocused = false;
+            accountOpen = false;
+            accInputFocused = false;
         }
 
         if (editorMode) {
@@ -97,10 +106,13 @@ public class SharedTitleScreen {
             }
             List<ClientConfig.TitleWidget> list = new ArrayList<ClientConfig.TitleWidget>(cfg.titleWidgets.values());
             for (int i = list.size() - 1; i >= 0; i--) {
-                ClientConfig.TitleWidget tw = list.get(i); if (!tw.enabled) continue;
+                ClientConfig.TitleWidget tw = list.get(i);
+                if (!tw.enabled) continue;
                 int[] b = getWidgetBounds(tw, sw, sh);
                 if (ix >= b[0] - 2 && ix <= b[0] + b[2] + 4 && iy >= b[1] - 2 && iy <= b[1] + b[3] + 4) {
-                    selectedId = tw.id; draggingId = tw.id; dragStartMx = mx; dragStartMy = my; dragOrigX = tw.x; dragOrigY = tw.y; return true;
+                    selectedId = tw.id; draggingId = tw.id;
+                    dragStartMx = mx; dragStartMy = my; dragOrigX = tw.x; dragOrigY = tw.y;
+                    return true;
                 }
             }
             return false;
@@ -108,28 +120,31 @@ public class SharedTitleScreen {
 
         List<ClientConfig.TitleWidget> list = new ArrayList<ClientConfig.TitleWidget>(cfg.titleWidgets.values());
         for (int i = list.size() - 1; i >= 0; i--) {
-            ClientConfig.TitleWidget tw = list.get(i); if (!tw.enabled) continue;
+            ClientConfig.TitleWidget tw = list.get(i);
+            if (!tw.enabled) continue;
             int[] b = getWidgetBounds(tw, sw, sh);
             if (ix >= b[0] && ix <= b[0] + b[2] && iy >= b[1] && iy <= b[1] + b[3]) {
                 g.playClickSound();
-                handleWidgetClick(g, tw, actions);
+                handleWidgetClick(tw, actions);
                 return true;
             }
         }
         return false;
     }
 
-    private void handleWidgetClick(UiBridge.UiDraw g, ClientConfig.TitleWidget tw, HostActions actions) {
+    private void handleWidgetClick(ClientConfig.TitleWidget tw, HostActions actions) {
         if ("quick_play".equals(tw.id) || "singleplayer".equals(tw.id)) { if (actions != null) actions.openSingleplayer(); }
         else if ("multiplayer".equals(tw.id)) { if (actions != null) actions.openMultiplayer(); }
         else if ("realms".equals(tw.id)) { if (actions != null) actions.openRealms(); }
         else if ("options".equals(tw.id)) { if (actions != null) actions.openOptions(); }
         else if ("client_menu".equals(tw.id)) { if (actions != null) actions.openClientMenu(); }
         else if ("quit".equals(tw.id)) { if (actions != null) actions.quitGame(); }
-        else if ("account".equals(tw.id)) { accountOpen = !accountOpen; accInputFocused = false; }
+        else if ("account".equals(tw.id)) { accountOpen = !accountOpen; accInputFocused = false; accScroll = 0; }
         else if ("background".equals(tw.id)) {
-            ClientConfig cfg = ClientConfig.get(); String cur = cfg.getString("title_bg_style", "waves");
-            int next = 0; for (int i = 0; i < BG_STYLES.length; i++) if (BG_STYLES[i].equalsIgnoreCase(cur)) next = (i + 1) % BG_STYLES.length;
+            ClientConfig cfg = ClientConfig.get();
+            String cur = cfg.getString("title_bg_style", "waves");
+            int next = 0;
+            for (int i = 0; i < BG_STYLES.length; i++) if (BG_STYLES[i].equalsIgnoreCase(cur)) next = (i + 1) % BG_STYLES.length;
             cfg.setOption("title_bg_style", BG_STYLES[next]);
         }
     }
@@ -138,22 +153,40 @@ public class SharedTitleScreen {
         if (!editorMode) return false;
         ClientConfig cfg = ClientConfig.get();
         if (resizingId != null) {
-            ClientConfig.TitleWidget tw = cfg.titleWidgets.get(resizingId); if (tw == null) return false;
+            ClientConfig.TitleWidget tw = cfg.titleWidgets.get(resizingId);
+            if (tw == null) return false;
             tw.scale = Math.max(0.6, Math.min(1.8, Math.round((resizeStartScale + (mx - resizeStartX) / 120.0) * 20.0) / 20.0));
             return true;
         }
         if (draggingId != null) {
-            ClientConfig.TitleWidget tw = cfg.titleWidgets.get(draggingId); if (tw == null) return false;
-            double nx = dragOrigX + (mx - dragStartMx) / Math.max(1.0, lastSw), ny = dragOrigY + (my - dragStartMy) / Math.max(1.0, lastSh);
-            if (cfg.getBool("hud_snap_grid", true)) { nx = Math.round(nx * 40.0) / 40.0; ny = Math.round(ny * 40.0) / 40.0; }
-            tw.x = Math.max(0.02, Math.min(0.98, nx)); tw.y = Math.max(0.03, Math.min(0.97, ny));
+            ClientConfig.TitleWidget tw = cfg.titleWidgets.get(draggingId);
+            if (tw == null) return false;
+            double nx = dragOrigX + (mx - dragStartMx) / Math.max(1.0, lastSw);
+            double ny = dragOrigY + (my - dragStartMy) / Math.max(1.0, lastSh);
+            if (cfg.getBool("hud_snap_grid", true)) {
+                nx = Math.round(nx * 40.0) / 40.0;
+                ny = Math.round(ny * 40.0) / 40.0;
+            }
+            tw.x = Math.max(0.02, Math.min(0.98, nx));
+            tw.y = Math.max(0.03, Math.min(0.97, ny));
             return true;
         }
         return false;
     }
 
     public boolean mouseReleased() {
-        if (draggingId != null || resizingId != null) { draggingId = null; resizingId = null; ClientConfig.get().save(); return true; }
+        if (draggingId != null || resizingId != null) {
+            draggingId = null; resizingId = null; ClientConfig.get().save(); return true;
+        }
+        return false;
+    }
+
+    public boolean mouseScrolled(double scrollY) {
+        if (accountOpen && scrollY != 0) {
+            int max = Math.max(0, ClientConfig.get().accounts.size() - 6);
+            accScroll = Math.max(0, Math.min(max, accScroll + (scrollY < 0 ? 1 : -1)));
+            return true;
+        }
         return false;
     }
 
@@ -163,19 +196,21 @@ public class SharedTitleScreen {
             return true;
         }
         if (editorMode && selectedId != null) {
-            ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(selectedId); if (tw == null) return false;
+            ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(selectedId);
+            if (tw == null) return false;
             double stepX = 1.0 / lastSw, stepY = 1.0 / lastSh;
             if (keyCode == 262) tw.x = Math.min(0.98, tw.x + stepX);
             else if (keyCode == 263) tw.x = Math.max(0.02, tw.x - stepX);
             else if (keyCode == 264) tw.y = Math.min(0.97, tw.y + stepY);
             else if (keyCode == 265) tw.y = Math.max(0.03, tw.y - stepY);
             else return false;
-            ClientConfig.get().save(); return true;
+            ClientConfig.get().save();
+            return true;
         }
         return false;
     }
 
-    public boolean keyPressed(boolean isBackspace, boolean isEscape) {
+    public boolean keyPressed(boolean isBackspace, boolean isEscape, HostActions actions) {
         if (accInputFocused) {
             if (isBackspace && accInput.length() > 0) { accInput = accInput.substring(0, accInput.length() - 1); return true; }
             if (isEscape) { accInputFocused = false; return true; }
@@ -183,13 +218,16 @@ public class SharedTitleScreen {
         if (isEscape) {
             if (catalogOpen) { catalogOpen = false; return true; }
             if (accountOpen) { accountOpen = false; return true; }
-            if (editorMode) { editorMode = false; ClientConfig.get().save(); return true; }
+            if (editorMode) { editorMode = false; ClientConfig.get().save(); if (actions != null) actions.exitEditor(); return true; }
         }
         return false;
     }
 
     public boolean charTyped(char ch) {
-        if (accInputFocused) { if (ch >= 33 && ch <= 126 && accInput.length() < 16) accInput += ch; return true; }
+        if (accInputFocused) {
+            if (ch >= 33 && ch <= 126 && accInput.length() < 16) accInput += ch;
+            return true;
+        }
         return false;
     }
 
@@ -204,6 +242,12 @@ public class SharedTitleScreen {
         return new int[]{Math.max(4, Math.min(sw - w - 4, x)), Math.max(4, Math.min(sh - h - 4, y)), w, h, baseW, baseH};
     }
 
+    private String trimUser(UiBridge.UiDraw g, String s, int maxW) {
+        if (s == null || g.textWidth(s) <= maxW) return s == null ? "Player" : s;
+        while (s.length() > 3 && g.textWidth(s + "..") > maxW) s = s.substring(0, s.length() - 1);
+        return s + "..";
+    }
+
     private void renderWidget(UiBridge.UiDraw g, ClientConfig.TitleWidget tw, int sw, int sh, int mx, int my, int accent, int accentFg) {
         int[] b = getWidgetBounds(tw, sw, sh);
         int x = b[0], y = b[1], w = b[2], h = b[3], bw = b[4], bh = b[5];
@@ -215,7 +259,7 @@ public class SharedTitleScreen {
             if ("logo".equals(tw.id)) {
                 g.drawGlassCard(0, 0, bw, bh, tw.borderRadius, ClientState.withAlpha(0xFF0A0A0F, 145), ClientState.withAlpha(accent, 90));
                 String t = "AETHERIA CLIENT"; g.text(t, (bw - g.textWidth(t)) / 2, 11, 0xFFF4F4F5, true);
-                String sub = ClientConfig.get().activeProfile.toUpperCase() + "  •  MC 26.2";
+                String sub = ClientConfig.get().activeProfile.toUpperCase() + "  \u2022  MC 26.2";
                 g.text(sub, (bw - g.textWidth(sub)) / 2, 26, accent, false);
             } else if ("quick_play".equals(tw.id)) {
                 g.drawGlassCard(0, 0, bw, bh, tw.borderRadius, hov ? ClientState.brightenArgb(accent, -25) : accent, accent);
@@ -224,7 +268,7 @@ public class SharedTitleScreen {
                 g.drawGlassCard(0, 0, bw, bh, tw.borderRadius, bg, accountOpen ? accent : brd);
                 g.drawCircleFilled(13, bh / 2, 6, ClientState.withAlpha(accent, 60));
                 g.drawCircleFilled(13, bh / 2, 3, 0xFF10B981);
-                g.text(g.currentUsername(), 24, 6, ClientState.UI_TEXT, false);
+                g.text(trimUser(g, g.currentUsername(), bw - 30), 24, 6, ClientState.UI_TEXT, false);
                 g.text("Click to switch/add", 24, 16, ClientState.UI_TEXT_DIM, false);
             } else if ("background".equals(tw.id)) {
                 String st = ClientConfig.get().getString("title_bg_style", "waves").toUpperCase();
@@ -264,7 +308,7 @@ public class SharedTitleScreen {
         ClientConfig cfg = ClientConfig.get();
         if (!click) {
             g.drawGlassCard(px, py, pw, ph, 10, 0xEE0D0D14, accent);
-            g.text("Account Manager (" + g.currentUsername() + ")", px + 10, py + 9, ClientState.UI_TEXT, false);
+            g.text("Account Manager (" + trimUser(g, g.currentUsername(), pw - 130) + ")", px + 10, py + 9, ClientState.UI_TEXT, false);
         }
         if (miniBtn(g, px + pw - 22, py + 6, 16, 16, "x", 0xFF28181B, 0xFFFFFFFF, mx, my, click)) { accountOpen = false; accInputFocused = false; return true; }
         int iy = py + 28, inW = pw - 74;
@@ -278,10 +322,12 @@ public class SharedTitleScreen {
             return true;
         }
         int ry = iy + 24;
-        for (int i = 0; i < cfg.accounts.size() && ry + 22 <= py + ph - 8; i++) {
+        if (!click && cfg.accounts.isEmpty()) g.text("No saved accounts yet. Type a name & click + Add.", px + 14, ry + 10, ClientState.UI_TEXT_MUTED, false);
+        int start = Math.max(0, Math.min(accScroll, Math.max(0, cfg.accounts.size() - 1)));
+        for (int i = start; i < cfg.accounts.size() && ry + 22 <= py + ph - 8; i++) {
             ClientConfig.AccountEntry a = cfg.accounts.get(i);
             boolean cur = a.name.equalsIgnoreCase(g.currentUsername());
-            if (!click) { g.drawGlassCard(px + 10, ry, pw - 20, 20, 5, 0xFF15151E, cur ? accent : ClientState.UI_BORDER); g.text(a.name, px + 16, ry + 6, cur ? accent : ClientState.UI_TEXT, false); }
+            if (!click) { g.drawGlassCard(px + 10, ry, pw - 20, 20, 5, 0xFF15151E, cur ? accent : ClientState.UI_BORDER); g.text(trimUser(g, a.name, pw - 110), px + 16, ry + 6, cur ? accent : ClientState.UI_TEXT, false); }
             if (miniBtn(g, px + pw - 80, ry + 2, 42, 16, cur ? "Active" : "Use", cur ? accent : 0xFF1E293B, cur ? accentFg : ClientState.UI_TEXT, mx, my, click)) {
                 cfg.activeAccountId = a.id; cfg.save(); g.switchAccount(a.name, a.uuid); return true;
             }
@@ -292,18 +338,26 @@ public class SharedTitleScreen {
     }
 
     private boolean renderCatalogPopup(UiBridge.UiDraw g, int sw, int sh, int mx, int my, boolean click, int accent, int accentFg) {
-        int pw = Math.min(340, sw - 20), ph = Math.min(268, sh - 50), px = (sw - pw) / 2, py = Math.max(30, (sh - ph) / 2);
+        int pw = Math.min(380, sw - 20), ph = Math.min(182, sh - 40), px = (sw - pw) / 2, py = Math.max(30, (sh - ph) / 2);
         if (click && (mx < px || mx > px + pw || my < py || my > py + ph)) return false;
-        if (!click) { g.drawGlassCard(px, py, pw, ph, 10, 0xEE0D0D14, accent); g.text("Title Widget Catalog (10 Widgets)", px + 12, py + 9, ClientState.UI_TEXT, false); }
+        if (!click) {
+            g.drawGlassCard(px, py, pw, ph, 10, 0xEE0D0D14, accent);
+            g.text("Title Widget Catalog (10 Widgets)", px + 12, py + 9, ClientState.UI_TEXT, false);
+        }
         if (miniBtn(g, px + pw - 24, py + 6, 18, 16, "x", 0xFF28181B, 0xFFFFFFFF, mx, my, click)) { catalogOpen = false; return true; }
-        int ry = py + 28;
-        for (ClientConfig.TitleWidget tw : ClientConfig.get().titleWidgets.values()) {
-            if (ry + 20 > py + ph - 6) break;
-            if (!click) { g.drawGlassCard(px + 10, ry, pw - 20, 20, 5, 0xFF14141D, tw.enabled ? accent : ClientState.UI_BORDER); g.text(tw.label, px + 16, ry + 6, ClientState.UI_TEXT, false); }
-            if (miniBtn(g, px + pw - 56, ry + 2, 40, 16, tw.enabled ? "ON" : "OFF", tw.enabled ? accent : 0xFF23232E, tw.enabled ? accentFg : ClientState.UI_TEXT_MUTED, mx, my, click)) {
+        List<ClientConfig.TitleWidget> list = new ArrayList<ClientConfig.TitleWidget>(ClientConfig.get().titleWidgets.values());
+        int colW = (pw - 26) / 2;
+        for (int i = 0; i < list.size(); i++) {
+            ClientConfig.TitleWidget tw = list.get(i);
+            int col = i % 2, row = i / 2;
+            int wx = px + 10 + col * (colW + 6), wy = py + 28 + row * 24;
+            if (!click) {
+                g.drawGlassCard(wx, wy, colW, 20, 5, 0xFF14141D, tw.enabled ? accent : ClientState.UI_BORDER);
+                g.text(trimUser(g, tw.label, colW - 44), wx + 6, wy + 6, ClientState.UI_TEXT, false);
+            }
+            if (miniBtn(g, wx + colW - 36, wy + 2, 32, 16, tw.enabled ? "ON" : "OFF", tw.enabled ? accent : 0xFF23232E, tw.enabled ? accentFg : ClientState.UI_TEXT_MUTED, mx, my, click)) {
                 tw.enabled = !tw.enabled; ClientConfig.get().save(); return true;
             }
-            ry += 23;
         }
         return true;
     }
@@ -328,13 +382,19 @@ public class SharedTitleScreen {
             }
         } else if ("aurora".equals(st)) {
             for (int b = 0; b < 5; b++) {
-                int y = (int) (sh * 0.3 + Math.sin(t * 0.001 + b) * 45 + b * 22);
-                g.fill(0, y, sw, y + 18, ClientState.withAlpha(b % 2 == 0 ? accent : 0xFF22D3EE, 22));
+                int col = ClientState.withAlpha(b % 2 == 0 ? accent : 0xFF22D3EE, 20);
+                for (int x = 0; x < sw; x += 24) {
+                    int y = (int) (sh * 0.25 + Math.sin(t * 0.001 + b + x * 0.004) * 40 + b * 24);
+                    g.fill(x, y, x + 24, y + 16, col);
+                }
             }
         } else {
-            for (int x = 0; x < sw; x += 12) {
-                int y = (int) (sh * 0.55 + Math.sin(x * 0.01 + t * 0.0018) * 34);
-                g.fill(x, y, x + 10, y + 2, ClientState.withAlpha(accent, 75));
+            for (int w = 0; w < 3; w++) {
+                int col = ClientState.withAlpha(accent, 28 + w * 22);
+                for (int x = 0; x < sw; x += 12) {
+                    int y = (int) (sh * (0.48 + w * 0.08) + Math.sin(x * 0.008 + t * (0.0014 + w * 0.0004) + w) * (28 + w * 8));
+                    g.fill(x, y, x + 12, y + 2, col);
+                }
             }
         }
     }
