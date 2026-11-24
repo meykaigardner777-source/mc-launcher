@@ -22,7 +22,7 @@ public class SharedModMenu {
         "kill_counter", "pearl_cd", "shield_cd", "attack_charge", "togglesprint", "speedometer",
         "coords", "chunk_coords", "compass", "biome", "light_level", "slime_chunk", "day_count", "moon_phase",
         "weather", "minimap", "waypoints", "spawn_dist", "death_loc", "y_alert", "saturation", "oxygen",
-        "elytra_guide", "villager_timer", "waila_block", "waila_entity", "inv_space", "mini_inventory", "pickup_feed",
+        "elytra_guide", "villager_timer", "waila_block", "waila_entity", "inv_space", "mini_inventory",
         "server_ip", "player_count", "bw_resources", "uhc_border", "scoreboard",
         "paperdoll", "zoom_indicator", "gamma_level", "fov_indicator", "watermark", "low_hp_vignette", "hotbar"
     ));
@@ -149,6 +149,7 @@ public class SharedModMenu {
         if (searchFocused && ch >= 32 && ch != 127 && searchQuery.length() < 32) { searchQuery += ch; resetScroll(); return true; }
         return false;
     }
+
     private void resetScroll() { scrollPx = 0.0F; targetScrollPx = 0.0F; }
     private float animHover(String key, boolean hov) { Float p = hoverAnim.get(key); float cur = p != null ? p.floatValue() : 0.0F; cur = ClientConfig.get().getBool("ui_animations", true) ? (cur + ((hov ? 1.0F : 0.0F) - cur) * Math.min(1.0F, frameDt * 16.0F)) : (hov ? 1.0F : 0.0F); hoverAnim.put(key, Float.valueOf(cur)); return cur; }
     private float animPill(String key, boolean on) { Float p = pillAnim.get(key); float t = on ? 1.0F : 0.0F, cur = p != null ? p.floatValue() : t; cur = ClientConfig.get().getBool("ui_animations", true) ? (cur + (t - cur) * Math.min(1.0F, frameDt * 18.0F)) : t; pillAnim.put(key, Float.valueOf(cur)); return cur; }
@@ -323,12 +324,13 @@ public class SharedModMenu {
         } else if (sHov) { g.playClickSound(); accountInputFocused = false; waypointInputFocused = false; if (!searchQuery.isEmpty() && mx >= sbX + sbW - 16) { searchQuery = ""; resetScroll(); } else searchFocused = true; return true; } else searchFocused = false;
         return renderModCardGrid(g, cx, cy + 26, cw, ch - 26, mx, my, click, accent, accentFg, menuRad, isPalette);
     }
+
     private boolean renderWaypointsPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         ClientConfig cfg = ClientConfig.get(); String curW = ClientState.getCurrentWorldKey();
         if (!click) {
             g.drawGlassCard(cx, cy, cw, 34, menuRad, 0xFF14141B, accent);
-            g.text("Waypoints (" + curW + ")  \u2022  XYZ: " + ClientState.getPlayerX() + ", " + ClientState.getPlayerY() + ", " + ClientState.getPlayerZ(), cx + 10, cy + 8, ClientState.UI_TEXT, false);
-            g.text("Isolated per server/world (Keybind: " + cfg.getString("ctl_waypoints_key", "B").toUpperCase() + ")", cx + 10, cy + 20, ClientState.UI_TEXT_MUTED, false);
+            g.text("Waypoints (" + curW + ")  •  XYZ: " + ClientState.getPlayerX() + ", " + ClientState.getPlayerY() + ", " + ClientState.getPlayerZ(), cx + 10, cy + 8, ClientState.UI_TEXT, false);
+            g.text("Isolated per server/world so waypoints never overlap across servers", cx + 10, cy + 20, ClientState.UI_TEXT_MUTED, false);
         }
         int addY = cy + 40, inW = cw - 92; boolean inHov = mx >= cx && mx <= cx + inW && my >= addY && my <= addY + 22;
         if (!click) {
@@ -425,6 +427,7 @@ public class SharedModMenu {
         if (hov && click) { g.playClickSound(); return true; }
         return false;
     }
+
     private boolean renderModCardGrid(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad, boolean paletteList) {
         List<ModEntry> list = new ArrayList<ModEntry>(); String q = searchQuery.trim().toLowerCase();
         for (ModEntry m : ALL_MODS) {
@@ -507,7 +510,6 @@ public class SharedModMenu {
         else if (isHud) buildHudInspectorRows(rows, cfg.hudModules.get(editingModId));
         return renderScrollableRows(g, rows, cx, listTop, cw - 10, (cy + ch) - listTop, cw, mx, my, click, accent, accentFg, menuRad);
     }
-
     private void buildHudInspectorRows(List<SettingRow> rows, ClientConfig.HudModule m) {
         if ("waypoints".equals(m.id) && "geom".equals(inspectorTab)) {
             rows.add(accordionRow("wp_mgr", "WAYPOINTS MANAGER"));
@@ -598,6 +600,7 @@ public class SharedModMenu {
             if ("countdown".equals(m.id)) rows.add(actionRow("Start 60s Countdown", "Starts a 1-minute alert", "cd_60"));
         }
     }
+
     private boolean renderUiEnginePage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         List<SettingRow> rows = new ArrayList<SettingRow>();
         rows.add(accordionRow("ui_theme", "THEMES, FONT & TITLE SCREEN"));
@@ -810,324 +813,62 @@ public class SharedModMenu {
             }
         };
     }
-    private interface SettingRow {
-        int height();
-        boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad);
-    }
-
-    private SettingRow accordionRow(final String key, final String title) {
-        return new SettingRow() {
-            @Override
-            public int height() { return 22; }
-
-            @Override
-            public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                boolean folded = foldedAccordions.contains(key);
-                boolean hov = mx >= x && mx <= x + w && my >= y && my <= y + 22;
-                if (!click) {
-                    g.drawGlassCard(x, y, w, 22, 6, hov ? 0xFF1A1B24 : 0xFF121218, ClientState.UI_BORDER);
-                    g.text((folded ? "> " : "v ") + title, x + 10, y + 7, accent, false);
-                } else if (hov) {
-                    g.playClickSound();
-                    if (folded) foldedAccordions.remove(key);
-                    else foldedAccordions.add(key);
-                    return true;
-                }
-                return false;
-            }
-        };
-    }
-
-    private SettingRow hitboxPreviewRow() {
-        return new SettingRow() {
-            @Override
-            public int height() { return 84; }
-
-            @Override
-            public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                if (click) return false;
-                ClientConfig cfg = ClientConfig.get();
-                boolean ch = cfg.getBool("hb_chroma", false);
-                boolean eye = cfg.getBool("hb_eye_line", true);
-                boolean look = cfg.getBool("hb_look_vec", true);
-                int col = ch
-                    ? ClientState.getChromaColor(2.0, 0.85, 45.0, 0.5, 0.5)
-                    : ClientState.parseHexColor(cfg.getString("hb_color", "#22d3ee"), 0xFF22D3EE);
-                double fillA = cfg.getDouble("hb_fill_alpha", 0.12);
-                int thick = Math.max(1, Math.min(3, (int) Math.round(cfg.getDouble("hb_line_width", 2.0) * 0.7)));
-
-                g.drawGlassCard(x, y, w, 84, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                g.text("3D HITBOX PREVIEW", x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
-
-                int px = x + 12, py = y + 20, pw = w - 24, ph = 56;
-                int cx = px + pw / 2, bx = cx - 14, by = py + 8, bw = 28, bh = 42, ox = 8, oy = -4;
-                g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12);
-                if (fillA > 0.01) {
-                    g.fill(bx, by, bx + bw, by + bh, ClientState.withAlpha(col, (int) Math.round(fillA * 255.0)));
-                }
-                g.drawBorder(bx + ox, by + oy, bw, bh, ClientState.withAlpha(col, 140));
-                g.drawLine(bx, by, bx + ox, by + oy, 1, ClientState.withAlpha(col, 160));
-                g.drawLine(bx + bw, by, bx + bw + ox, by + oy, 1, ClientState.withAlpha(col, 160));
-                g.drawLine(bx, by + bh, bx + ox, by + bh + oy, 1, ClientState.withAlpha(col, 160));
-                g.drawLine(bx + bw, by + bh, bx + bw + ox, by + bh + oy, 1, ClientState.withAlpha(col, 160));
-                g.drawRoundedOutline(bx, by, bw, bh, 0, thick, "solid", col, col);
-                if (eye) g.fill(bx - 1, by + 9, bx + bw + 1, by + 11, 0xFFEF4444);
-                if (look) g.drawLine(cx + 2, by + 10, cx + 30, by + 16, 2, 0xFF3B82F6);
-                g.text(ch ? "Chroma" : ClientState.toHexColor(col).toUpperCase(), px + 8, py + 24, ClientState.UI_TEXT_DIM, false);
-                return false;
-            }
-        };
-    }
-
-    private SettingRow blockBreakPreviewRow() {
-        return new SettingRow() {
-            @Override
-            public int height() { return 84; }
-
-            @Override
-            public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                if (click) return false;
-                ClientConfig cfg = ClientConfig.get();
-                String style = cfg.getString("bb_style", "shrink");
-                boolean progCol = cfg.getBool("bb_progress_color", true);
-                double fillA = cfg.getDouble("bb_fill_alpha", 0.30);
-                float p = (System.currentTimeMillis() % 1800L) / 1800.0F;
-                int col = progCol
-                    ? (p < 0.5F
-                        ? ClientState.lerpColor(0xFF10B981, 0xFFF59E0B, p * 2.0F)
-                        : ClientState.lerpColor(0xFFF59E0B, 0xFFEF4444, (p - 0.5F) * 2.0F))
-                    : ClientState.parseHexColor(cfg.getString("bb_color", "#22d3ee"), 0xFF22D3EE);
-
-                g.drawGlassCard(x, y, w, 84, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                g.text("BLOCK BREAK PREVIEW: " + style.toUpperCase() + " (" + Math.round(p * 100) + "%)", x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
-
-                int px = x + 12, py = y + 20, pw = w - 24, ph = 56, sz = 40;
-                int bx = px + pw / 2 - sz / 2, by = py + 8;
-                g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12);
-                g.fill(bx, by, bx + sz, by + sz, 0xFF3F3F46);
-                g.drawBorder(bx, by, sz, sz, 0x66FFFFFF);
-
-                int rx = bx, ry = by, rw = sz, rh = sz;
-                if ("shrink".equals(style)) {
-                    int ins = Math.round((sz * 0.45F) * p);
-                    rx += ins; ry += ins; rw = Math.max(4, sz - ins * 2); rh = Math.max(4, sz - ins * 2);
-                } else if ("expand".equals(style)) {
-                    int ins = Math.round((sz * 0.45F) * (1.0F - p));
-                    rx += ins; ry += ins; rw = Math.max(4, sz - ins * 2); rh = Math.max(4, sz - ins * 2);
-                } else if ("rise".equals(style)) {
-                    rh = Math.max(3, Math.round(sz * p));
-                    ry = by + sz - rh;
-                } else if ("slide_down".equals(style)) {
-                    rh = Math.max(3, Math.round(sz * (1.0F - p)));
-                    ry = by + sz - rh;
-                } else {
-                    int ins = Math.round(4.0F * (0.5F + 0.5F * (float) Math.sin(p * Math.PI * 6.0)));
-                    rx += ins; ry += ins; rw -= ins * 2; rh -= ins * 2;
-                }
-                g.fill(rx, ry, rx + rw, ry + rh, ClientState.withAlpha(col, (int) Math.round(fillA * 255.0)));
-                g.drawBorder(rx, ry, rw, rh, col);
-                return false;
-            }
-        };
-    }
-
-    private SettingRow viewmodelPreviewRow() {
-        return new SettingRow() {
-            @Override
-            public int height() { return 86; }
-
-            @Override
-            public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                if (click) return false;
-                ClientConfig cfg = ClientConfig.get();
-                boolean vmOn = cfg.getBool("vm_enabled", false);
-                boolean smTotem = cfg.getBool("pvp_small_totem", false);
-
-                g.drawGlassCard(x, y, w, 86, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                g.text("FIRST-PERSON HANDS PREVIEW" + (vmOn ? " (ACTIVE)" : " (VANILLA)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
-
-                int px = x + 12, py = y + 20, pw = w - 24, ph = 58;
-                g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12);
-                g.fill(px + pw / 2 - 1, py + ph / 2 - 1, px + pw / 2 + 1, py + ph / 2 + 1, 0x55FFFFFF);
-
-                int rx = px + pw - 38 + (int) Math.round((vmOn ? cfg.getDouble("vm_main_x", 0.0) : 0.0) * 36.0);
-                int ry = py + ph - 26 - (int) Math.round((vmOn ? cfg.getDouble("vm_main_y", 0.0) : 0.0) * 30.0);
-                int rsz = Math.max(8, (int) Math.round(18.0 * (vmOn ? cfg.getDouble("vm_main_scale", 1.0) : 1.0)));
-                g.drawRoundedRect(rx, ry, rsz, rsz, 3, 0xFF22D3EE);
-                g.text("MAIN", rx, ry - 9, ClientState.UI_TEXT_DIM, false);
-
-                double osc = (vmOn ? cfg.getDouble("vm_off_scale", 1.0) : 1.0) * (smTotem ? cfg.getDouble("pvp_small_totem_scale", 0.60) : 1.0);
-                double tyOff = smTotem ? cfg.getDouble("pvp_small_totem_y", -0.12) : 0.0;
-                int lx = px + 24 + (int) Math.round((vmOn ? cfg.getDouble("vm_off_x", 0.0) : 0.0) * 36.0);
-                int ly = py + ph - 24 - (int) Math.round(((vmOn ? cfg.getDouble("vm_off_y", 0.0) : 0.0) + tyOff) * 30.0);
-                int lsz = Math.max(6, (int) Math.round(16.0 * osc));
-                g.drawRoundedRect(lx, ly, lsz, lsz, 3, smTotem ? 0xFFFACC15 : 0xFFA1A1AA);
-                g.text(smTotem ? "TOTEM" : "OFF", lx, ly - 9, ClientState.UI_TEXT_DIM, false);
-                return false;
-            }
-        };
-    }
-
-    private SettingRow lowShieldPreviewRow() {
-        return new SettingRow() {
-            @Override
-            public int height() { return 80; }
-
-            @Override
-            public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                if (click) return false;
-                ClientConfig cfg = ClientConfig.get();
-                boolean en = cfg.getBool("pvp_low_shield", false);
-                double sc = en ? cfg.getDouble("pvp_low_shield_scale", 0.85) : 1.0;
-                double yOff = en ? cfg.getDouble("pvp_low_shield_y", -0.22) : 0.0;
-                double xOff = en ? cfg.getDouble("pvp_low_shield_x", 0.0) : 0.0;
-
-                g.drawGlassCard(x, y, w, 80, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                g.text("FIRST-PERSON SHIELD PREVIEW" + (en ? " (LOWERED)" : " (VANILLA)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
-
-                int px = x + 12, py = y + 20, pw = w - 24, ph = 52;
-                int sw0 = Math.max(12, (int) Math.round(22.0 * sc));
-                int sh0 = Math.max(18, (int) Math.round(36.0 * sc));
-                g.drawRoundedRect(px, py, pw, ph, 6, 0xFF0C0D12);
-                g.fill(px + pw / 2 - 1, py + ph / 2 - 1, px + pw / 2 + 1, py + ph / 2 + 1, 0x55FFFFFF);
-
-                int sx = px + 26 + (int) Math.round(xOff * 42.0);
-                int sy = py + ph - sh0 - 4 - (int) Math.round(yOff * 36.0);
-                g.drawGlassCard(sx, sy, sw0, sh0, 3, 2, "solid", 0xFF785234, 0xFFD4D4D8, 0xFFD4D4D8);
-                g.fill(sx + sw0 / 2 - 2, sy + sh0 / 2 - 3, sx + sw0 / 2 + 2, sy + sh0 / 2 + 3, 0xFFD4D4D8);
-                g.text("H: " + Math.round(sc * 100) + "%", px + pw - 52, py + 20, ClientState.UI_TEXT_MUTED, false);
-                return false;
-            }
-        };
-    }
-
-    private SettingRow lowFirePreviewRow() {
-        return new SettingRow() {
-            @Override
-            public int height() { return 76; }
-
-            @Override
-            public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                if (click) return false;
-                ClientConfig cfg = ClientConfig.get();
-                double offset = cfg.getDouble("pvp_low_fire_offset", -0.32);
-                boolean en = cfg.getBool("pvp_low_fire", true);
-
-                g.drawGlassCard(x, y, w, 76, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                g.text("FIRST-PERSON FIRE PREVIEW" + (en ? " (LOW FIRE)" : " (VANILLA)"), x + 12, y + 7, ClientState.UI_TEXT_MUTED, false);
-
-                int pw = w - 24, ph = 48, px0 = x + 12, py0 = y + 20;
-                g.drawRoundedRect(px0, py0, pw, ph, 6, 0xFF0C0D12);
-                g.fill(px0 + pw / 2 - 1, py0 + ph / 2 - 1, px0 + pw / 2 + 1, py0 + ph / 2 + 1, 0x55FFFFFF);
-
-                float bob = (float) Math.sin(System.currentTimeMillis() / 130.0) * 2.0F;
-                int baseH = en ? Math.max(4, (int) Math.round(ph * (0.68 + offset))) : Math.round(ph * 0.88F);
-                for (int k = 0; k < 6; k++) {
-                    int fx = px0 + (k * pw) / 6;
-                    int fw = pw / 6 + 2;
-                    int fh = Math.max(4, baseH + ((k % 2 == 0) ? Math.round(bob) : -Math.round(bob)));
-                    g.fill(fx, py0 + ph - fh, fx + fw, py0 + ph, 0xB8EA580C);
-                    g.fill(fx + 3, py0 + ph - Math.max(2, fh - 4), fx + fw - 3, py0 + ph, 0xCCFACC15);
-                }
-                g.text("Screen Covered: " + Math.round((baseH / (float) ph) * 100) + "%", px0 + 8, py0 + 8, 0xFFFFFFFF, true);
-                return false;
-            }
-        };
-    }
     private SettingRow waypointRow(final ClientConfig.Waypoint wp) {
         return new SettingRow() {
             @Override public int height() { return 38; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 int col = ClientState.parseHexColor(wp.color, 0xFF22D3EE);
-                if (!click) {
-                    g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, wp.enabled ? col : ClientState.UI_BORDER);
-                    g.text(wp.x + ", " + wp.y + ", " + wp.z + " \u2022 " + wp.dimension.replace("minecraft:", "") + " \u2022 " + (wp.worldId == null ? "global" : wp.worldId), x + 30, y + 22, ClientState.UI_TEXT_DIM, false);
-                }
-                if (mx >= x + 6 && mx <= x + 24 && my >= y + 9 && my <= y + 29) {
-                    hoveredTooltip = "Cycle Waypoint Color";
-                    if (click) { g.playClickSound(); ClientConfig.get().cycleWaypointColor(wp); return true; }
-                }
+                if (!click) { g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, wp.enabled ? col : ClientState.UI_BORDER); g.text(wp.x + ", " + wp.y + ", " + wp.z + " • " + wp.dimension.replace("minecraft:", "") + " • " + (wp.worldId == null ? "global" : wp.worldId), x + 30, y + 22, ClientState.UI_TEXT_DIM, false); }
+                if (mx >= x + 6 && mx <= x + 24 && my >= y + 9 && my <= y + 29) { hoveredTooltip = "Cycle Waypoint Color"; if (click) { g.playClickSound(); ClientConfig.get().cycleWaypointColor(wp); return true; } }
                 if (!click) g.drawCircleFilled(x + 15, y + 19, 6, col);
-                if (drawBtn(g, "wpn_" + wp.id, x + 28, y + 5, 92, 15, 4, trimToWidth(g, wp.name, 84), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
-                    int idx = 0;
-                    for (int i = 0; i < WP_NAME_PRESETS.length; i++) if (WP_NAME_PRESETS[i].equalsIgnoreCase(wp.name)) idx = (i + 1) % WP_NAME_PRESETS.length;
-                    wp.name = WP_NAME_PRESETS[idx]; ClientConfig.get().save(); return true;
-                }
+                if (drawBtn(g, "wpn_" + wp.id, x + 28, y + 5, 92, 15, 4, wp.name, 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { int idx = 0; for (int i = 0; i < WP_NAME_PRESETS.length; i++) if (WP_NAME_PRESETS[i].equalsIgnoreCase(wp.name)) idx = (i + 1) % WP_NAME_PRESETS.length; wp.name = WP_NAME_PRESETS[idx]; ClientConfig.get().save(); return true; }
                 if (drawSwitch(g, "wpt_" + wp.id, x + w - 82, y + 10, 38, 18, wp.enabled, accent, accentFg, mx, my, click)) { wp.enabled = !wp.enabled; ClientConfig.get().save(); return true; }
                 if (drawBtn(g, "wpd_" + wp.id, x + w - 38, y + 10, 28, 18, 4, "Del", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) { ClientConfig.get().removeWaypoint(wp.id); return true; }
                 return false;
             }
         };
     }
-
     private SettingRow keybindRow(final String label, final String desc, final String optId, final String def) {
         return new SettingRow() {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                boolean listening = optId.equals(listeningKeyOptId);
-                String cur = ClientConfig.get().getString(optId, def).toUpperCase();
-                if (!click) {
-                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, listening ? accent : ClientState.UI_BORDER);
-                    g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
-                    g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
-                }
+                boolean listening = optId.equals(listeningKeyOptId); String cur = ClientConfig.get().getString(optId, def).toUpperCase();
+                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, listening ? accent : ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 int bw = listening ? 104 : 84;
-                if (drawBtn(g, "kb_" + optId, x + w - bw - 10, y + 8, bw, 20, Math.max(2, menuRad / 2), listening ? "> PRESS KEY <" : cur, listening ? accent : 0xFF1E1E28, listening ? accentFg : ClientState.UI_TEXT, listening, mx, my, click)) {
-                    listeningKeyOptId = listening ? null : optId; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; return true;
-                }
+                if (drawBtn(g, "kb_" + optId, x + w - bw - 10, y + 8, bw, 20, Math.max(2, menuRad / 2), listening ? "> PRESS KEY <" : cur, listening ? accent : 0xFF1E1E28, listening ? accentFg : ClientState.UI_TEXT, listening, mx, my, click)) { listeningKeyOptId = listening ? null : optId; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; return true; }
                 return false;
             }
         };
     }
-
     private SettingRow profileRow(final String name, final String desc) {
         return new SettingRow() {
             @Override public int height() { return 38; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 boolean active = name.equalsIgnoreCase(ClientConfig.get().activeProfile);
-                if (!click) {
-                    g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, active ? accent : ClientState.UI_BORDER);
-                    g.text(name + " Profile", x + 12, y + 8, ClientState.UI_TEXT, false);
-                    g.text(trimToWidth(g, desc, w - 105), x + 12, y + 21, ClientState.UI_TEXT_MUTED, false);
-                }
-                if (drawBtn(g, "prof_" + name, x + w - 76, y + 9, 66, 20, Math.max(2, menuRad / 2), active ? "ACTIVE" : "Apply", active ? accent : 0xFF1E1E28, active ? accentFg : ClientState.UI_TEXT, active, mx, my, click)) {
-                    ClientConfig.get().applyProfilePreset(name); return true;
-                }
+                if (!click) { g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, active ? accent : ClientState.UI_BORDER); g.text(name + " Profile", x + 12, y + 8, ClientState.UI_TEXT, false); g.text(trimToWidth(g, desc, w - 105), x + 12, y + 21, ClientState.UI_TEXT_MUTED, false); }
+                if (drawBtn(g, "prof_" + name, x + w - 76, y + 9, 66, 20, Math.max(2, menuRad / 2), active ? "ACTIVE" : "Apply", active ? accent : 0xFF1E1E28, active ? accentFg : ClientState.UI_TEXT, active, mx, my, click)) { ClientConfig.get().applyProfilePreset(name); return true; }
                 return false;
             }
         };
     }
-
     private SettingRow boolRow(final String label, final String desc, final String optId, final boolean def) {
         return new SettingRow() {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 boolean val = ClientConfig.get().getBool(optId, def);
-                if (!click) {
-                    if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc;
-                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                    g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
-                    g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
-                }
-                if (drawSwitch(g, "opt_" + optId, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) {
-                    ClientConfig.get().setOption(optId, Boolean.valueOf(!val)); return true;
-                }
+                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (drawSwitch(g, "opt_" + optId, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) { ClientConfig.get().setOption(optId, Boolean.valueOf(!val)); return true; }
                 return false;
             }
         };
     }
-
     private SettingRow modBoolRow(final String label, final String desc, final String modId, final String field) {
         return new SettingRow() {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 ClientConfig.HudModule m = ClientConfig.get().hudModules.get(modId); if (m == null) return false;
                 boolean val = "bg".equals(field) ? m.bg : "border".equals(field) ? m.border : "chroma".equals(field) ? m.chroma : "hideInF1".equals(field) ? m.hideInF1 : "hideInChat".equals(field) ? m.hideInChat : "hideInInventory".equals(field) ? m.hideInInventory : "hideInF3".equals(field) ? m.hideInF3 : m.shadow;
-                if (!click) {
-                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                    g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
-                    g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
-                }
+                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawSwitch(g, "mb_" + modId + "_" + field, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) {
                     if ("bg".equals(field)) m.bg = !m.bg; else if ("border".equals(field)) m.border = !m.border; else if ("chroma".equals(field)) m.chroma = !m.chroma;
                     else if ("hideInF1".equals(field)) m.hideInF1 = !m.hideInF1; else if ("hideInChat".equals(field)) m.hideInChat = !m.hideInChat;
@@ -1138,18 +879,13 @@ public class SharedModMenu {
             }
         };
     }
-
     private SettingRow modCycleRow(final String label, final String desc, final String modId, final String field, final String[] vals) {
         return new SettingRow() {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 ClientConfig.HudModule m = ClientConfig.get().hudModules.get(modId); if (m == null) return false;
                 String cur = "anchor".equals(field) ? m.anchor : "borderStyle".equals(field) ? m.borderStyle : "bracketStyle".equals(field) ? m.bracketStyle : "displayMode".equals(field) ? m.displayMode : m.fontWeight;
-                if (!click) {
-                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                    g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
-                    g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
-                }
+                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawBtn(g, "mc_" + modId + "_" + field, x + w - 102, y + 8, 92, 20, Math.max(2, menuRad / 2), cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
                     int next = 0; for (int i = 0; i < vals.length; i++) if (vals[i].equalsIgnoreCase(cur)) next = (i + 1) % vals.length;
                     if ("anchor".equals(field)) m.anchor = vals[next]; else if ("borderStyle".equals(field)) m.borderStyle = vals[next]; else if ("bracketStyle".equals(field)) m.bracketStyle = vals[next]; else if ("displayMode".equals(field)) m.displayMode = vals[next]; else m.fontWeight = vals[next];
@@ -1159,27 +895,19 @@ public class SharedModMenu {
             }
         };
     }
-
     private SettingRow cycleRow(final String label, final String desc, final String optId, final String[] values) {
         return new SettingRow() {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 String cur = ClientConfig.get().getString(optId, values[0]);
-                if (!click) {
-                    if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc;
-                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                    g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
-                    g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
-                }
+                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawBtn(g, "cyc_" + optId, x + w - 94, y + 8, 84, 20, Math.max(2, menuRad / 2), cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
-                    int next = 0; for (int i = 0; i < values.length; i++) if (values[i].equalsIgnoreCase(cur)) next = (i + 1) % values.length;
-                    ClientConfig.get().setOption(optId, values[next]); return true;
+                    int next = 0; for (int i = 0; i < values.length; i++) if (values[i].equalsIgnoreCase(cur)) next = (i + 1) % values.length; ClientConfig.get().setOption(optId, values[next]); return true;
                 }
                 return false;
             }
         };
     }
-
     private SettingRow sliderRow(final String label, final String desc, final String sliderKey, final double min, final double max, final double step, final boolean isInt) {
         return new SettingRow() {
             @Override public int height() { return 44; }
@@ -1188,36 +916,22 @@ public class SharedModMenu {
                 int trackX = x + 12, trackY = y + 31, trackW = w - 24;
                 if (!click) {
                     if (mx >= x && mx <= x + w && my >= y && my <= y + 44) hoveredTooltip = desc;
-                    g.drawGlassCard(x, y, w, 44, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                    g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
-                    String valStr = (("global_hud_rounding".equals(sliderKey) || "global_hud_opacity".equals(sliderKey)) && val < 0.0)
-                        ? "INDIV"
-                        : (isInt ? String.valueOf(Math.round(val)) : ((sliderKey.contains("opacity") || sliderKey.contains("alpha") || sliderKey.contains("topac") || sliderKey.contains("mod_x:") || sliderKey.contains("mod_y:") || "pvp_hurtcam_factor".equals(sliderKey)) ? (Math.round(val * 100) + "%") : String.format("%.2f", Double.valueOf(val))));
-                    g.text(valStr, x + w - g.textWidth(valStr) - 12, y + 8, accent, false);
-                    g.text(desc, x + 12, y + 18, ClientState.UI_TEXT_DIM, false);
-                    g.drawRoundedRect(trackX, trackY, trackW, 4, 2, ClientState.UI_BORDER);
-                    int fillW = (int) Math.round(trackW * pct);
-                    if (fillW > 2) g.drawRoundedRect(trackX, trackY, fillW, 4, 2, accent);
+                    g.drawGlassCard(x, y, w, 44, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
+                    String valStr = (("global_hud_rounding".equals(sliderKey) || "global_hud_opacity".equals(sliderKey)) && val < 0.0) ? "INDIV" : (isInt ? String.valueOf(Math.round(val)) : ((sliderKey.contains("opacity") || sliderKey.contains("alpha") || sliderKey.contains("topac") || sliderKey.contains("mod_x:") || sliderKey.contains("mod_y:") || "pvp_hurtcam_factor".equals(sliderKey)) ? (Math.round(val * 100) + "%") : String.format("%.2f", Double.valueOf(val))));
+                    g.text(valStr, x + w - g.textWidth(valStr) - 12, y + 8, accent, false); g.text(desc, x + 12, y + 18, ClientState.UI_TEXT_DIM, false);
+                    g.drawRoundedRect(trackX, trackY, trackW, 4, 2, ClientState.UI_BORDER); int fillW = (int) Math.round(trackW * pct); if (fillW > 2) g.drawRoundedRect(trackX, trackY, fillW, 4, 2, accent);
                     g.drawCircleFilled(trackX + fillW, trackY + 2, 4, ClientState.UI_TEXT);
-                } else if (mx >= trackX - 5 && mx <= trackX + trackW + 5 && my >= trackY - 7 && my <= trackY + 11) {
-                    activeSliderId = sliderKey; sliderX = trackX; sliderW = trackW; sliderMin = min; sliderMax = max; sliderStep = step;
-                    applySliderValue(sliderKey, mx); return true;
-                }
+                } else if (mx >= trackX - 5 && mx <= trackX + trackW + 5 && my >= trackY - 7 && my <= trackY + 11) { activeSliderId = sliderKey; sliderX = trackX; sliderW = trackW; sliderMin = min; sliderMax = max; sliderStep = step; applySliderValue(sliderKey, mx); return true; }
                 return false;
             }
         };
     }
-
     private SettingRow colorRow(final String label, final String target) {
         return new SettingRow() {
             @Override public int height() { return 60; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 int curArgb = readColorTarget(target); String hex = ClientState.toHexColor(curArgb);
-                if (!click) {
-                    g.drawGlassCard(x, y, w, 60, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                    g.text(label + "  " + hex.toUpperCase(), x + 12, y + 7, ClientState.UI_TEXT, false);
-                    g.drawCircleFilled(x + w - 16, y + 11, 5, curArgb);
-                }
+                if (!click) { g.drawGlassCard(x, y, w, 60, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label + "  " + hex.toUpperCase(), x + 12, y + 7, ClientState.UI_TEXT, false); g.drawCircleFilled(x + w - 16, y + 11, 5, curArgb); }
                 int sx = x + 14, sy = y + 26;
                 for (int i = 0; i < SWATCHES.length; i++) {
                     int swCol = ClientState.parseHexColor(SWATCHES[i], 0xFFFFFFFF); boolean sel = SWATCHES[i].equalsIgnoreCase(hex);
@@ -1225,26 +939,16 @@ public class SharedModMenu {
                     else if (mx >= sx - 6 && mx <= sx + 6 && my >= sy - 6 && my <= sy + 6) { g.playClickSound(); writeColorTarget(target, SWATCHES[i]); return true; }
                     sx += 18;
                 }
-                int rgbW = (w - 36) / 3;
-                String[] chIds = {"rgb_r:" + target, "rgb_g:" + target, "rgb_b:" + target};
-                int[] chCols = {0xFFEF4444, 0xFF10B981, 0xFF3B82F6}, chVals = {(curArgb >>> 16) & 0xFF, (curArgb >>> 8) & 0xFF, curArgb & 0xFF};
+                int rgbW = (w - 36) / 3; String[] chIds = {"rgb_r:" + target, "rgb_g:" + target, "rgb_b:" + target}; int[] chCols = {0xFFEF4444, 0xFF10B981, 0xFF3B82F6}, chVals = {(curArgb >>> 16) & 0xFF, (curArgb >>> 8) & 0xFF, curArgb & 0xFF};
                 for (int c = 0; c < 3; c++) {
                     int rx = x + 12 + c * (rgbW + 6), ry = y + 46;
-                    if (!click) {
-                        g.drawRoundedRect(rx, ry, rgbW, 4, 2, ClientState.UI_BORDER);
-                        int fw = (int) Math.round(rgbW * (chVals[c] / 255.0));
-                        if (fw > 2) g.drawRoundedRect(rx, ry, fw, 4, 2, chCols[c]);
-                        g.drawCircleFilled(rx + fw, ry + 2, 4, ClientState.UI_TEXT);
-                    } else if (mx >= rx - 4 && mx <= rx + rgbW + 4 && my >= ry - 6 && my <= ry + 10) {
-                        activeSliderId = chIds[c]; sliderX = rx; sliderW = rgbW; sliderMin = 0; sliderMax = 255; sliderStep = 1;
-                        applySliderValue(chIds[c], mx); return true;
-                    }
+                    if (!click) { g.drawRoundedRect(rx, ry, rgbW, 4, 2, ClientState.UI_BORDER); int fw = (int) Math.round(rgbW * (chVals[c] / 255.0)); if (fw > 2) g.drawRoundedRect(rx, ry, fw, 4, 2, chCols[c]); g.drawCircleFilled(rx + fw, ry + 2, 4, ClientState.UI_TEXT); }
+                    else if (mx >= rx - 4 && mx <= rx + rgbW + 4 && my >= ry - 6 && my <= ry + 10) { activeSliderId = chIds[c]; sliderX = rx; sliderW = rgbW; sliderMin = 0; sliderMax = 255; sliderStep = 1; applySliderValue(chIds[c], mx); return true; }
                 }
                 return false;
             }
         };
     }
-
     private SettingRow xhairPreviewRow() {
         return new SettingRow() {
             @Override public int height() { return 62; }
@@ -1254,47 +958,33 @@ public class SharedModMenu {
                 String baseStyle = cfg.getString("pvp_xhair_style", "classic"), rawTgtStyle = cfg.getString("pvp_xhair_target_style", "same");
                 int sz = (int) Math.round(cfg.getDouble("pvp_xhair_size", 6)), gap = (int) Math.round(cfg.getDouble("pvp_xhair_gap", 2)), thick = Math.max(1, Math.min(3, (int) Math.round(cfg.getDouble("pvp_xhair_thick", 1))));
                 int baseCol = ClientState.parseHexColor(cfg.getString("pvp_xhair_color", "#ffffff"), 0xFFFFFFFF), tgtCol = ClientState.parseHexColor(cfg.getString("pvp_xhair_target_color", "#ef4444"), 0xFFEF4444);
-                boolean tgtUseOwnCustom = "custom".equalsIgnoreCase(rawTgtStyle);
-                String tgtStyle = "same".equalsIgnoreCase(rawTgtStyle) ? baseStyle : rawTgtStyle;
+                boolean tgtUseOwnCustom = "custom".equalsIgnoreCase(rawTgtStyle); String tgtStyle = "same".equalsIgnoreCase(rawTgtStyle) ? baseStyle : rawTgtStyle;
                 for (int i = 0; i < 2; i++) {
-                    int bx = x + i * (halfW + 8);
-                    g.drawGlassCard(bx, y, halfW, 62, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                    g.text(i == 0 ? "DEFAULT" : "PLAYER IN VIEW", bx + 10, y + 6, ClientState.UI_TEXT_MUTED, false);
-                    String st = i == 0 ? baseStyle : tgtStyle;
-                    if (!"vanilla".equalsIgnoreCase(st)) SharedHudRenderer.drawCrosshairShape(g, bx + halfW / 2, y + 36, st, sz, gap, thick, i == 0 ? baseCol : tgtCol, i == 1 && tgtUseOwnCustom);
-                    else g.text("Vanilla", bx + halfW / 2 - 14, y + 32, ClientState.UI_TEXT_DIM, false);
+                    int bx = x + i * (halfW + 8); g.drawGlassCard(bx, y, halfW, 62, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(i == 0 ? "DEFAULT" : "PLAYER IN VIEW", bx + 10, y + 6, ClientState.UI_TEXT_MUTED, false);
+                    String st = i == 0 ? baseStyle : tgtStyle; if (!"vanilla".equalsIgnoreCase(st)) SharedHudRenderer.drawCrosshairShape(g, bx + halfW / 2, y + 36, st, sz, gap, thick, i == 0 ? baseCol : tgtCol, i == 1 && tgtUseOwnCustom); else g.text("Vanilla", bx + halfW / 2 - 14, y + 32, ClientState.UI_TEXT_DIM, false);
                 }
                 return false;
             }
         };
     }
-
     private SettingRow xhairPixelEditorRow() {
         return new SettingRow() {
             @Override public int height() { return 174; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                ClientConfig cfg = ClientConfig.get(); int n = SharedHudRenderer.XHAIR_GRID_SIZE;
-                String optKey = editingTargetPixels ? "pvp_xhair_target_custom_pixels" : "pvp_xhair_custom_pixels";
+                ClientConfig cfg = ClientConfig.get(); int n = SharedHudRenderer.XHAIR_GRID_SIZE; String optKey = editingTargetPixels ? "pvp_xhair_target_custom_pixels" : "pvp_xhair_custom_pixels";
                 String pixels = normalizePixelGrid(cfg.getString(optKey, editingTargetPixels ? SharedHudRenderer.DEFAULT_TARGET_CUSTOM_PIXELS : SharedHudRenderer.DEFAULT_CUSTOM_PIXELS), n);
                 int drawCol = ClientState.parseHexColor(cfg.getString(editingTargetPixels ? "pvp_xhair_target_color" : "pvp_xhair_color", editingTargetPixels ? "#ef4444" : "#ffffff"), editingTargetPixels ? 0xFFEF4444 : 0xFFFFFFFF);
                 int cell = 10, gx = x + 12, gy = y + 19, gridPx = n * cell;
                 if (!click) {
-                    g.drawGlassCard(x, y, w, 174, menuRad, 0xFF14141B, ClientState.UI_BORDER);
-                    g.text("Custom Pixel Crosshair (15x15)", x + 12, y + 6, ClientState.UI_TEXT, false);
-                    g.drawRoundedRect(gx - 1, gy - 1, gridPx + 2, gridPx + 2, 4, ClientState.UI_BORDER);
+                    g.drawGlassCard(x, y, w, 174, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text("Custom Pixel Crosshair (15x15)", x + 12, y + 6, ClientState.UI_TEXT, false); g.drawRoundedRect(gx - 1, gy - 1, gridPx + 2, gridPx + 2, 4, ClientState.UI_BORDER);
                     for (int r = 0; r < n; r++) for (int c = 0; c < n; c++) {
                         int cx0 = gx + c * cell, cy0 = gy + r * cell; boolean on = pixels.charAt(r * n + c) == '1';
                         g.fill(cx0, cy0, cx0 + cell - 1, cy0 + cell - 1, on ? drawCol : ((r == n / 2 && c == n / 2) ? 0xFF2B2B38 : ((r + c) % 2 == 0 ? 0xFF181822 : 0xFF13131A)));
                         if (mx >= cx0 && mx < cx0 + cell && my >= cy0 && my < cy0 + cell) g.drawBorder(cx0, cy0, cell - 1, cell - 1, accent);
                     }
                 } else if (mx >= gx && mx < gx + gridPx && my >= gy && my < gy + gridPx) {
-                    g.playClickSound();
-                    int col = (mx - gx) / cell, row = (my - gy) / cell;
-                    char[] arr = pixels.toCharArray(); char nv = arr[row * n + col] == '1' ? '0' : '1';
-                    arr[row * n + col] = nv;
-                    if (pixelMirrorX) arr[row * n + (n - 1 - col)] = nv;
-                    if (pixelMirrorY) arr[(n - 1 - row) * n + col] = nv;
-                    if (pixelMirrorX && pixelMirrorY) arr[(n - 1 - row) * n + (n - 1 - col)] = nv;
+                    g.playClickSound(); int col = (mx - gx) / cell, row = (my - gy) / cell; char[] arr = pixels.toCharArray(); char nv = arr[row * n + col] == '1' ? '0' : '1'; arr[row * n + col] = nv;
+                    if (pixelMirrorX) arr[row * n + (n - 1 - col)] = nv; if (pixelMirrorY) arr[(n - 1 - row) * n + col] = nv; if (pixelMirrorX && pixelMirrorY) arr[(n - 1 - row) * n + (n - 1 - col)] = nv;
                     cfg.setOption(optKey, new String(arr)); return true;
                 }
                 int rx = gx + gridPx + 14, bw = Math.min(136, Math.max(90, w - (rx - x) - 12)), halfBw = (bw - 4) / 2, rBtn = Math.max(2, menuRad / 2);
@@ -1311,13 +1001,7 @@ public class SharedModMenu {
             }
         };
     }
-
-    private String normalizePixelGrid(String raw, int n) {
-        int len = n * n; char[] out = new char[len]; Arrays.fill(out, '0');
-        if (raw != null) { int copy = Math.min(len, raw.length()); for (int i = 0; i < copy; i++) if (raw.charAt(i) == '1') out[i] = '1'; }
-        return new String(out);
-    }
-
+    private String normalizePixelGrid(String raw, int n) { int len = n * n; char[] out = new char[len]; Arrays.fill(out, '0'); if (raw != null) { int copy = Math.min(len, raw.length()); for (int i = 0; i < copy; i++) if (raw.charAt(i) == '1') out[i] = '1'; } return new String(out); }
     private SettingRow accentRow(final String label) {
         return new SettingRow() {
             @Override public int height() { return 46; }
@@ -1336,7 +1020,6 @@ public class SharedModMenu {
             }
         };
     }
-
     private SettingRow actionRow(final String label, final String desc, final String actId) {
         return new SettingRow() {
             @Override public int height() { return 36; }

@@ -21,7 +21,9 @@ public class HudMixin {
     private void aetheria$renderHud(GuiGraphicsExtractor g, DeltaTracker dt, CallbackInfo ci) { McBridge.renderInGame(g); }
 
     @Inject(method = "extractCrosshair", at = @At("HEAD"), cancellable = true)
-    private void aetheria$cancelCrosshair(GuiGraphicsExtractor g, DeltaTracker dt, CallbackInfo ci) { if (ClientState.shouldCancelVanillaCrosshair()) ci.cancel(); }
+    private void aetheria$cancelCrosshair(GuiGraphicsExtractor g, DeltaTracker dt, CallbackInfo ci) {
+        if (ClientState.shouldCancelVanillaCrosshair()) ci.cancel();
+    }
 
     @Inject(method = "extractEffects", at = @At("HEAD"), cancellable = true, require = 0)
     private void aetheria$cancelEffects(GuiGraphicsExtractor g, DeltaTracker dt, CallbackInfo ci) {
@@ -54,5 +56,7 @@ public class HudMixin {
     }
 
     @Inject(method = "extractHotbarAndDecorations", at = @At("RETURN"), require = 0)
-    private void aetheria$hotbarPost(GuiGraphicsExtractor g, DeltaTracker dt, CallbackInfo ci) { if (aetheria$hotbarPushed) { g.pose().popMatrix(); aetheria$hotbarPushed = false; } }
+    private void aetheria$hotbarPost(GuiGraphicsExtractor g, DeltaTracker dt, CallbackInfo ci) {
+        if (aetheria$hotbarPushed) { g.pose().popMatrix(); aetheria$hotbarPushed = false; }
+    }
 }

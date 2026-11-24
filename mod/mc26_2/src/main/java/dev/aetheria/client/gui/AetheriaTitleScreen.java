@@ -30,7 +30,7 @@ public class AetheriaTitleScreen extends Screen {
             @Override public void openOptions() { mc.gui.setScreen(new OptionsScreen(AetheriaTitleScreen.this, mc.options)); }
             @Override public void openClientMenu() { mc.gui.setScreen(new ModMenuScreen()); }
             @Override public void quitGame() { mc.gui.setScreen(new ConfirmScreen(b -> { if (b) mc.stop(); else mc.gui.setScreen(AetheriaTitleScreen.this); }, Component.literal("Quit Game"), Component.literal("Exit Minecraft?"))); }
-            @Override public void exitEditor() { if (mc.level != null) mc.gui.setScreen(new ModMenuScreen()); else mc.gui.setScreen(new AetheriaTitleScreen(false)); }
+            @Override public void exitEditor() { mc.gui.setScreen(new AetheriaTitleScreen(false)); }
         };
     }
 
@@ -41,12 +41,6 @@ public class AetheriaTitleScreen extends Screen {
     }
     @Override public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) { return (event.button() == InputConstants.MOUSE_BUTTON_LEFT && titleUi.mouseDragged(event.x(), event.y())) || super.mouseDragged(event, dx, dy); }
     @Override public boolean mouseReleased(MouseButtonEvent event) { return (event.button() == InputConstants.MOUSE_BUTTON_LEFT && titleUi.mouseReleased()) || super.mouseReleased(event); }
-    @Override public boolean mouseScrolled(double mx, double my, double sx, double sy) { return titleUi.mouseScrolled(sy) || super.mouseScrolled(mx, my, sx, sy); }
-    @Override public boolean keyPressed(KeyEvent event) {
-        Minecraft mc = Minecraft.getInstance();
-        if (titleUi.keyPressedCode(event.key()) || titleUi.keyPressed(event.key() == InputConstants.KEY_BACKSPACE, event.key() == InputConstants.KEY_ESCAPE, actions(mc))) return true;
-        if (event.key() == InputConstants.KEY_ESCAPE && mc.level != null) { mc.gui.setScreen(null); return true; }
-        return super.keyPressed(event);
-    }
+    @Override public boolean keyPressed(KeyEvent event) { return titleUi.keyPressedCode(event.key()) || titleUi.keyPressed(event.key() == InputConstants.KEY_BACKSPACE, event.key() == InputConstants.KEY_ESCAPE) || super.keyPressed(event); }
     @Override public boolean charTyped(CharacterEvent event) { String s = event.codepointAsString(); return (s != null && s.length() == 1 && titleUi.charTyped(s.charAt(0))) || super.charTyped(event); }
 }

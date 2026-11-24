@@ -13,10 +13,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Camera.class)
 public class CameraMixin {
     @ModifyVariable(method = "setRotation", at = @At("HEAD"), ordinal = 0, argsOnly = true, require = 0)
-    private float aetheria$freeLookYaw(float yRot) { return ClientState.isFreeLook() ? ClientState.getFreeLookYaw() : yRot; }
+    private float aetheria$freeLookYaw(float yRot) {
+        return ClientState.isFreeLook() ? ClientState.getFreeLookYaw() : yRot;
+    }
 
     @ModifyVariable(method = "setRotation", at = @At("HEAD"), ordinal = 1, argsOnly = true, require = 0)
-    private float aetheria$freeLookPitch(float xRot) { return ClientState.isFreeLook() ? ClientState.getFreeLookPitch() : xRot; }
+    private float aetheria$freeLookPitch(float xRot) {
+        return ClientState.isFreeLook() ? ClientState.getFreeLookPitch() : xRot;
+    }
 
     @Inject(method = "calculateFov", at = @At("RETURN"), cancellable = true, require = 0)
     private void aetheria$modifyFov(float partialTicks, CallbackInfoReturnable<Float> cir) {
@@ -24,20 +28,26 @@ public class CameraMixin {
         Minecraft mc = Minecraft.getInstance();
         float fov = cir.getReturnValue();
         float baseFov = ((Number) mc.options.fov().get()).floatValue();
-        if (!cfg.getBool("cam_fov_dynamic", true)) fov = baseFov;
-        else {
+
+        if (!cfg.getBool("cam_fov_dynamic", true)) {
+            fov = baseFov;
+        } else {
             boolean usingItem = mc.player != null && mc.player.isUsingItem();
             boolean sprinting = mc.player != null && mc.player.isSprinting();
-            if (!cfg.getBool("cam_fov_bow", true) && usingItem && fov < baseFov) fov = baseFov;
-            else if (!cfg.getBool("cam_fov_sprint", true) && sprinting && !usingItem && fov > baseFov) fov = baseFov;
-            else {
+            if (!cfg.getBool("cam_fov_bow", true) && usingItem && fov < baseFov) {
+                fov = baseFov;
+            } else if (!cfg.getBool("cam_fov_sprint", true) && sprinting && !usingItem && fov > baseFov) {
+                fov = baseFov;
+            } else {
                 double factor = cfg.getDouble("cam_fov_factor", 1.0);
-                if (Math.abs(factor - 1.0) > 0.01) fov = baseFov + (float) ((fov - baseFov) * factor);
+                if (Math.abs(factor - 1.0) > 0.01) {
+                    fov = baseFov + (float) ((fov - baseFov) * factor);
+                }
             }
         }
-        float div = ClientState.stepZoomDivisor();
-        if (div > 1.005f) fov /= div;
-        ClientState.setLastWorldFov(fov);
+
+        float div = ClientState.getSmoothedZoomDivisor();
+        if (div > 1.01f) fov /= div;
         cir.setReturnValue(fov);
     }
 }

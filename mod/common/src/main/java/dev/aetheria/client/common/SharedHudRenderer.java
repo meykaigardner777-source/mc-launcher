@@ -20,14 +20,9 @@ public final class SharedHudRenderer {
 
     private static final SimpleDateFormat CLOCK_12 = new SimpleDateFormat("hh:mm a"), CLOCK_12S = new SimpleDateFormat("hh:mm:ss a");
     private static final SimpleDateFormat CLOCK_24 = new SimpleDateFormat("HH:mm"), CLOCK_24S = new SimpleDateFormat("HH:mm:ss");
-    private static long lastClockSec = -1L, lastSysCacheMs = 0L, lastDayBucket = -1L;
+    private static long lastClockSec = -1L, lastSysCacheMs = 0L;
     private static boolean lastClock24 = false, lastClockSecFlag = false;
-    private static String cachedClockStr = "", cachedRamStr = "RAM: --", cachedCpuStr = "CPU: --", cachedGcStr = "GC: --", cachedDayStr = "";
-    private static int cachedSlimeCx = Integer.MIN_VALUE, cachedSlimeCz = Integer.MIN_VALUE;
-    private static boolean cachedSlimeVal = false;
-    private static int cachedCoordX = Integer.MIN_VALUE, cachedCoordY = Integer.MIN_VALUE, cachedCoordZ = Integer.MIN_VALUE;
-    private static boolean cachedCoordCompact = false, cachedCoordFaceFlag = false, cachedCoordNether = false;
-    private static String cachedCoordFacing = "", cachedCoordLine1 = "", cachedCoordLine2 = "";
+    private static String cachedClockStr = "", cachedRamStr = "RAM: --", cachedCpuStr = "CPU: --", cachedGcStr = "GC: --";
 
     private SharedHudRenderer() {}
 
@@ -69,8 +64,7 @@ public final class SharedHudRenderer {
         double yawRad = Math.toRadians(d.camYaw()), pitchRad = Math.toRadians(d.camPitch());
         double cosP = Math.cos(pitchRad), sinP = Math.sin(pitchRad), sinY = Math.sin(yawRad), cosY = Math.cos(yawRad);
         double fx = -sinY * cosP, fy = -sinP, fz = cosY * cosP, rx = -cosY, rz = -sinY, ux = -sinY * sinP, uy = cosP, uz = cosY * sinP;
-        double effFov = Math.max(8.0, ClientState.getLastWorldFov());
-        if (effFov <= 0.0) effFov = Math.max(10.0, d.fovDegrees() / Math.max(1.0F, ClientState.getSmoothedZoomDivisor()));
+        double effFov = Math.max(10.0, d.fovDegrees() / Math.max(1.0F, ClientState.getSmoothedZoomDivisor()));
         double tanHalf = Math.tan(Math.toRadians(effFov) * 0.5), halfH = sh * 0.5;
         String curDim = d.dimensionId();
 
@@ -78,52 +72,42 @@ public final class SharedHudRenderer {
             ClientConfig.Waypoint wp = cfg.waypoints.get(i);
             double[] pos = ClientState.resolveWaypointCoords(wp, curDim, netherSync);
             if (pos == null) continue;
-            double wx = pos[0] + 0.5, wy = pos[1] + 1.1, wz = pos[2] + 0.5;
-            double dx = wx - camX, dy = wy - camY, dz = wz - camZ;
-            double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-            double sx, sy, camFwd, camRight, camUp;
-            double[] exact = d.projectWorldToScreen(wx, wy, wz, sw, sh);
-            if (exact != null && exact.length >= 5) {
-                sx = exact[0]; sy = exact[1]; camFwd = exact[2]; camRight = exact[3]; camUp = exact[4];
-            } else {
-                camFwd = dx * fx + dy * fy + dz * fz;
-                camRight = dx * rx + dz * rz;
-                camUp = dx * ux + dy * uy + dz * uz;
-                sx = (sw * 0.5) + (camRight / (Math.max(0.05, camFwd) * tanHalf)) * halfH;
-                sy = (sh * 0.5) - (camUp / (Math.max(0.05, camFwd) * tanHalf)) * halfH;
-            }
-
+            double dx = (pos[0] + 0.5) - camX, dy = (pos[1] + 1.1) - camY, dz = (pos[2] + 0.5) - camZ;
+            double dist = Math.sqrt(dx * dx + dy * dy + dz * dz), camFwd = dx * fx + dy * fy + dz * fz;
+            double camRight = dx * rx + dz * rz, camUp = dx * ux + dy * uy + dz * uz;
             int col = ClientState.parseHexColor(wp.color, 0xFF22D3EE);
             String label = wp.name + (pos[3] == 1.0 ? " (OW)" : (pos[3] == 2.0 ? " (N)" : ""));
             String distStr = showDist ? (Math.round(dist) + "m") : "";
 
-            if (camFwd > 0.25 && sx >= -40 && sx <= sw + 40 && sy >= -40 && sy <= sh + 40) {
-                g.pushTransform((float) sx, (float) sy, 1.0F);
-                try {
-                    if ("beacon".equals(style) || (beam && "lunar".equals(style))) {
-                        int beamH = "beacon".equals(style) ? 140 : Math.max(22, Math.min(95, (int) Math.round(800.0 / Math.max(8.0, dist))));
-                        g.fill(-1, -beamH, 1, -10, ClientState.withAlpha(col, "beacon".equals(style) ? 150 : 95));
-                        g.fill(-2, -beamH + 8, 2, -10, ClientState.withAlpha(col, 40));
-                    }
-                    if ("dot".equals(style)) {
-                        g.drawCircleFilled(0, 0, 5, ClientState.withAlpha(col, 70)); g.drawCircleFilled(0, 0, 3, col);
-                        String txt = distStr.isEmpty() ? label : (label + " " + distStr); int tw = g.textWidth(txt) + 10;
-                        g.drawGlassCard(-tw / 2, -18, tw, 13, 6, 0xA809090B, ClientState.withAlpha(col, 160));
-                        g.text(txt, -tw / 2 + 5, -15, 0xFFF4F4F5, true);
-                    } else if ("block".equals(style)) {
-                        String txt = distStr.isEmpty() ? label : (label + " [" + distStr + "]"); int tw = g.textWidth(txt) + 12;
-                        g.drawGlassCard(-tw / 2, -22, tw, 14, 5, 0xB809090B, col); g.text(txt, -tw / 2 + 6, -19, 0xFFF4F4F5, true);
-                    } else {
-                        String full = distStr.isEmpty() ? label : (label + "  " + distStr);
-                        int dw = distStr.isEmpty() ? 0 : g.textWidth(distStr), pw = 18 + g.textWidth(full) + 8;
-                        g.drawGlassCard(-pw / 2, -9, pw, 17, 6, 2, "solid", 0xD009090B, col, col);
-                        g.drawRoundedRect(-pw / 2 + 3, -6, 11, 11, 3, col); g.fill(-pw / 2 + 7, -2, -pw / 2 + 10, 1, 0xFF09090B);
-                        g.text(label, -pw / 2 + 18, -4, 0xFFF4F4F5, true);
-                        if (!distStr.isEmpty()) g.text(distStr, pw / 2 - dw - 6, -4, col, false);
-                    }
-                } finally { g.popTransform(); }
-                continue;
+            if (camFwd > 0.35) {
+                double sx = (sw * 0.5) + (camRight / (camFwd * tanHalf)) * halfH, sy = (sh * 0.5) - (camUp / (camFwd * tanHalf)) * halfH;
+                if (sx >= -30 && sx <= sw + 30 && sy >= -30 && sy <= sh + 30) {
+                    g.pushTransform((float) sx, (float) sy, 1.0F);
+                    try {
+                        if ("beacon".equals(style) || (beam && "lunar".equals(style))) {
+                            int beamH = "beacon".equals(style) ? 140 : Math.max(22, Math.min(95, (int) Math.round(800.0 / Math.max(8.0, dist))));
+                            g.fill(-1, -beamH, 1, -10, ClientState.withAlpha(col, "beacon".equals(style) ? 150 : 95));
+                            g.fill(-2, -beamH + 8, 2, -10, ClientState.withAlpha(col, 40));
+                        }
+                        if ("dot".equals(style)) {
+                            g.drawCircleFilled(0, 0, 5, ClientState.withAlpha(col, 70)); g.drawCircleFilled(0, 0, 3, col);
+                            String txt = distStr.isEmpty() ? label : (label + " " + distStr); int tw = g.textWidth(txt) + 10;
+                            g.drawGlassCard(-tw / 2, -18, tw, 13, 6, 0xA809090B, ClientState.withAlpha(col, 160));
+                            g.text(txt, -tw / 2 + 5, -15, 0xFFF4F4F5, true);
+                        } else if ("block".equals(style)) {
+                            String txt = distStr.isEmpty() ? label : (label + " [" + distStr + "]"); int tw = g.textWidth(txt) + 12;
+                            g.drawGlassCard(-tw / 2, -22, tw, 14, 5, 0xB809090B, col); g.text(txt, -tw / 2 + 6, -19, 0xFFF4F4F5, true);
+                        } else {
+                            String full = distStr.isEmpty() ? label : (label + "  " + distStr);
+                            int dw = distStr.isEmpty() ? 0 : g.textWidth(distStr), pw = 18 + g.textWidth(full) + 8;
+                            g.drawGlassCard(-pw / 2, -9, pw, 17, 6, 2, "solid", 0xD009090B, col, col);
+                            g.drawRoundedRect(-pw / 2 + 3, -6, 11, 11, 3, col); g.fill(-pw / 2 + 7, -2, -pw / 2 + 10, 1, 0xFF09090B);
+                            g.text(label, -pw / 2 + 18, -4, 0xFFF4F4F5, true);
+                            if (!distStr.isEmpty()) g.text(distStr, pw / 2 - dw - 6, -4, col, false);
+                        }
+                    } finally { g.popTransform(); }
+                    continue;
+                }
             }
             if (offscreen) {
                 double ang = Math.atan2(-camUp, camRight), edgeR = Math.min(sw, sh) * 0.43;
@@ -201,11 +185,6 @@ public final class SharedHudRenderer {
             boolean showIcon = ClientConfig.get().getBool("potions_show_icon", true);
             int maxW = 60; for (String p : pots) maxW = Math.max(maxW, textWidthSpaced(g, p, m.letterSpacing) + (showIcon ? 12 : 0));
             w = maxW + px * 2; h = (pots.length - 1) * 14 + 9 + py * 2;
-        } else if ("pickup_feed".equals(m.id)) {
-            if (!editorPreview && !ClientState.hasPickups()) return new int[]{0, 0};
-            String[] lines = editorPreview && !ClientState.hasPickups() ? new String[]{"+16 Oak Log"} : ClientState.getRecentPickups();
-            int maxW = 64; for (String ln : lines) maxW = Math.max(maxW, textWidthSpaced(g, ln, m.letterSpacing));
-            w = maxW + px * 2; h = (lines.length - 1) * 10 + 7 + py * 2;
         } else if ("pearl_cd".equals(m.id) && !editorPreview && ClientConfig.get().getBool("pearl_auto_hide", true) && ClientState.getPearlCooldownSec() <= 0.0) {
             return new int[]{0, 0};
         } else if ("shield_cd".equals(m.id) && !editorPreview && ClientConfig.get().getBool("shield_auto_hide", true) && ClientState.getShieldCooldownSec() <= 0.0) {
@@ -258,8 +237,6 @@ public final class SharedHudRenderer {
         try {
             if ("hotbar".equals(m.id)) {
                 if (editorPreview) {
-                    g.drawGlassCard(0, -14, boxW, 13, 4, 1, "solid", 0x6009090B, 0x44FFFFFF, 0x44FFFFFF);
-                    g.text("HP / Armor / Food / XP Zone", 26, -11, ClientState.UI_TEXT_MUTED, false);
                     g.drawGlassCard(0, 0, boxW, boxH, 5, 2, "solid", 0xB809090B, ClientState.getAccentColor(), ClientState.getAccentColor());
                     for (int s = 0; s < 9; s++) g.drawBorder(2 + s * 20, 2, 18, 18, s == 0 ? 0xFFFFFFFF : 0x44FFFFFF);
                     g.text("HOTBAR HUD", 62, 7, 0xFFF4F4F5, true);
@@ -276,10 +253,6 @@ public final class SharedHudRenderer {
             else if ("armor".equals(m.id) && g.supportsItemIcons() && !ClientConfig.get().getBool("armor_text_mode", false)) renderArmorIcons(g, d, px, py, textCol, shadow, editorPreview);
             else if ("potions".equals(m.id)) renderPotionHud(g, d, px, py, boxW, textCol, shadow);
             else if ("ping".equals(m.id)) renderPingHud(g, d, m, px, py, textCol, shadow);
-            else if ("pickup_feed".equals(m.id)) {
-                String[] lines = (editorPreview && !ClientState.hasPickups()) ? new String[]{"+16 Oak Log"} : ClientState.getRecentPickups();
-                for (int i = 0; i < lines.length; i++) drawTextSpaced(g, lines[i], px, py + i * 10, textCol, shadow, m.letterSpacing);
-            }
             else if ("saturation".equals(m.id) && editorPreview && "appleskin".equalsIgnoreCase(ClientConfig.get().getString("saturation_style", "appleskin"))) g.text("AppleSkin (On Hunger)", px, py, 0xFFFFD166, shadow);
             else if ("paperdoll".equals(m.id)) { /* screen-space 3D model drawn after popTransform */ }
             else if ("frametime_graph".equals(m.id)) { float[] hist = ClientState.getFrametimeHistory(); drawTextSpaced(g, String.format("FT %.1fms", Float.valueOf(hist.length > 0 ? hist[hist.length - 1] : 0.0F)), px, py, textCol, shadow, m.letterSpacing); g.drawSparkline(px, py + 11, boxW - px * 2, boxH - py * 2 - 11, hist, hist.length, 40.0F, textCol, ClientState.withAlpha(textCol, 40)); }
@@ -441,29 +414,13 @@ public final class SharedHudRenderer {
             drawCustomPixelCrosshair(g, cx, cy, cfg.getString(useTargetCustom ? "pvp_xhair_target_custom_pixels" : "pvp_xhair_custom_pixels", useTargetCustom ? DEFAULT_TARGET_CUSTOM_PIXELS : DEFAULT_CUSTOM_PIXELS), Math.max(1, Math.min(3, (int) Math.round(cfg.getDouble("pvp_xhair_pixel_scale", 1.0)))), col);
             return;
         }
-        size = Math.max(1, size); gap = Math.max(0, gap); thick = Math.max(1, Math.min(4, thick));
-        int halfT = thick / 2, x0 = cx - halfT, x1 = x0 + thick, y0 = cy - halfT, y1 = y0 + thick;
-        if ("dot".equalsIgnoreCase(style)) g.fill(x0 - 1, y0 - 1, x1 + 1, y1 + 1, col);
+        size = Math.max(1, size); gap = Math.max(0, gap); thick = Math.max(1, Math.min(4, thick)); int halfT = thick / 2;
+        if ("dot".equalsIgnoreCase(style)) g.fill(cx - halfT - 1, cy - halfT - 1, cx - halfT + thick + 1, cy - halfT + thick + 1, col);
         else if ("circle".equalsIgnoreCase(style)) g.drawCircle(cx, cy, Math.max(2, size), thick, col);
-        else if ("t_shape".equalsIgnoreCase(style)) {
-            g.fill(x0 - gap - size, y0, x0 - gap, y1, col);
-            g.fill(x1 + gap, y0, x1 + gap + size, y1, col);
-            g.fill(x0, y1 + gap, x1, y1 + gap + size, col);
-        } else if ("x_cross".equalsIgnoreCase(style)) {
-            g.drawLine(cx - gap - size, cy - gap - size, cx - gap, cy - gap, thick, col);
-            g.drawLine(cx + gap + 1, cy - gap - size, cx + gap + 1 + size, cy - gap, thick, col);
-            g.drawLine(cx - gap - size, cy + gap + 1 + size, cx - gap, cy + gap + 1, thick, col);
-            g.drawLine(cx + gap + 1, cy + gap + 1 + size, cx + gap + 1 + size, cy + gap + 1, thick, col);
-        } else if ("arrows".equalsIgnoreCase(style) || "chevron".equalsIgnoreCase(style)) {
-            int s = Math.max(2, size / 2 + 1);
-            g.drawLine(cx - gap - s, cy - s, cx - gap, cy, thick, col); g.drawLine(cx - gap - s, cy + s, cx - gap, cy, thick, col);
-            g.drawLine(cx + gap + s, cy - s, cx + gap, cy, thick, col); g.drawLine(cx + gap + s, cy + s, cx + gap, cy, thick, col);
-        } else {
-            g.fill(x0 - gap - size, y0, x0 - gap, y1, col);
-            g.fill(x1 + gap, y0, x1 + gap + size, y1, col);
-            g.fill(x0, y0 - gap - size, x1, y0 - gap, col);
-            g.fill(x0, y1 + gap, x1, y1 + gap + size, col);
-        }
+        else if ("t_shape".equalsIgnoreCase(style)) { g.fill(cx - gap - size, cy - halfT, cx - gap, cy - halfT + thick, col); g.fill(cx + gap + thick, cy - halfT, cx + gap + thick + size, cy - halfT + thick, col); g.fill(cx - halfT, cy + gap + thick, cx - halfT + thick, cy + gap + thick + size, col); }
+        else if ("x_cross".equalsIgnoreCase(style)) { g.drawLine(cx - gap - size, cy - gap - size, cx - gap, cy - gap, thick, col); g.drawLine(cx + gap + 1, cy - gap - size, cx + gap + 1 + size, cy - gap, thick, col); g.drawLine(cx - gap - size, cy + gap + 1 + size, cx - gap, cy + gap + 1, thick, col); g.drawLine(cx + gap + 1, cy + gap + 1 + size, cx + gap + 1 + size, cy + gap + 1, thick, col); }
+        else if ("arrows".equalsIgnoreCase(style) || "chevron".equalsIgnoreCase(style)) { int s = Math.max(2, size / 2 + 1); g.drawLine(cx - gap - s, cy - s, cx - gap, cy, thick, col); g.drawLine(cx - gap - s, cy + s, cx - gap, cy, thick, col); g.drawLine(cx + gap + s, cy - s, cx + gap, cy, thick, col); g.drawLine(cx + gap + s, cy + s, cx + gap, cy, thick, col); }
+        else { g.fill(cx - gap - size, cy - halfT, cx - gap, cy - halfT + thick, col); g.fill(cx + gap + thick, cy - halfT, cx + gap + thick + size, cy - halfT + thick, col); g.fill(cx - halfT, cy - gap - size, cx - halfT + thick, cy - gap, col); g.fill(cx - halfT, cy + gap + thick, cx - halfT + thick, cy + gap + thick + size, col); }
     }
 
     public static void drawCustomPixelCrosshair(UiBridge.UiDraw g, int cx, int cy, String pixels, int scale, int col) {
@@ -518,30 +475,13 @@ public final class SharedHudRenderer {
         else if ("attack_charge".equals(id)) raw = new String[]{"Attack: " + Math.round(d.attackCooldownPct() * 100.0F) + "%"};
         else if ("togglesprint".equals(id)) raw = new String[]{ClientState.isToggleSneaking() ? "[Sneaking (Toggled)]" : (d.isSprinting() ? "[Sprinting]" : (d.isSneaking() ? "[Sneaking]" : "[Walking]"))};
         else if ("speedometer".equals(id)) { String unit = cfg.getString("speed_unit", "bps"); double bps = ClientState.getSpeedBps(); raw = "kmh".equalsIgnoreCase(unit) ? new String[]{String.format("%.1f km/h", Double.valueOf(bps * 3.6))} : ("mph".equalsIgnoreCase(unit) ? new String[]{String.format("%.1f mph", Double.valueOf(bps * 2.23694))} : new String[]{String.format("%.2f b/s", Double.valueOf(bps))}); }
-        else if ("coords".equals(id)) {
-            boolean compact = cfg.getBool("coords_compact", false), facing = cfg.getBool("coords_facing", true), nether = cfg.getBool("coords_nether", true);
-            String faceStr = d.facing();
-            if (d.x() != cachedCoordX || d.y() != cachedCoordY || d.z() != cachedCoordZ || compact != cachedCoordCompact || facing != cachedCoordFaceFlag || nether != cachedCoordNether || !Objects.equals(faceStr, cachedCoordFacing)) {
-                cachedCoordX = d.x(); cachedCoordY = d.y(); cachedCoordZ = d.z(); cachedCoordCompact = compact; cachedCoordFaceFlag = facing; cachedCoordNether = nether; cachedCoordFacing = faceStr;
-                String face = facing ? (" [" + faceStr + "]") : "";
-                cachedCoordLine1 = compact ? (cachedCoordX + " " + cachedCoordY + " " + cachedCoordZ + face) : ("XYZ: " + cachedCoordX + ", " + cachedCoordY + ", " + cachedCoordZ + face);
-                cachedCoordLine2 = nether ? ("Nether: " + (cachedCoordX / 8) + ", " + (cachedCoordZ / 8)) : "";
-            }
-            raw = nether ? new String[]{cachedCoordLine1, cachedCoordLine2} : new String[]{cachedCoordLine1};
-        }
+        else if ("coords".equals(id)) { boolean compact = cfg.getBool("coords_compact", false), facing = cfg.getBool("coords_facing", true), nether = cfg.getBool("coords_nether", true); String face = facing ? (" [" + d.facing() + "]") : "", main = compact ? (d.x() + " " + d.y() + " " + d.z() + face) : ("XYZ: " + d.x() + ", " + d.y() + ", " + d.z() + face); raw = nether ? new String[]{main, "Nether: " + (d.x() / 8) + ", " + (d.z() / 8)} : new String[]{main}; }
         else if ("chunk_coords".equals(id)) raw = new String[]{"Chunk: " + (d.x() >> 4) + ", " + (d.y() >> 4) + ", " + (d.z() >> 4)};
         else if ("compass".equals(id)) { int deg = ((Math.round(d.yaw()) % 360) + 360) % 360; raw = new String[]{cfg.getBool("compass_degrees", true) ? (d.facing() + " (" + deg + "\u00b0)") : d.facing()}; }
         else if ("biome".equals(id)) raw = new String[]{"Biome: " + d.biome()};
         else if ("light_level".equals(id)) raw = new String[]{"Light: B" + d.blockLight() + " / S" + d.skyLight()};
         else if ("slime_chunk".equals(id)) raw = new String[]{isSlimeChunk(d.x() >> 4, d.z() >> 4) ? "Slime Chunk: YES" : "Slime Chunk: No"};
-        else if ("day_count".equals(id)) {
-            long wt = d.worldTime(), bucket = wt / 16L;
-            if (bucket != lastDayBucket || cachedDayStr.isEmpty()) {
-                lastDayBucket = bucket; long tod = wt % 24000L;
-                cachedDayStr = "Day " + d.dayCount() + String.format(" (%02d:%02d)", Integer.valueOf((int) (((tod / 1000L) + 6L) % 24L)), Integer.valueOf((int) ((tod % 1000L) * 60L / 1000L)));
-            }
-            raw = new String[]{cachedDayStr};
-        }
+        else if ("day_count".equals(id)) { long tod = d.worldTime() % 24000L; raw = new String[]{"Day " + d.dayCount() + String.format(" (%02d:%02d)", Integer.valueOf((int) (((tod / 1000L) + 6L) % 24L)), Integer.valueOf((int) ((tod % 1000L) * 60L / 1000L)))}; }
         else if ("moon_phase".equals(id)) { String[] phases = {"Full", "Waning Gibbous", "Last Qtr", "Waning Cres", "New", "Waxing Cres", "First Qtr", "Waxing Gibbous"}; raw = new String[]{"Moon: " + phases[Math.abs(d.moonPhase()) % phases.length]}; }
         else if ("weather".equals(id)) raw = new String[]{"Weather: " + d.weather()};
         else if ("waypoints".equals(id)) raw = new String[]{ClientState.getNearestWaypointText(d.x(), d.y(), d.z(), d.dimensionId())};
@@ -584,12 +524,7 @@ public final class SharedHudRenderer {
         return cachedClockStr;
     }
     private static String formatDuration(long totalSec) { long h = totalSec / 3600L, m = (totalSec % 3600L) / 60L, s = totalSec % 60L; return h > 0L ? String.format("%d:%02d:%02d", Long.valueOf(h), Long.valueOf(m), Long.valueOf(s)) : String.format("%02d:%02d", Long.valueOf(m), Long.valueOf(s)); }
-    private static boolean isSlimeChunk(int cx, int cz) {
-        if (cx == cachedSlimeCx && cz == cachedSlimeCz) return cachedSlimeVal;
-        cachedSlimeCx = cx; cachedSlimeCz = cz;
-        cachedSlimeVal = new Random((((long) cx * cx * 0x4c1906L) + ((long) cx * 0x5ac0dbL) + ((long) cz * cz * 0x4307a7L) + ((long) cz * 0x5f24fL)) ^ 0x3ad8025fL).nextInt(10) == 0;
-        return cachedSlimeVal;
-    }
+    private static boolean isSlimeChunk(int cx, int cz) { return new Random((((long) cx * cx * 0x4c1906L) + ((long) cx * 0x5ac0dbL) + ((long) cz * cz * 0x4307a7L) + ((long) cz * 0x5f24fL)) ^ 0x3ad8025fL).nextInt(10) == 0; }
     private static int textWidthSpaced(UiBridge.UiDraw g, String s, int spacing) { return (s == null || s.isEmpty()) ? 0 : (spacing <= 0 ? g.textWidth(s) : (g.textWidth(s) + (s.length() - 1) * spacing)); }
     private static void drawTextSpaced(UiBridge.UiDraw g, String s, int x, int y, int col, boolean shadow, int spacing) {
         if (s == null || s.isEmpty()) return; if (spacing <= 0) { g.text(s, x, y, col, shadow); return; }

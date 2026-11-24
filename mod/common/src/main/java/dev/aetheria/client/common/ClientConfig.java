@@ -138,7 +138,6 @@ public class ClientConfig {
         add("waila_entity", "Looking-At Entity", "world", "hud_waila_ent", false, 0.500, 0.125, "top-center", "Targeted entity name");
         add("inv_space", "Inventory Space", "world", "hud_inv_space", false, 0.985, 0.855, "bottom-right", "Used vs free slots");
         add("mini_inventory", "Mini Inventory", "world", "hud_mini_inv", false, 0.985, 0.805, "bottom-right", "Compact backpack summary");
-        add("pickup_feed", "Item Pickups", "world", "hud_pickups", false, 0.985, 0.720, "bottom-right", "Recent picked up items");
         add("server_ip", "Server IP", "server", "hud_srv_ip", false, 0.985, 0.575, "top-right", "Connected server IP");
         add("player_count", "Online Players", "server", "hud_players", false, 0.985, 0.625, "top-right", "Connected player count");
         add("bw_resources", "BW Resources", "server", "hud_bw_res", false, 0.160, 0.820, "top-left", "Iron, Gold, Diamond & Emerald count");

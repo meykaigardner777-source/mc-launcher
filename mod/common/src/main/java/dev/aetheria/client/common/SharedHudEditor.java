@@ -167,10 +167,10 @@ public class SharedHudEditor {
         if (primaryId == null && selectedIds.isEmpty()) return false;
         int step = shiftHeld ? 5 : 1;
         double dx = 0.0, dy = 0.0;
-        if (keyCode == 262) dx = step / Math.max(1.0, sw);
-        else if (keyCode == 263) dx = -step / Math.max(1.0, sw);
-        else if (keyCode == 264) dy = step / Math.max(1.0, sh);
-        else if (keyCode == 265) dy = -step / Math.max(1.0, sh);
+        if (keyCode == 262) dx = step / Math.max(1.0, sw);       // RIGHT
+        else if (keyCode == 263) dx = -step / Math.max(1.0, sw); // LEFT
+        else if (keyCode == 264) dy = step / Math.max(1.0, sh);  // DOWN
+        else if (keyCode == 265) dy = -step / Math.max(1.0, sh); // UP
         else return false;
 
         pushUndo();
@@ -224,7 +224,7 @@ public class SharedHudEditor {
         ClientConfig.HudModule sel = primaryId == null ? null : cfg.hudModules.get(primaryId);
         if (!click) {
             g.drawGlassCard(pillX, pillY, pillW, pillH, 11, 0xD809090B, ClientState.UI_BORDER);
-            String hint = selectedIds.size() > 1 ? (selectedIds.size() + " sel") : (sel != null && sel.enabled ? (sel.label + " " + String.format("%.1fx", Double.valueOf(sel.scale))) : "Drag | Arrows=1px | RClick=Cfg");
+            String hint = selectedIds.size() > 1 ? (selectedIds.size() + " sel") : (sel != null && sel.enabled ? (sel.label + " " + String.format("%.1fx", Double.valueOf(sel.scale))) : "Drag | RClick=Cfg");
             g.text(hint, pillX + 9, pillY + 7, ClientState.UI_TEXT_MUTED, false);
         }
         int by = pillY + 3, rx = pillX + pillW - 4;
