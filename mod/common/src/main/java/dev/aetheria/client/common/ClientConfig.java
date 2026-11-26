@@ -23,19 +23,20 @@ public class ClientConfig {
     public final List<AccountEntry> accounts = new ArrayList<AccountEntry>();
 
     public static class Waypoint {
-        public String id, name, dimension = "minecraft:overworld", worldId = "global", color = "#22d3ee";
-        public int x, y, z;
+        public String id, name, dimension = "minecraft:overworld", worldId = "global", color = "#22d3ee", style = "global";
+        public int x, y, z, borderRadius = 6;
         public boolean enabled = true;
     }
     public static class AccountEntry {
-        public String id, name, type = "offline", tag = "Alt", uuid = "";
+        public String id, name, type = "offline", tag = "Alt", uuid = "", accessToken = "", refreshToken = "";
+        public long expiresAt = 0L;
         public boolean pinned = false;
     }
     public static class TitleWidget {
-        public String id, label, desc = "";
-        public boolean enabled = true;
-        public double x, y, scale = 1.0, opacity = 0.88;
-        public int borderRadius = 8;
+        public String id, label, desc = "", bgColor = "#121219", textColor = "#f4f4f5", borderColor = "#27272a", customText = "";
+        public boolean enabled = true, showBorder = true, chroma = false, shadow = false;
+        public double x, y, scale = 1.0, opacity = 0.88, textOpacity = 1.0;
+        public int borderRadius = 8, borderWidth = 1;
     }
     public static class HudModule {
         public String id, label, category = "system", optId, desc = "", anchor = "top-left";
@@ -56,21 +57,50 @@ public class ClientConfig {
         try { if (Files.exists(configPath) && Files.getLastModifiedTime(configPath).toMillis() > lastFileMtimeMs) load(); } catch (IOException ignored) {}
     }
 
-    private void addTitle(String id, String label, String desc, boolean en, double x, double y) {
-        TitleWidget tw = new TitleWidget(); tw.id = id; tw.label = label; tw.desc = desc; tw.enabled = en; tw.x = x; tw.y = y; titleWidgets.put(id, tw);
+    private TitleWidget addTitle(String id, String label, String desc, boolean en, double x, double y) {
+        TitleWidget tw = new TitleWidget();
+        tw.id = id; tw.label = label; tw.desc = desc; tw.enabled = en; tw.x = x; tw.y = y;
+        titleWidgets.put(id, tw);
+        return tw;
     }
+
     public void resetTitleLayout() {
         titleWidgets.clear();
-        addTitle("logo", "Aetheria Banner", "Client title & active profile badge", true, 0.50, 0.18);
-        addTitle("quick_play", "Play Button", "Quick launch into recent world/menu", true, 0.50, 0.33);
-        addTitle("singleplayer", "Singleplayer", "Local worlds & saves button", true, 0.50, 0.42);
-        addTitle("multiplayer", "Servers / Multiplayer", "Server browser & quick-join", true, 0.50, 0.50);
-        addTitle("realms", "Realms Button", "Minecraft Realms screen", true, 0.50, 0.58);
-        addTitle("options", "Options / Settings", "Game video, audio & keybinds", true, 0.41, 0.67);
-        addTitle("client_menu", "Aetheria Menu", "Open Aetheria Client settings", true, 0.59, 0.67);
-        addTitle("quit", "Quit / ESC Button", "Exit Minecraft to desktop", true, 0.50, 0.76);
-        addTitle("account", "Account Widget", "Switch, add & erase alt accounts", true, 0.02, 0.04);
-        addTitle("background", "Background Widget", "Switch animated title wallpaper", true, 0.98, 0.04);
+        addTitle("logo", "Aetheria Banner", "Client title & active profile badge", true, 0.50, 0.17);
+        TitleWidget qp = addTitle("quick_play", "Play Button", "Quick launch into worlds menu", true, 0.50, 0.32); qp.bgColor = "#ffffff"; qp.textColor = "#09090b"; qp.borderColor = "#ffffff";
+        addTitle("singleplayer", "Singleplayer", "Local worlds & saves button", true, 0.50, 0.41);
+        addTitle("multiplayer", "Multiplayer", "Server browser & quick-join", true, 0.50, 0.49);
+        addTitle("realms", "Realms Button", "Minecraft Realms screen", true, 0.50, 0.57);
+        addTitle("options", "Options / Settings", "Game video, audio & keybinds", true, 0.41, 0.66);
+        addTitle("client_menu", "Aetheria Menu", "Open Aetheria Client settings", true, 0.59, 0.66);
+        addTitle("quit", "Quit / ESC Button", "Exit Minecraft to desktop", true, 0.50, 0.75);
+        addTitle("account", "Account Card", "Active account & quick switcher", true, 0.11, 0.06);
+        addTitle("clock", "Real-World Clock", "Live local time & date", false, 0.89, 0.06);
+        addTitle("fps_badge", "FPS & RAM Badge", "Live frame rate & heap usage", false, 0.89, 0.14);
+        addTitle("profile_pill", "Profile Badge", "Active HUD profile indicator", false, 0.11, 0.14);
+        addTitle("version_badge", "Version Badge", "Aetheria & Minecraft version", false, 0.89, 0.94);
+        addTitle("last_server", "Server Card", "Shows last/current server shortcut", false, 0.14, 0.86);
+        addTitle("session_timer", "Session Uptime", "Client uptime duration", false, 0.89, 0.22);
+        addTitle("mod_count", "Active Mods", "Count of enabled HUD modules", false, 0.11, 0.22);
+        addTitle("waypoint_count", "Waypoints Count", "Saved waypoints summary", false, 0.11, 0.30);
+        addTitle("skin_card", "Player Badge", "Active player name & status", false, 0.89, 0.84);
+        addTitle("system_info", "System Specs", "CPU cores & JVM memory", false, 0.14, 0.94);
+        TitleWidget note = addTitle("custom_note", "Custom Banner Text", "Editable welcome/MOTD text", false, 0.50, 0.86);
+        note.customText = "Welcome to Aetheria Client";
+    }
+
+    public void resetTitleWidget(String id) {
+        TitleWidget old = titleWidgets.get(id);
+        Map<String, TitleWidget> snap = new LinkedHashMap<String, TitleWidget>(titleWidgets);
+        resetTitleLayout();
+        TitleWidget fresh = titleWidgets.get(id);
+        titleWidgets.clear();
+        titleWidgets.putAll(snap);
+        if (fresh != null) {
+            if (old != null) fresh.enabled = old.enabled;
+            titleWidgets.put(id, fresh);
+        }
+        save();
     }
 
     private void initDefaults() {
@@ -154,7 +184,7 @@ public class ClientConfig {
 
         setDefaultOpt("global_hud_rounding", Integer.valueOf(-1)); setDefaultOpt("global_hud_opacity", Double.valueOf(-1.0));
         setDefaultOpt("ui_menu_layout", "oneclient"); setDefaultOpt("ui_clean_font", Boolean.TRUE);
-        setDefaultOpt("ui_custom_title", Boolean.TRUE); setDefaultOpt("title_bg_style", "waves"); setDefaultOpt("title_bg_dim", Double.valueOf(0.55));
+        setDefaultOpt("ui_custom_title", Boolean.TRUE); setDefaultOpt("title_bg_style", "waves"); setDefaultOpt("title_bg_dim", Double.valueOf(0.35));
         setDefaultOpt("ui_switch_style", "pill"); setDefaultOpt("ui_card_width", Integer.valueOf(138));
         setDefaultOpt("ui_menu_rounding", Integer.valueOf(10)); setDefaultOpt("ui_menu_opacity", Double.valueOf(0.92));
         setDefaultOpt("ui_accent", "white"); setDefaultOpt("ui_accent_custom", "#ff3333");
@@ -203,15 +233,31 @@ public class ClientConfig {
     private void add(String id, String label, String cat, String optId, boolean en, double x, double y, String anc, String desc) {
         HudModule m = new HudModule(); m.id = id; m.label = label; m.category = cat; m.optId = optId; m.enabled = en; m.x = x; m.y = y; m.anchor = anc; m.desc = desc; hudModules.put(id, m);
     }
-    public synchronized void addAccount(String name, String type, String tag) {
-        if (name == null || name.trim().isEmpty()) return;
+
+    public synchronized void addAccount(String name, String type, String tag) { addOrUpdateAccount(name, type, tag, "", "", "", 0L); }
+    public synchronized AccountEntry addOrUpdateAccount(String name, String type, String tag, String uuid, String accessToken, String refreshToken, long expiresAt) {
+        if (name == null || name.trim().isEmpty()) return null;
         String clean = name.trim();
-        for (AccountEntry a : accounts) if (clean.equalsIgnoreCase(a.name)) { activeAccountId = a.id; save(); return; }
-        AccountEntry a = new AccountEntry(); a.id = "acc_" + System.currentTimeMillis() + "_" + accounts.size(); a.name = clean;
-        a.type = (type == null || type.isEmpty()) ? "offline" : type; a.tag = (tag == null || tag.isEmpty()) ? "Alt" : tag;
-        a.uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8)).toString();
-        accounts.add(a); activeAccountId = a.id; save();
+        String normType = (type == null || type.isEmpty()) ? "offline" : type;
+        for (AccountEntry a : accounts) {
+            if (clean.equalsIgnoreCase(a.name) && normType.equalsIgnoreCase(a.type)) {
+                if (uuid != null && !uuid.isEmpty()) a.uuid = uuid;
+                if (accessToken != null && !accessToken.isEmpty()) a.accessToken = accessToken;
+                if (refreshToken != null && !refreshToken.isEmpty()) a.refreshToken = refreshToken;
+                if (expiresAt > 0L) a.expiresAt = expiresAt;
+                activeAccountId = a.id; save(); return a;
+            }
+        }
+        AccountEntry a = new AccountEntry();
+        a.id = "acc_" + System.currentTimeMillis() + "_" + accounts.size();
+        a.name = clean; a.type = normType; a.tag = (tag == null || tag.isEmpty()) ? ("msa".equalsIgnoreCase(normType) ? "Main" : "Alt") : tag;
+        a.uuid = (uuid != null && !uuid.isEmpty()) ? uuid : UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8)).toString();
+        a.accessToken = accessToken == null ? "" : accessToken;
+        a.refreshToken = refreshToken == null ? "" : refreshToken;
+        a.expiresAt = expiresAt;
+        accounts.add(a); activeAccountId = a.id; save(); return a;
     }
+
     public synchronized void removeAccount(String id) {
         for (int i = accounts.size() - 1; i >= 0; i--) if (id.equals(accounts.get(i).id)) accounts.remove(i);
         if (id.equals(activeAccountId)) activeAccountId = accounts.isEmpty() ? "" : accounts.get(0).id; save();
@@ -231,7 +277,7 @@ public class ClientConfig {
         w.name = (name == null || name.trim().isEmpty()) ? ("WP #" + (waypoints.size() + 1)) : name.trim();
         w.x = x; w.y = y; w.z = z; w.dimension = (dim == null || dim.isEmpty()) ? "minecraft:overworld" : dim;
         w.worldId = (worldId == null || worldId.isEmpty()) ? "global" : worldId;
-        w.color = WP_COLORS[waypoints.size() % WP_COLORS.length]; w.enabled = true; waypoints.add(w); save();
+        w.color = WP_COLORS[waypoints.size() % WP_COLORS.length]; w.style = "global"; w.borderRadius = 6; w.enabled = true; waypoints.add(w); save();
     }
     public synchronized void removeWaypoint(String id) { for (int i = waypoints.size() - 1; i >= 0; i--) if (id.equals(waypoints.get(i).id)) waypoints.remove(i); save(); }
     public synchronized void cycleWaypointColor(Waypoint w) {
@@ -279,8 +325,18 @@ public class ClientConfig {
                     tw.id = e.getKey();
                     if (o.has("label")) tw.label = o.get("label").getAsString(); if (o.has("desc")) tw.desc = o.get("desc").getAsString();
                     if (o.has("enabled")) tw.enabled = o.get("enabled").getAsBoolean(); if (o.has("x")) tw.x = o.get("x").getAsDouble();
-                    if (o.has("y")) tw.y = o.get("y").getAsDouble(); if (o.has("scale")) tw.scale = o.get("scale").getAsDouble();
-                    if (o.has("opacity")) tw.opacity = o.get("opacity").getAsDouble(); if (o.has("borderRadius")) tw.borderRadius = o.get("borderRadius").getAsInt();
+                    if (o.has("y")) tw.y = o.get("y").getAsDouble(); if (o.has("scale")) tw.scale = Math.max(0.4, Math.min(2.2, o.get("scale").getAsDouble()));
+                    if (o.has("opacity")) tw.opacity = Math.max(0.0, Math.min(1.0, o.get("opacity").getAsDouble()));
+                    if (o.has("textOpacity")) tw.textOpacity = Math.max(0.1, Math.min(1.0, o.get("textOpacity").getAsDouble()));
+                    if (o.has("borderRadius")) tw.borderRadius = Math.max(0, Math.min(28, o.get("borderRadius").getAsInt()));
+                    if (o.has("borderWidth")) tw.borderWidth = Math.max(0, Math.min(3, o.get("borderWidth").getAsInt()));
+                    if (o.has("showBorder")) tw.showBorder = o.get("showBorder").getAsBoolean();
+                    if (o.has("chroma")) tw.chroma = o.get("chroma").getAsBoolean();
+                    if (o.has("shadow")) tw.shadow = o.get("shadow").getAsBoolean();
+                    if (o.has("bgColor")) tw.bgColor = o.get("bgColor").getAsString();
+                    if (o.has("textColor")) tw.textColor = o.get("textColor").getAsString();
+                    if (o.has("borderColor")) tw.borderColor = o.get("borderColor").getAsString();
+                    if (o.has("customText")) tw.customText = o.get("customText").getAsString();
                     titleWidgets.put(e.getKey(), tw);
                 }
             }
@@ -292,6 +348,9 @@ public class ClientConfig {
                     a.id = o.has("id") ? o.get("id").getAsString() : ("acc_" + accounts.size()); a.name = o.has("name") ? o.get("name").getAsString() : "Player";
                     a.type = o.has("type") ? o.get("type").getAsString() : "offline"; a.tag = o.has("tag") ? o.get("tag").getAsString() : "Alt";
                     a.uuid = o.has("uuid") ? o.get("uuid").getAsString() : ""; a.pinned = o.has("pinned") && o.get("pinned").getAsBoolean();
+                    a.accessToken = o.has("accessToken") ? o.get("accessToken").getAsString() : "";
+                    a.refreshToken = o.has("refreshToken") ? o.get("refreshToken").getAsString() : "";
+                    a.expiresAt = o.has("expiresAt") ? o.get("expiresAt").getAsLong() : 0L;
                     accounts.add(a);
                 }
             }
@@ -304,7 +363,10 @@ public class ClientConfig {
                     w.x = o.has("x") ? o.get("x").getAsInt() : 0; w.y = o.has("y") ? o.get("y").getAsInt() : 64; w.z = o.has("z") ? o.get("z").getAsInt() : 0;
                     w.dimension = o.has("dimension") ? o.get("dimension").getAsString() : "minecraft:overworld";
                     w.worldId = o.has("worldId") ? o.get("worldId").getAsString() : "global";
-                    w.color = o.has("color") ? o.get("color").getAsString() : "#22d3ee"; w.enabled = !o.has("enabled") || o.get("enabled").getAsBoolean();
+                    w.color = o.has("color") ? o.get("color").getAsString() : "#22d3ee";
+                    w.style = o.has("style") ? o.get("style").getAsString() : "global";
+                    w.borderRadius = o.has("borderRadius") ? Math.max(0, Math.min(20, o.get("borderRadius").getAsInt())) : 6;
+                    w.enabled = !o.has("enabled") || o.get("enabled").getAsBoolean();
                     waypoints.add(w);
                 }
             }
@@ -357,8 +419,17 @@ public class ClientConfig {
             TitleWidget tw = e.getValue(); JsonObject o = new JsonObject();
             o.addProperty("label", tw.label); o.addProperty("desc", tw.desc); o.addProperty("enabled", Boolean.valueOf(tw.enabled));
             o.addProperty("x", Double.valueOf(Math.round(tw.x * 1000.0) / 1000.0)); o.addProperty("y", Double.valueOf(Math.round(tw.y * 1000.0) / 1000.0));
-            o.addProperty("scale", Double.valueOf(Math.round(tw.scale * 100.0) / 100.0)); o.addProperty("opacity", Double.valueOf(Math.round(tw.opacity * 100.0) / 100.0));
-            o.addProperty("borderRadius", Integer.valueOf(tw.borderRadius)); twObj.add(e.getKey(), o);
+            o.addProperty("scale", Double.valueOf(Math.round(tw.scale * 100.0) / 100.0));
+            o.addProperty("opacity", Double.valueOf(Math.round(tw.opacity * 100.0) / 100.0));
+            o.addProperty("textOpacity", Double.valueOf(Math.round(tw.textOpacity * 100.0) / 100.0));
+            o.addProperty("borderRadius", Integer.valueOf(tw.borderRadius));
+            o.addProperty("borderWidth", Integer.valueOf(tw.borderWidth));
+            o.addProperty("showBorder", Boolean.valueOf(tw.showBorder));
+            o.addProperty("chroma", Boolean.valueOf(tw.chroma));
+            o.addProperty("shadow", Boolean.valueOf(tw.shadow));
+            o.addProperty("bgColor", tw.bgColor); o.addProperty("textColor", tw.textColor);
+            o.addProperty("borderColor", tw.borderColor); o.addProperty("customText", tw.customText);
+            twObj.add(e.getKey(), o);
         }
         root.add("titleWidgets", twObj);
 
@@ -391,7 +462,11 @@ public class ClientConfig {
         JsonArray accArr = new JsonArray();
         for (AccountEntry a : accounts) {
             JsonObject ao = new JsonObject(); ao.addProperty("id", a.id); ao.addProperty("name", a.name); ao.addProperty("type", a.type);
-            ao.addProperty("tag", a.tag); ao.addProperty("uuid", a.uuid); ao.addProperty("pinned", Boolean.valueOf(a.pinned)); accArr.add(ao);
+            ao.addProperty("tag", a.tag); ao.addProperty("uuid", a.uuid); ao.addProperty("pinned", Boolean.valueOf(a.pinned));
+            if (a.accessToken != null && !a.accessToken.isEmpty()) ao.addProperty("accessToken", a.accessToken);
+            if (a.refreshToken != null && !a.refreshToken.isEmpty()) ao.addProperty("refreshToken", a.refreshToken);
+            if (a.expiresAt > 0L) ao.addProperty("expiresAt", Long.valueOf(a.expiresAt));
+            accArr.add(ao);
         }
         root.add("accounts", accArr);
 
@@ -400,7 +475,8 @@ public class ClientConfig {
             JsonObject wo = new JsonObject(); wo.addProperty("id", w.id); wo.addProperty("name", w.name);
             wo.addProperty("x", Integer.valueOf(w.x)); wo.addProperty("y", Integer.valueOf(w.y)); wo.addProperty("z", Integer.valueOf(w.z));
             wo.addProperty("dimension", w.dimension); wo.addProperty("worldId", w.worldId == null ? "global" : w.worldId);
-            wo.addProperty("color", w.color); wo.addProperty("enabled", Boolean.valueOf(w.enabled)); wpArr.add(wo);
+            wo.addProperty("color", w.color); wo.addProperty("style", w.style == null ? "global" : w.style);
+            wo.addProperty("borderRadius", Integer.valueOf(w.borderRadius)); wo.addProperty("enabled", Boolean.valueOf(w.enabled)); wpArr.add(wo);
         }
         root.add("waypoints", wpArr);
 

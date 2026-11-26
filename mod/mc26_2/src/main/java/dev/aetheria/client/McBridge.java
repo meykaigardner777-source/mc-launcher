@@ -195,19 +195,44 @@ public final class McBridge {
             @Override public boolean supportsItemIcons() { return true; }
             @Override public String currentUsername() { return mc.getUser() != null ? mc.getUser().getName() : "Player"; }
             @Override public String currentUuid() { return mc.getUser() != null && mc.getUser().getProfileId() != null ? mc.getUser().getProfileId().toString() : ""; }
+            @Override public String currentAccountType() {
+                try {
+                    if (mc.getUser() != null && mc.getUser().getType() != null && "MSA".equalsIgnoreCase(mc.getUser().getType().name())) return "msa";
+                } catch (Throwable ignored) {}
+                return "offline";
+            }
+            @Override public int liveFps() { return mc.getFps(); }
+            @Override public String clipboardText() { try { return mc.keyboardHandler.getClipboard(); } catch (Throwable t) { return ""; } }
+            @Override public String lastServerIp() { return mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"; }
+            @Override public void openUrl(String url) {
+                try {
+                    String os = System.getProperty("os.name", "").toLowerCase();
+                    if (os.contains("win")) new ProcessBuilder("cmd", "/c", "start", "", url).start();
+                    else if (os.contains("mac")) new ProcessBuilder("open", url).start();
+                    else new ProcessBuilder("xdg-open", url).start();
+                } catch (Throwable ignored) {}
+            }
             @Override public boolean switchAccount(String username, String uuidStr) {
+                return switchAccount(username, uuidStr, "", "offline");
+            }
+            @Override public boolean switchAccount(String username, String uuidStr, String accessToken, String accountType) {
                 try {
                     if (username == null || username.trim().isEmpty()) return false;
                     String clean = username.trim();
-                    UUID id = (uuidStr != null && !uuidStr.isEmpty()) ? UUID.fromString(uuidStr) : UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8));
+                    boolean isMsa = "msa".equalsIgnoreCase(accountType) && accessToken != null && !accessToken.isEmpty();
+                    String fmtUuid = MicrosoftAuth.formatUuid(uuidStr);
+                    UUID id = (!fmtUuid.isEmpty()) ? UUID.fromString(fmtUuid) : UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8));
+                    String tok = isMsa ? accessToken : "0";
                     for (Constructor<?> c : User.class.getConstructors()) {
                         Class<?>[] pt = c.getParameterTypes();
                         if (pt.length == 6 && pt[0] == String.class && pt[1] == UUID.class && pt[2] == String.class) {
-                            ((MinecraftAccessor) (Object) mc).aetheria$setUser((User) c.newInstance(clean, id, "0", Optional.empty(), Optional.empty(), pt[5].isEnum() ? pt[5].getEnumConstants()[0] : null));
+                            Object uType = resolveUserType(pt[5], isMsa);
+                            ((MinecraftAccessor) (Object) mc).aetheria$setUser((User) c.newInstance(clean, id, tok, Optional.empty(), Optional.empty(), uType));
                             return true;
                         }
                         if (pt.length == 5 && pt[0] == String.class && pt[1] == UUID.class && pt[2] == String.class) {
-                            ((MinecraftAccessor) (Object) mc).aetheria$setUser((User) c.newInstance(clean, id, "0", Optional.empty(), pt[4].isEnum() ? pt[4].getEnumConstants()[0] : null));
+                            Object uType = resolveUserType(pt[4], isMsa);
+                            ((MinecraftAccessor) (Object) mc).aetheria$setUser((User) c.newInstance(clean, id, tok, Optional.empty(), uType));
                             return true;
                         }
                     }
@@ -412,6 +437,14 @@ public final class McBridge {
             @Override public boolean isInventoryOpen() { return mc.gui.screen() != null && !isChatOpen(); }
             @Override public boolean isF3Open() { return checkDebugOverlayVisible(mc); }
         };
+    }
+
+        private static Object resolveUserType(Class<?> enumCls, boolean isMsa) {
+        if (!enumCls.isEnum()) return null;
+        Object[] vals = enumCls.getEnumConstants();
+        String want = isMsa ? "MSA" : "LEGACY";
+        for (Object v : vals) if (want.equalsIgnoreCase(String.valueOf(v)) || (v instanceof Enum<?> e && want.equalsIgnoreCase(e.name()))) return v;
+        return vals.length > 0 ? vals[0] : null;
     }
 
     private static String toRoman(int n) {

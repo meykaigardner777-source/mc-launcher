@@ -11,7 +11,7 @@ import net.minecraft.world.item.Items;
 
 public class AetheriaClientMod implements ClientModInitializer {
     private static boolean prevMenuDown = false, prevWpDown = false, prevFbDown = false, prevProfDown = false, prevSneakDown = false, prevShieldCd = false;
-    @Override public void onInitializeClient() { ClientConfig.get().init(FabricLoader.getInstance().getConfigDir()); }
+    @Override public void onInitializeClient() { ClientConfig.get().init(FabricLoader.getInstance().getConfigDir()); try { MicrosoftAuth.syncFromLauncher(); } catch (Throwable ignored) {} }
 
     private static boolean isKeyHeld(Minecraft mc, String optName, int fallback) {
         int code = ClientState.nameToGlfwKey(optName, fallback);

@@ -56,7 +56,7 @@ public final class SharedHudRenderer {
 
     private static void renderWaypointsInWorld(UiBridge.UiDraw g, UiBridge.HudData d, ClientConfig cfg, int sw, int sh) {
         if (!d.hasWorld() || !cfg.getBool("wp_world_markers", true) || cfg.waypoints.isEmpty()) return;
-        String style = cfg.getString("wp_style", "lunar").toLowerCase();
+        String globalStyle = cfg.getString("wp_style", "lunar").toLowerCase();
         boolean netherSync = cfg.getBool("wp_nether_sync", true), showDist = cfg.getBool("wp_show_dist", true);
         boolean beam = cfg.getBool("wp_beam_beacon", true), offscreen = cfg.getBool("wp_offscreen_arrows", true);
 
@@ -70,6 +70,8 @@ public final class SharedHudRenderer {
 
         for (int i = 0; i < cfg.waypoints.size(); i++) {
             ClientConfig.Waypoint wp = cfg.waypoints.get(i);
+            String style = (wp.style != null && !wp.style.isEmpty() && !"global".equalsIgnoreCase(wp.style)) ? wp.style.toLowerCase() : globalStyle;
+            int wpRad = Math.max(0, Math.min(20, wp.borderRadius));
             double[] pos = ClientState.resolveWaypointCoords(wp, curDim, netherSync);
             if (pos == null) continue;
             double dx = (pos[0] + 0.5) - camX, dy = (pos[1] + 1.1) - camY, dz = (pos[2] + 0.5) - camZ;
@@ -92,16 +94,16 @@ public final class SharedHudRenderer {
                         if ("dot".equals(style)) {
                             g.drawCircleFilled(0, 0, 5, ClientState.withAlpha(col, 70)); g.drawCircleFilled(0, 0, 3, col);
                             String txt = distStr.isEmpty() ? label : (label + " " + distStr); int tw = g.textWidth(txt) + 10;
-                            g.drawGlassCard(-tw / 2, -18, tw, 13, 6, 0xA809090B, ClientState.withAlpha(col, 160));
+                            g.drawGlassCard(-tw / 2, -18, tw, 13, Math.min(wpRad, 6), 0xA809090B, ClientState.withAlpha(col, 160));
                             g.text(txt, -tw / 2 + 5, -15, 0xFFF4F4F5, true);
                         } else if ("block".equals(style)) {
                             String txt = distStr.isEmpty() ? label : (label + " [" + distStr + "]"); int tw = g.textWidth(txt) + 12;
-                            g.drawGlassCard(-tw / 2, -22, tw, 14, 5, 0xB809090B, col); g.text(txt, -tw / 2 + 6, -19, 0xFFF4F4F5, true);
+                            g.drawGlassCard(-tw / 2, -22, tw, 14, wpRad, 0xB809090B, col); g.text(txt, -tw / 2 + 6, -19, 0xFFF4F4F5, true);
                         } else {
                             String full = distStr.isEmpty() ? label : (label + "  " + distStr);
                             int dw = distStr.isEmpty() ? 0 : g.textWidth(distStr), pw = 18 + g.textWidth(full) + 8;
-                            g.drawGlassCard(-pw / 2, -9, pw, 17, 6, 2, "solid", 0xD009090B, col, col);
-                            g.drawRoundedRect(-pw / 2 + 3, -6, 11, 11, 3, col); g.fill(-pw / 2 + 7, -2, -pw / 2 + 10, 1, 0xFF09090B);
+                            g.drawGlassCard(-pw / 2, -9, pw, 17, wpRad, 2, "solid", 0xD009090B, col, col);
+                            g.drawRoundedRect(-pw / 2 + 3, -6, 11, 11, Math.min(wpRad, 5), col); g.fill(-pw / 2 + 7, -2, -pw / 2 + 10, 1, 0xFF09090B);
                             g.text(label, -pw / 2 + 18, -4, 0xFFF4F4F5, true);
                             if (!distStr.isEmpty()) g.text(distStr, pw / 2 - dw - 6, -4, col, false);
                         }

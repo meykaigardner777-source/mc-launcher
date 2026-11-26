@@ -52,6 +52,8 @@ public class SharedModMenu {
 
     private static final String[] SWATCHES = {"#ffffff","#ff3333","#09090b","#27272a","#a1a1aa","#22d3ee","#10b981","#a855f7","#f43f5e","#f59e0b"};
     private static final String[] WP_STYLES = {"lunar", "block", "dot", "beacon"};
+    private static final String[] WP_EDIT_STYLES = {"global", "lunar", "block", "dot", "beacon"};
+    private static final String[] WP_DIMS = {"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"};
     private static final String[] WP_NAME_PRESETS = {"Base", "Home", "Portal", "Farm", "Raid", "End", "Stronghold", "Village"};
     private static final String[] BB_STYLES = {"shrink", "expand", "rise", "slide_down", "pulse"};
     private static final String[] ACC_FILTER_TAGS = {"All", "Main", "PvP", "SMP", "Alt", "Test"};
@@ -70,8 +72,11 @@ public class SharedModMenu {
     private static final String[][] ACCENTS = {{"white","Obsidian"},{"crimson","Crimson"},{"cyan","Cyan"},{"emerald","Emerald"},{"amethyst","Amethyst"},{"amber","Amber"},{"lime","Lime"},{"custom","Custom"}};
 
     private String activeMenu = "all", editingModId = null, inspectorTab = "geom", searchQuery = "", listeningKeyOptId = null;
-    private String accountInput = "", accTagFilter = "All", accStatusMsg = "", waypointNameInput = "", hoveredTooltip = null;
-    private boolean searchFocused = false, accountInputFocused = false, waypointInputFocused = false, onlyEnabledFilter = false, wpShowAllWorlds = false;
+    private String editingWaypointId = null, editingWpField = "", wpEditBuf = "";
+    private String editingTitleWidgetId = null, titleTextBuf = "";
+    private String accountInput = "", msaInput = "", accTagFilter = "All", accStatusMsg = "", waypointNameInput = "", hoveredTooltip = null;
+    private boolean searchFocused = false, accountInputFocused = false, msaInputFocused = false, waypointInputFocused = false, titleTextFocused = false;
+    private boolean onlyEnabledFilter = false, wpShowAllWorlds = false, bgDropdownOpen = false;
     private boolean foldMods = false, foldPersonalize = false, editingTargetPixels = false, pixelMirrorX = true, pixelMirrorY = false;
     private final Set<String> foldedAccordions = new HashSet<String>();
     private float scrollPx = 0.0F, targetScrollPx = 0.0F;
@@ -83,6 +88,7 @@ public class SharedModMenu {
     private String activeSliderId = null;
     private double sliderMin, sliderMax, sliderStep;
     private Actions hostActions = null;
+    private UiBridge.UiDraw uiHostBridge = null;
 
     public SharedModMenu() { this(null, "all"); }
     public SharedModMenu(String initialModId) { this(initialModId, "all"); }
@@ -93,7 +99,7 @@ public class SharedModMenu {
     }
 
     public void render(UiBridge.UiDraw g, int sw, int sh, int mx, int my) {
-        ensureMods(); hoveredTooltip = null;
+        ensureMods(); hoveredTooltip = null; this.uiHostBridge = g;
         long now = System.nanoTime(); frameDt = Math.min(0.05F, Math.max(0.001F, (now - lastFrameNs) / 1_000_000_000.0F)); lastFrameNs = now;
         ClientConfig cfg = ClientConfig.get(); boolean anim = cfg.getBool("ui_animations", true);
         float mult = (float) (Math.max(0.5, cfg.getDouble("ui_anim_speed", 1.0)) * ("snappy".equalsIgnoreCase(cfg.getString("ui_anim_curve", "smooth")) ? 1.5 : 1.0));
@@ -110,18 +116,39 @@ public class SharedModMenu {
     }
 
     public boolean mouseClicked(UiBridge.UiDraw g, int sw, int sh, double mx, double my, Actions actions) {
-        this.hostActions = actions;
+        this.hostActions = actions; this.uiHostBridge = g;
         return handleFrame(g, sw, sh, (int) mx, (int) my, true, actions);
     }
     public boolean mouseDragged(double mx) { if (activeSliderId == null) return false; applySliderValue(activeSliderId, (int) mx); return true; }
     public boolean mouseReleased() { if (activeSliderId != null) { activeSliderId = null; ClientConfig.get().save(); return true; } return false; }
     public boolean mouseScrolled(double scrollY) { if (scrollY == 0) return false; targetScrollPx = Math.max(0.0F, Math.min(maxScrollPx, targetScrollPx - (float) (scrollY * 36.0))); return true; }
 
+    private void commitWpField() {
+        if (editingWaypointId == null || editingWpField.isEmpty()) return;
+        ClientConfig.Waypoint wp = findWaypoint(editingWaypointId);
+        if (wp != null) {
+            try {
+                if ("name".equals(editingWpField)) { if (!wpEditBuf.trim().isEmpty()) wp.name = wpEditBuf.trim(); }
+                else if ("x".equals(editingWpField)) wp.x = Integer.parseInt(wpEditBuf.trim());
+                else if ("y".equals(editingWpField)) wp.y = Integer.parseInt(wpEditBuf.trim());
+                else if ("z".equals(editingWpField)) wp.z = Integer.parseInt(wpEditBuf.trim());
+                ClientConfig.get().save();
+            } catch (Exception ignored) {}
+        }
+        editingWpField = ""; wpEditBuf = "";
+    }
+
     public boolean keyPressedCode(int keyCode) {
         if (listeningKeyOptId != null) {
             if (keyCode == 256) { listeningKeyOptId = null; return true; }
             if (keyCode == 259 || keyCode == 261) { ClientConfig.get().setOption(listeningKeyOptId, "NONE"); listeningKeyOptId = null; return true; }
             ClientConfig.get().setOption(listeningKeyOptId, ClientState.glfwKeyToName(keyCode)); listeningKeyOptId = null; return true;
+        }
+        if (!editingWpField.isEmpty() && (keyCode == 257 || keyCode == 335)) { commitWpField(); return true; }
+        if (titleTextFocused && (keyCode == 257 || keyCode == 335)) { titleTextFocused = false; ClientConfig.get().save(); return true; }
+        if (msaInputFocused && (keyCode == 257 || keyCode == 335)) {
+            if (!msaInput.trim().isEmpty()) { MicrosoftAuth.loginAsync(msaInput.trim(), uiHostBridge); msaInput = ""; msaInputFocused = false; }
+            return true;
         }
         if (waypointInputFocused && (keyCode == 257 || keyCode == 335)) {
             ClientConfig.get().addWaypointAt(waypointNameInput.trim(), ClientState.getPlayerX(), ClientState.getPlayerY(), ClientState.getPlayerZ(), ClientState.getPlayerDim(), ClientState.getCurrentWorldKey());
@@ -136,6 +163,20 @@ public class SharedModMenu {
 
     public boolean keyPressed(boolean isBackspace, boolean isEscape) {
         if (listeningKeyOptId != null) { if (isEscape) { listeningKeyOptId = null; return true; } if (isBackspace) { ClientConfig.get().setOption(listeningKeyOptId, "NONE"); listeningKeyOptId = null; return true; } }
+        if (!editingWpField.isEmpty()) {
+            if (isBackspace && wpEditBuf.length() > 0) { wpEditBuf = wpEditBuf.substring(0, wpEditBuf.length() - 1); return true; }
+            if (isEscape) { editingWpField = ""; wpEditBuf = ""; return true; }
+        }
+        if (titleTextFocused) {
+            if (isBackspace && titleTextBuf.length() > 0) {
+                titleTextBuf = titleTextBuf.substring(0, titleTextBuf.length() - 1);
+                ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(editingTitleWidgetId);
+                if (tw != null) { tw.customText = titleTextBuf; ClientConfig.get().save(); }
+                return true;
+            }
+            if (isEscape) { titleTextFocused = false; return true; }
+        }
+        if (msaInputFocused) { if (isBackspace && msaInput.length() > 0) { msaInput = msaInput.substring(0, msaInput.length() - 1); return true; } if (isEscape) { msaInputFocused = false; return true; } }
         if (waypointInputFocused) { if (isBackspace && waypointNameInput.length() > 0) { waypointNameInput = waypointNameInput.substring(0, waypointNameInput.length() - 1); return true; } if (isEscape) { waypointInputFocused = false; return true; } }
         if (accountInputFocused) { if (isBackspace && accountInput.length() > 0) { accountInput = accountInput.substring(0, accountInput.length() - 1); return true; } if (isEscape) { accountInputFocused = false; return true; } }
         if (searchFocused) { if (isBackspace && searchQuery.length() > 0) { searchQuery = searchQuery.substring(0, searchQuery.length() - 1); resetScroll(); return true; } if (isEscape) { searchFocused = false; searchQuery = ""; resetScroll(); return true; } }
@@ -144,10 +185,51 @@ public class SharedModMenu {
 
     public boolean charTyped(char ch) {
         if (listeningKeyOptId != null) return false;
+        if (!editingWpField.isEmpty()) {
+            if ("name".equals(editingWpField)) {
+                if (ch >= 32 && ch != 127 && wpEditBuf.length() < 24) {
+                    wpEditBuf += ch;
+                    ClientConfig.Waypoint wp = findWaypoint(editingWaypointId);
+                    if (wp != null) { wp.name = wpEditBuf; ClientConfig.get().save(); }
+                }
+            } else if (((ch >= '0' && ch <= '9') || (ch == '-' && wpEditBuf.isEmpty())) && wpEditBuf.length() < 9) {
+                wpEditBuf += ch;
+                try {
+                    int val = Integer.parseInt(wpEditBuf);
+                    ClientConfig.Waypoint wp = findWaypoint(editingWaypointId);
+                    if (wp != null) {
+                        if ("x".equals(editingWpField)) wp.x = val; else if ("y".equals(editingWpField)) wp.y = val; else if ("z".equals(editingWpField)) wp.z = val;
+                        ClientConfig.get().save();
+                    }
+                } catch (Exception ignored) {}
+            }
+            return true;
+        }
+        if (titleTextFocused) {
+            if (ch >= 32 && ch != 127 && titleTextBuf.length() < 48) {
+                titleTextBuf += ch;
+                ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(editingTitleWidgetId);
+                if (tw != null) { tw.customText = titleTextBuf; ClientConfig.get().save(); }
+            }
+            return true;
+        }
+        if (msaInputFocused) { if (ch >= 33 && ch <= 126 && msaInput.length() < 2400) msaInput += ch; return true; }
         if (waypointInputFocused) { if (ch >= 32 && ch != 127 && waypointNameInput.length() < 24) waypointNameInput += ch; return true; }
         if (accountInputFocused) { if (ch >= 33 && ch <= 126 && accountInput.length() < 16) accountInput += ch; return false; }
         if (searchFocused && ch >= 32 && ch != 127 && searchQuery.length() < 32) { searchQuery += ch; resetScroll(); return true; }
         return false;
+    }
+
+    private void clearSubEdits() {
+        editingModId = null; editingWaypointId = null; editingWpField = ""; wpEditBuf = "";
+        editingTitleWidgetId = null; titleTextFocused = false; bgDropdownOpen = false;
+        listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; msaInputFocused = false; waypointInputFocused = false;
+    }
+
+    private ClientConfig.Waypoint findWaypoint(String id) {
+        if (id == null) return null;
+        for (ClientConfig.Waypoint w : ClientConfig.get().waypoints) if (id.equals(w.id)) return w;
+        return null;
     }
 
     private void resetScroll() { scrollPx = 0.0F; targetScrollPx = 0.0F; }
@@ -193,30 +275,30 @@ public class SharedModMenu {
             int next = 0; for (int i = 0; i < MENU_LAYOUTS.length; i++) if (MENU_LAYOUTS[i].equalsIgnoreCase(layout)) next = (i + 1) % MENU_LAYOUTS.length;
             cfg.setOption("ui_menu_layout", MENU_LAYOUTS[next]); return true;
         }
-        String[][] cats = {{"all","All"},{"favorites","Fav"},{"pvp","PvP"},{"visuals","Vis"},{"world","World"},{"system","Sys"},{"utility","Util"},{"waypoints","WP"},{"accounts","Acc"},{"profiles","Prof"},{"ui_engine","UI"}};
+        String[][] cats = {{"all","All"},{"favorites","Fav"},{"pvp","PvP"},{"visuals","Vis"},{"world","World"},{"system","Sys"},{"utility","Util"},{"waypoints","WP"},{"title_screen","Home"},{"accounts","Acc"},{"profiles","Prof"},{"ui_engine","UI"}};
         int cx = px + 12, cy = py + topH + 8, cw = panelW - 24, ch = panelH - topH - 16;
         if ("sidebar".equals(layout)) {
             int sideW = 86; if (!click) g.fill(px + sideW + 8, py + topH + 4, px + sideW + 9, py + panelH - 6, ClientState.UI_BORDER);
             for (int i = 0; i < cats.length; i++) {
                 int by = py + topH + 8 + i * 24; if (by + 20 > py + panelH - 6) break;
-                boolean sel = editingModId == null && activeMenu.equals(cats[i][0]);
+                boolean sel = editingModId == null && editingWaypointId == null && editingTitleWidgetId == null && activeMenu.equals(cats[i][0]);
                 if (drawBtn(g, "sb_" + cats[i][0], px + 10, by, sideW - 6, 20, Math.max(2, menuRad / 2), cats[i][1], sel ? ClientState.withAlpha(accent, 45) : 0x00000000, sel ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
-                    activeMenu = cats[i][0]; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true;
+                    activeMenu = cats[i][0]; clearSubEdits(); resetScroll(); return true;
                 }
             }
             cx = px + sideW + 16; cw = panelW - sideW - 28;
         } else {
             int navX = px + 116, navRight = layX - 6;
             for (int i = 0; i < cats.length; i++) {
-                String id = cats[i][0], lbl = cats[i][1]; int bw = g.textWidth(lbl) + 10; if (navX + bw > navRight) break;
-                boolean sel = (editingModId == null) && activeMenu.equals(id), hov = mx >= navX && mx <= navX + bw && my >= py + 9 && my <= py + 29;
+                String id = cats[i][0], lbl = cats[i][1]; int bw = g.textWidth(lbl) + 9; if (navX + bw > navRight) break;
+                boolean sel = (editingModId == null && editingWaypointId == null && editingTitleWidgetId == null) && activeMenu.equals(id), hov = mx >= navX && mx <= navX + bw && my >= py + 9 && my <= py + 29;
                 if (!click) {
                     float ht = animHover("nav_" + id, hov);
                     int bg = sel ? ClientState.withAlpha(accent, 40) : ClientState.lerpColor(0x00000000, 0x22FFFFFF, ht), brd = sel ? accent : ClientState.lerpColor(0x00000000, ClientState.UI_BORDER, ht);
                     if ((bg >>> 24) > 4 || (brd >>> 24) > 4) g.drawGlassCard(navX, py + 9, bw, 20, Math.max(2, menuRad / 2), bg, brd);
-                    g.text(lbl, navX + 5, py + 15, sel || hov ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false);
-                } else if (hov) { g.playClickSound(); activeMenu = id; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true; }
-                navX += bw + 3;
+                    g.text(lbl, navX + 4, py + 15, sel || hov ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false);
+                } else if (hov) { g.playClickSound(); activeMenu = id; clearSubEdits(); resetScroll(); return true; }
+                navX += bw + 2;
             }
         }
         return renderActiveContent(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad, "palette".equals(layout));
@@ -239,9 +321,9 @@ public class SharedModMenu {
         if (!foldMods) {
             for (int i = 0; i < modCats.length; i++) {
                 if (sy + 18 > sideMaxY) break;
-                boolean sel = editingModId == null && activeMenu.equals(modCats[i][0]);
+                boolean sel = editingModId == null && editingWaypointId == null && editingTitleWidgetId == null && activeMenu.equals(modCats[i][0]);
                 if (drawSideItem(g, "1cm_" + modCats[i][0], sx, sy, sbW, 18, Math.max(3, menuRad / 2), modCats[i][1], sel, accent, mx, my, click)) {
-                    activeMenu = modCats[i][0]; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true;
+                    activeMenu = modCats[i][0]; clearSubEdits(); resetScroll(); return true;
                 }
                 sy += 19;
             }
@@ -251,14 +333,12 @@ public class SharedModMenu {
         if (!foldPersonalize) {
             if (sy + 18 <= sideMaxY && drawSideItem(g, "1cp_hud", sx, sy, sbW, 18, Math.max(3, menuRad / 2), "Edit HUD Layout", false, accent, mx, my, click)) { listeningKeyOptId = null; if (actions != null) actions.openHudEditor(); return true; }
             sy += 19;
-            if (sy + 18 <= sideMaxY && drawSideItem(g, "1cp_title", sx, sy, sbW, 18, Math.max(3, menuRad / 2), "Title Screen Editor", false, accent, mx, my, click)) { listeningKeyOptId = null; if (actions != null) actions.openTitleEditor(); return true; }
-            sy += 19;
-            String[][] pers = {{"waypoints","Waypoints"},{"profiles","HUD Profiles"},{"ui_engine","Themes & UI"},{"accounts","Accounts"}};
+            String[][] pers = {{"title_screen","Homescreen"},{"waypoints","Waypoints"},{"profiles","HUD Profiles"},{"ui_engine","Themes & UI"},{"accounts","Accounts"}};
             for (int i = 0; i < pers.length; i++) {
                 if (sy + 18 > sideMaxY) break;
-                boolean sel = editingModId == null && activeMenu.equals(pers[i][0]);
+                boolean sel = editingModId == null && editingWaypointId == null && activeMenu.equals(pers[i][0]);
                 if (drawSideItem(g, "1cp_" + pers[i][0], sx, sy, sbW, 18, Math.max(3, menuRad / 2), pers[i][1], sel, accent, mx, my, click)) {
-                    activeMenu = pers[i][0]; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true;
+                    activeMenu = pers[i][0]; clearSubEdits(); resetScroll(); return true;
                 }
                 sy += 19;
             }
@@ -266,20 +346,29 @@ public class SharedModMenu {
         int acX = px + 8, acY = py + panelH - accCardH - 6, acW = sideW - 14;
         boolean acSel = editingModId == null && "accounts".equals(activeMenu), acHov = mx >= acX && mx <= acX + acW && my >= acY && my <= acY + accCardH;
         String curUser = g.currentUsername();
+        boolean isMsa = "msa".equalsIgnoreCase(g.currentAccountType());
         if (!click) {
-            if (acHov) hoveredTooltip = "Open Account Organizer";
+            if (acHov) hoveredTooltip = "Open Real Account Manager";
             g.drawGlassCard(acX, acY, acW, accCardH, Math.max(4, menuRad - 2), acSel ? 0xFF1A1B24 : (acHov ? 0xFF16161F : 0xFF121218), acSel ? accent : ClientState.UI_BORDER);
-            g.drawRoundedRect(acX + 6, acY + 6, 24, 24, 5, ClientState.withAlpha(accent, 45));
+            g.drawRoundedRect(acX + 6, acY + 6, 24, 24, 5, ClientState.withAlpha(isMsa ? 0xFF10B981 : accent, 45));
             String ini = curUser.isEmpty() ? "P" : curUser.substring(0, 1).toUpperCase();
-            g.text(ini, acX + 18 - g.textWidth(ini) / 2, acY + 14, accent, false);
-            g.drawCircleFilled(acX + 27, acY + 27, 3, 0xFF10B981);
+            g.text(ini, acX + 18 - g.textWidth(ini) / 2, acY + 14, isMsa ? 0xFF10B981 : accent, false);
+            g.drawCircleFilled(acX + 27, acY + 27, 3, isMsa ? 0xFF10B981 : 0xFFF59E0B);
             g.text(trimToWidth(g, curUser, acW - 40), acX + 36, acY + 9, ClientState.UI_TEXT, false);
-            g.text("Accounts >", acX + 36, acY + 21, ClientState.UI_TEXT_DIM, false);
-        } else if (acHov) { g.playClickSound(); activeMenu = "accounts"; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true; }
+            g.text(isMsa ? "MSA >" : "Offline >", acX + 36, acY + 21, ClientState.UI_TEXT_DIM, false);
+        } else if (acHov) { g.playClickSound(); activeMenu = "accounts"; clearSubEdits(); resetScroll(); return true; }
 
         int cx = px + sideW + 12, cw = panelW - sideW - 22, cy = py + topH + 8, ch = panelH - topH - 16;
         if (!click) {
-            String crumb = editingModId != null ? ("Mods > " + getModTitle(editingModId)) : ("accounts".equals(activeMenu) ? "Personalize > Accounts" : ("waypoints".equals(activeMenu) ? "Personalize > Waypoints" : ("profiles".equals(activeMenu) ? "Personalize > Profiles" : ("ui_engine".equals(activeMenu) ? "Personalize > UI" : ("Mods > " + getMenuTitle(activeMenu))))));
+            String crumb = editingWaypointId != null ? "Waypoints > Edit Waypoint"
+                : editingTitleWidgetId != null ? "Homescreen > Edit Widget"
+                : editingModId != null ? ("Mods > " + getModTitle(editingModId))
+                : "title_screen".equals(activeMenu) ? "Personalize > Homescreen"
+                : "accounts".equals(activeMenu) ? "Personalize > Accounts"
+                : "waypoints".equals(activeMenu) ? "Personalize > Waypoints"
+                : "profiles".equals(activeMenu) ? "Personalize > Profiles"
+                : "ui_engine".equals(activeMenu) ? "Personalize > UI"
+                : ("Mods > " + getMenuTitle(activeMenu));
             g.text(trimToWidth(g, crumb, cw - 230), cx, py + 15, ClientState.UI_TEXT, false);
         }
         int closeX = px + panelW - 26; boolean closeHov = mx >= closeX && mx <= closeX + 18 && my >= py + 10 && my <= py + 28;
@@ -289,18 +378,23 @@ public class SharedModMenu {
         int layX = closeX - 38;
         if (mx >= layX && mx <= layX + 34 && my >= py + 10 && my <= py + 28) hoveredTooltip = "Switch Menu Layout Mode";
         if (drawBtn(g, "1c_lay", layX, py + 10, 34, 18, 5, "1C", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { ClientConfig.get().setOption("ui_menu_layout", "topbar"); return true; }
-        boolean showModTools = editingModId == null && !"accounts".equals(activeMenu) && !"waypoints".equals(activeMenu) && !"profiles".equals(activeMenu) && !"ui_engine".equals(activeMenu);
+        boolean showModTools = editingModId == null && editingWaypointId == null && editingTitleWidgetId == null
+            && !"accounts".equals(activeMenu) && !"waypoints".equals(activeMenu) && !"title_screen".equals(activeMenu)
+            && !"profiles".equals(activeMenu) && !"ui_engine".equals(activeMenu);
         if (showModTools) {
             int sbW2 = 122, sbX = layX - sbW2 - 5; boolean sHov = mx >= sbX && mx <= sbX + sbW2 && my >= py + 10 && my <= py + 28;
             if (!click) {
                 g.drawGlassCard(sbX, py + 10, sbW2, 18, 5, ClientState.UI_INPUT, searchFocused ? accent : (sHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
                 g.text(searchQuery.isEmpty() ? (searchFocused ? "_" : "Search...") : trimToWidth(g, searchQuery + (searchFocused ? "_" : ""), sbW2 - 18), sbX + 6, py + 15, searchQuery.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
                 if (!searchQuery.isEmpty()) g.text("x", sbX + sbW2 - 10, py + 15, ClientState.UI_TEXT_MUTED, false);
-            } else if (sHov) { g.playClickSound(); accountInputFocused = false; waypointInputFocused = false; if (!searchQuery.isEmpty() && mx >= sbX + sbW2 - 14) { searchQuery = ""; resetScroll(); } else searchFocused = true; return true; }
+            } else if (sHov) { g.playClickSound(); accountInputFocused = false; msaInputFocused = false; waypointInputFocused = false; if (!searchQuery.isEmpty() && mx >= sbX + sbW2 - 14) { searchQuery = ""; resetScroll(); } else searchFocused = true; return true; }
             int actX = sbX - 48;
             if (drawBtn(g, "1c_on", actX, py + 10, 44, 18, 5, onlyEnabledFilter ? "ON:Y" : "All", onlyEnabledFilter ? ClientState.withAlpha(accent, 45) : 0xFF191922, onlyEnabledFilter ? accent : ClientState.UI_TEXT_MUTED, false, mx, my, click)) { onlyEnabledFilter = !onlyEnabledFilter; resetScroll(); return true; }
         }
+        if (editingWaypointId != null) return renderWaypointSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
+        if (editingTitleWidgetId != null) return renderTitleWidgetSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if (editingModId != null) return renderModSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
+        if ("title_screen".equals(activeMenu)) return renderHomescreenPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("waypoints".equals(activeMenu)) return renderWaypointsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("accounts".equals(activeMenu)) return renderAccountsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("ui_engine".equals(activeMenu)) return renderUiEnginePage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
@@ -309,7 +403,10 @@ public class SharedModMenu {
     }
 
     private boolean renderActiveContent(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad, boolean isPalette) {
+        if (editingWaypointId != null) return renderWaypointSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
+        if (editingTitleWidgetId != null) return renderTitleWidgetSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if (editingModId != null) return renderModSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
+        if ("title_screen".equals(activeMenu)) return renderHomescreenPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("waypoints".equals(activeMenu)) return renderWaypointsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("accounts".equals(activeMenu)) return renderAccountsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("ui_engine".equals(activeMenu)) return renderUiEnginePage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
@@ -321,7 +418,7 @@ public class SharedModMenu {
             g.drawGlassCard(sbX, sbY, sbW, 20, Math.max(2, menuRad / 2), ClientState.UI_INPUT, searchFocused ? accent : (sHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
             g.text(searchQuery.isEmpty() ? (searchFocused ? "_" : "Search modules...") : (searchQuery + (searchFocused ? "_" : "")), sbX + 8, sbY + 6, searchQuery.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
             if (!searchQuery.isEmpty()) g.text("x", sbX + sbW - 12, sbY + 6, ClientState.UI_TEXT_MUTED, false);
-        } else if (sHov) { g.playClickSound(); accountInputFocused = false; waypointInputFocused = false; if (!searchQuery.isEmpty() && mx >= sbX + sbW - 16) { searchQuery = ""; resetScroll(); } else searchFocused = true; return true; } else searchFocused = false;
+        } else if (sHov) { g.playClickSound(); accountInputFocused = false; msaInputFocused = false; waypointInputFocused = false; if (!searchQuery.isEmpty() && mx >= sbX + sbW - 16) { searchQuery = ""; resetScroll(); } else searchFocused = true; return true; } else searchFocused = false;
         return renderModCardGrid(g, cx, cy + 26, cw, ch - 26, mx, my, click, accent, accentFg, menuRad, isPalette);
     }
 
@@ -329,14 +426,14 @@ public class SharedModMenu {
         ClientConfig cfg = ClientConfig.get(); String curW = ClientState.getCurrentWorldKey();
         if (!click) {
             g.drawGlassCard(cx, cy, cw, 34, menuRad, 0xFF14141B, accent);
-            g.text("Waypoints (" + curW + ")  •  XYZ: " + ClientState.getPlayerX() + ", " + ClientState.getPlayerY() + ", " + ClientState.getPlayerZ(), cx + 10, cy + 8, ClientState.UI_TEXT, false);
-            g.text("Isolated per server/world so waypoints never overlap across servers", cx + 10, cy + 20, ClientState.UI_TEXT_MUTED, false);
+            g.text("Waypoints (" + curW + ") \u2022 XYZ: " + ClientState.getPlayerX() + ", " + ClientState.getPlayerY() + ", " + ClientState.getPlayerZ(), cx + 10, cy + 8, ClientState.UI_TEXT, false);
+            g.text("Click 'Cfg' on any waypoint to edit roundness, exact color, coords & type", cx + 10, cy + 20, ClientState.UI_TEXT_MUTED, false);
         }
         int addY = cy + 40, inW = cw - 92; boolean inHov = mx >= cx && mx <= cx + inW && my >= addY && my <= addY + 22;
         if (!click) {
             g.drawGlassCard(cx, addY, inW, 22, Math.max(3, menuRad / 2), ClientState.UI_INPUT, waypointInputFocused ? accent : (inHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
             g.text(waypointNameInput.isEmpty() ? (waypointInputFocused ? "_" : "Type waypoint name & click + Save Here...") : (waypointNameInput + (waypointInputFocused ? "_" : "")), cx + 8, addY + 7, waypointNameInput.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
-        } else if (inHov) { g.playClickSound(); waypointInputFocused = true; accountInputFocused = false; searchFocused = false; return true; }
+        } else if (inHov) { g.playClickSound(); waypointInputFocused = true; accountInputFocused = false; msaInputFocused = false; searchFocused = false; return true; }
         else if (mx < cx || mx > cx + cw || my < addY || my > addY + 22) waypointInputFocused = false;
 
         if (drawBtn(g, "wp_save_here", cx + inW + 6, addY, 86, 22, Math.max(3, menuRad / 2), "+ Save Here", accent, accentFg, true, mx, my, click)) {
@@ -369,28 +466,179 @@ public class SharedModMenu {
         return false;
     }
 
+    private boolean renderWaypointSettingsPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+        final ClientConfig.Waypoint wp = findWaypoint(editingWaypointId);
+        if (wp == null) { editingWaypointId = null; editingWpField = ""; return false; }
+
+        if (drawBtn(g, "wp_back", cx, cy, 56, 20, Math.max(2, menuRad / 2), "< Back", 0xFF191922, ClientState.UI_TEXT, false, mx, my, click)) {
+            commitWpField(); editingWaypointId = null; resetScroll(); return true;
+        }
+        if (!click) g.text("Waypoint: " + wp.name, cx + 64, cy + 6, ClientState.UI_TEXT, false);
+        if (drawBtn(g, "wp_del_edit", cx + cw - 106, cy, 52, 20, Math.max(2, menuRad / 2), "Delete", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) {
+            ClientConfig.get().removeWaypoint(wp.id); editingWaypointId = null; editingWpField = ""; resetScroll(); return true;
+        }
+        if (drawSwitch(g, "wp_tog_edit", cx + cw - 46, cy + 1, 46, 18, wp.enabled, accent, accentFg, mx, my, click)) {
+            wp.enabled = !wp.enabled; ClientConfig.get().save(); return true;
+        }
+
+        List<SettingRow> rows = new ArrayList<SettingRow>();
+        rows.add(new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g2, int x, int y, int w, int mx2, int my2, boolean ck, int ac, int afg, int mr) {
+                boolean foc = "name".equals(editingWpField);
+                if (!ck) {
+                    g2.drawGlassCard(x, y, w, 36, mr, 0xFF14141B, foc ? ac : ClientState.UI_BORDER);
+                    g2.text("Waypoint Name", x + 12, y + 8, ClientState.UI_TEXT, false);
+                    g2.text("Click box to rename", x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
+                    int bx = x + w - 170;
+                    g2.drawGlassCard(bx, y + 7, 158, 22, 5, ClientState.UI_INPUT, foc ? ac : ClientState.UI_BORDER_HOV);
+                    g2.text((foc ? wpEditBuf + "_" : wp.name), bx + 7, y + 14, ClientState.UI_TEXT, false);
+                } else if (mx2 >= x + w - 170 && mx2 <= x + w - 12 && my2 >= y + 7 && my2 <= y + 29) {
+                    g2.playClickSound(); commitWpField(); editingWpField = "name"; wpEditBuf = wp.name; return true;
+                }
+                return false;
+            }
+        });
+        rows.add(new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g2, int x, int y, int w, int mx2, int my2, boolean ck, int ac, int afg, int mr) {
+                String cur = (wp.style == null || wp.style.isEmpty()) ? "global" : wp.style;
+                if (!ck) {
+                    g2.drawGlassCard(x, y, w, 36, mr, 0xFF14141B, ClientState.UI_BORDER);
+                    g2.text("Waypoint Type / Style", x + 12, y + 8, ClientState.UI_TEXT, false);
+                    g2.text("Global, Lunar Card, 3D Block, Dot, or Beacon", x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
+                }
+                if (drawBtn(g2, "wps_type_" + wp.id, x + w - 104, y + 8, 94, 20, Math.max(2, mr / 2), cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx2, my2, ck)) {
+                    int nx = 0; for (int i = 0; i < WP_EDIT_STYLES.length; i++) if (WP_EDIT_STYLES[i].equalsIgnoreCase(cur)) nx = (i + 1) % WP_EDIT_STYLES.length;
+                    wp.style = WP_EDIT_STYLES[nx]; ClientConfig.get().save(); return true;
+                }
+                return false;
+            }
+        });
+        rows.add(sliderRow("Corner Roundness", "Individual card roundness for this waypoint (0-20px)", "wp_rad:" + wp.id, 0, 20, 1, true));
+        rows.add(colorRow("Exact Waypoint Color", "wp:" + wp.id));
+        rows.add(wpCoordRow(wp, "X Coordinate", "x"));
+        rows.add(wpCoordRow(wp, "Y Coordinate", "y"));
+        rows.add(wpCoordRow(wp, "Z Coordinate", "z"));
+        rows.add(new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g2, int x, int y, int w, int mx2, int my2, boolean ck, int ac, int afg, int mr) {
+                String dim = (wp.dimension == null || wp.dimension.isEmpty()) ? "minecraft:overworld" : wp.dimension;
+                if (!ck) {
+                    g2.drawGlassCard(x, y, w, 36, mr, 0xFF14141B, ClientState.UI_BORDER);
+                    g2.text("Dimension & World Scope", x + 12, y + 8, ClientState.UI_TEXT, false);
+                    g2.text("World: " + (wp.worldId == null ? "global" : wp.worldId), x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
+                }
+                if (drawBtn(g2, "wp_pos_here", x + w - 258, y + 8, 82, 20, 5, "Use My Pos", ac, afg, true, mx2, my2, ck)) {
+                    wp.x = ClientState.getPlayerX(); wp.y = ClientState.getPlayerY(); wp.z = ClientState.getPlayerZ();
+                    wp.dimension = ClientState.getPlayerDim(); ClientConfig.get().save(); return true;
+                }
+                if (drawBtn(g2, "wp_dim_" + wp.id, x + w - 170, y + 8, 86, 20, 5, dim.replace("minecraft:", "").toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx2, my2, ck)) {
+                    int nx = 0; for (int i = 0; i < WP_DIMS.length; i++) if (WP_DIMS[i].equalsIgnoreCase(dim)) nx = (i + 1) % WP_DIMS.length;
+                    wp.dimension = WP_DIMS[nx]; ClientConfig.get().save(); return true;
+                }
+                boolean isGlob = "global".equalsIgnoreCase(wp.worldId);
+                if (drawBtn(g2, "wp_wid_" + wp.id, x + w - 78, y + 8, 68, 20, 5, isGlob ? "GLOBAL" : "WORLD", 0xFF1E1E28, ClientState.UI_TEXT_MUTED, false, mx2, my2, ck)) {
+                    wp.worldId = isGlob ? ClientState.getCurrentWorldKey() : "global"; ClientConfig.get().save(); return true;
+                }
+                return false;
+            }
+        });
+
+        return renderScrollableRows(g, rows, cx, cy + 26, cw - 10, ch - 26, cw, mx, my, click, accent, accentFg, menuRad);
+    }
+
+    private SettingRow wpCoordRow(final ClientConfig.Waypoint wp, final String label, final String axis) {
+        return new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                int val = "x".equals(axis) ? wp.x : ("y".equals(axis) ? wp.y : wp.z);
+                boolean foc = axis.equals(editingWpField);
+                if (!click) {
+                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, foc ? accent : ClientState.UI_BORDER);
+                    g.text(label, x + 12, y + 14, ClientState.UI_TEXT, false);
+                }
+                int bx = x + w - 216;
+                if (drawBtn(g, "wpc_m10_" + axis, bx, y + 8, 28, 20, 4, "-10", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { adjustWpAxis(wp, axis, -10); return true; }
+                if (drawBtn(g, "wpc_m1_" + axis, bx + 31, y + 8, 24, 20, 4, "-1", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { adjustWpAxis(wp, axis, -1); return true; }
+                boolean boxHov = mx >= bx + 58 && mx <= bx + 138 && my >= y + 7 && my <= y + 29;
+                if (!click) {
+                    g.drawGlassCard(bx + 58, y + 7, 80, 22, 5, ClientState.UI_INPUT, foc ? accent : (boxHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
+                    String shown = foc ? (wpEditBuf + "_") : String.valueOf(val);
+                    g.text(shown, bx + 64, y + 14, ClientState.UI_TEXT, false);
+                } else if (boxHov) {
+                    g.playClickSound(); commitWpField(); editingWpField = axis; wpEditBuf = String.valueOf(val); return true;
+                }
+                if (drawBtn(g, "wpc_p1_" + axis, bx + 141, y + 8, 24, 20, 4, "+1", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { adjustWpAxis(wp, axis, 1); return true; }
+                if (drawBtn(g, "wpc_p10_" + axis, bx + 168, y + 8, 30, 20, 4, "+10", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { adjustWpAxis(wp, axis, 10); return true; }
+                return false;
+            }
+        };
+    }
+
+    private void adjustWpAxis(ClientConfig.Waypoint wp, String axis, int delta) {
+        commitWpField();
+        if ("x".equals(axis)) wp.x += delta; else if ("y".equals(axis)) wp.y += delta; else wp.z += delta;
+        ClientConfig.get().save();
+    }
+
     private boolean renderAccountsPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         ClientConfig cfg = ClientConfig.get(); String curName = g.currentUsername();
+        boolean curMsa = "msa".equalsIgnoreCase(g.currentAccountType());
         if (!click) {
-            g.drawGlassCard(cx, cy, cw, 38, menuRad, 0xFF14141B, accent);
-            g.drawRoundedRect(cx + 8, cy + 7, 24, 24, 5, ClientState.withAlpha(accent, 45));
+            g.drawGlassCard(cx, cy, cw, 38, menuRad, 0xFF14141B, curMsa ? 0xFF10B981 : accent);
+            g.drawRoundedRect(cx + 8, cy + 7, 24, 24, 5, ClientState.withAlpha(curMsa ? 0xFF10B981 : accent, 45));
             String ini = curName.isEmpty() ? "P" : curName.substring(0, 1).toUpperCase();
-            g.text(ini, cx + 20 - g.textWidth(ini) / 2, cy + 15, accent, false);
-            g.text("Active Session: " + curName, cx + 40, cy + 9, ClientState.UI_TEXT, false);
-            g.text(accStatusMsg.isEmpty() ? "Organize offline alts with tags, pins & 1-click swap" : accStatusMsg, cx + 40, cy + 22, ClientState.UI_TEXT_MUTED, false);
+            g.text(ini, cx + 20 - g.textWidth(ini) / 2, cy + 15, curMsa ? 0xFF10B981 : accent, false);
+            g.text((curMsa ? "[MSA] " : "[ALT] ") + curName, cx + 40, cy + 9, ClientState.UI_TEXT, false);
+            String stLine = !MicrosoftAuth.statusMsg.isEmpty() ? MicrosoftAuth.statusMsg : (accStatusMsg.isEmpty() ? "Sync launcher MSAs, sign in with Microsoft, or manage offline alts" : accStatusMsg);
+            g.text(trimToWidth(g, stLine, cw - 290), cx + 40, cy + 22, MicrosoftAuth.busy ? 0xFFF59E0B : ClientState.UI_TEXT_MUTED, false);
         }
-        if (drawBtn(g, "acc_savecur", cx + cw - 88, cy + 9, 78, 20, Math.max(2, menuRad / 2), "Save Current", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { cfg.addAccount(curName, "offline", "Main"); accStatusMsg = "Saved " + curName + " to organizer."; return true; }
-        int addY = cy + 44, inW = cw - 78; boolean inHov = mx >= cx && mx <= cx + inW && my >= addY && my <= addY + 22;
-        if (!click) {
-            g.drawGlassCard(cx, addY, inW, 22, Math.max(3, menuRad / 2), ClientState.UI_INPUT, accountInputFocused ? accent : (inHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
-            g.text(accountInput.isEmpty() ? (accountInputFocused ? "_" : "Click here & type Alt username...") : (accountInput + (accountInputFocused ? "_" : "")), cx + 8, addY + 7, accountInput.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
-        } else if (inHov) { g.playClickSound(); accountInputFocused = true; searchFocused = false; waypointInputFocused = false; return true; }
-        else if (mx < cx || mx > cx + cw || my < addY || my > addY + 22) accountInputFocused = false;
-        if (drawBtn(g, "acc_add", cx + inW + 6, addY, 72, 22, Math.max(3, menuRad / 2), "+ Add Alt", accent, accentFg, true, mx, my, click)) {
-            if (!accountInput.trim().isEmpty()) { String added = accountInput.trim(); cfg.addAccount(added, "offline", "Alt"); accountInput = ""; accountInputFocused = false; accStatusMsg = g.switchAccount(added, "") ? ("Switched live session to " + added) : ("Saved " + added + "!"); }
+        if (drawBtn(g, "acc_sync", cx + cw - 242, cy + 9, 74, 20, Math.max(2, menuRad / 2), "Sync MSA", 0xFF162C25, 0xFF6EE7B7, false, mx, my, click)) {
+            MicrosoftAuth.syncFromLauncherAsync(null); return true;
+        }
+        if (drawBtn(g, "acc_mslogin", cx + cw - 164, cy + 9, 76, 20, Math.max(2, menuRad / 2), "MS Login", accent, accentFg, true, mx, my, click)) {
+            g.openUrl(MicrosoftAuth.getAuthorizeUrl());
+            MicrosoftAuth.statusMsg = "Browser opened! Paste redirect URL or code below & click Verify.";
+            msaInputFocused = true; accountInputFocused = false; searchFocused = false; waypointInputFocused = false;
             return true;
         }
-        int fx = cx, fy = cy + 72;
+        if (drawBtn(g, "acc_savecur", cx + cw - 84, cy + 9, 74, 20, Math.max(2, menuRad / 2), "Save Cur", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+            cfg.addAccount(curName, curMsa ? "msa" : "offline", curMsa ? "Main" : "Alt"); accStatusMsg = "Saved " + curName + "."; return true;
+        }
+
+        // Row 1: Paste MS redirect URL / auth code / MC token
+        int msaY = cy + 43, msaW = cw - 116; boolean mHov = mx >= cx && mx <= cx + msaW && my >= msaY && my <= msaY + 20;
+        if (!click) {
+            g.drawGlassCard(cx, msaY, msaW, 20, Math.max(3, menuRad / 2), ClientState.UI_INPUT, msaInputFocused ? accent : (mHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
+            String disp = msaInput.isEmpty() ? (msaInputFocused ? "_" : "Paste Microsoft redirect URL, code, or MC token...") : trimToWidth(g, msaInput + (msaInputFocused ? "_" : ""), msaW - 14);
+            g.text(disp, cx + 7, msaY + 6, msaInput.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
+        } else if (mHov) { g.playClickSound(); msaInputFocused = true; accountInputFocused = false; searchFocused = false; waypointInputFocused = false; return true; }
+        else if (mx < cx || mx > cx + cw || my < msaY || my > msaY + 20) msaInputFocused = false;
+
+        if (drawBtn(g, "acc_paste", cx + msaW + 4, msaY, 48, 20, Math.max(3, menuRad / 2), "Paste", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+            String clip = g.clipboardText();
+            if (clip != null && !clip.trim().isEmpty()) { msaInput = clip.trim(); msaInputFocused = true; }
+            return true;
+        }
+        if (drawBtn(g, "acc_verify", cx + msaW + 56, msaY, 60, 20, Math.max(3, menuRad / 2), "Verify", 0xFF162C25, 0xFF6EE7B7, false, mx, my, click)) {
+            if (!msaInput.trim().isEmpty()) { MicrosoftAuth.loginAsync(msaInput.trim(), uiHostBridge); msaInput = ""; msaInputFocused = false; }
+            return true;
+        }
+
+        // Row 2: Offline alt input
+        int addY = cy + 68, inW = cw - 78; boolean inHov = mx >= cx && mx <= cx + inW && my >= addY && my <= addY + 20;
+        if (!click) {
+            g.drawGlassCard(cx, addY, inW, 20, Math.max(3, menuRad / 2), ClientState.UI_INPUT, accountInputFocused ? accent : (inHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
+            g.text(accountInput.isEmpty() ? (accountInputFocused ? "_" : "Click here & type Offline Alt username...") : (accountInput + (accountInputFocused ? "_" : "")), cx + 7, addY + 6, accountInput.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
+        } else if (inHov) { g.playClickSound(); accountInputFocused = true; msaInputFocused = false; searchFocused = false; waypointInputFocused = false; return true; }
+        else if (mx < cx || mx > cx + cw || my < addY || my > addY + 20) accountInputFocused = false;
+        if (drawBtn(g, "acc_add", cx + inW + 6, addY, 72, 20, Math.max(3, menuRad / 2), "+ Add Alt", accent, accentFg, true, mx, my, click)) {
+            if (!accountInput.trim().isEmpty()) { String added = accountInput.trim(); cfg.addAccount(added, "offline", "Alt"); accountInput = ""; accountInputFocused = false; accStatusMsg = g.switchAccount(added, "", "", "offline") ? ("Switched live session to " + added) : ("Saved " + added + "!"); }
+            return true;
+        }
+
+        int fx = cx, fy = cy + 93;
         for (int i = 0; i < ACC_FILTER_TAGS.length; i++) {
             String t = ACC_FILTER_TAGS[i]; int tw = g.textWidth(t) + 14; boolean sel = accTagFilter.equalsIgnoreCase(t);
             if (drawBtn(g, "accf_" + t, fx, fy, tw, 17, 5, t, sel ? ClientState.withAlpha(accent, 45) : 0xFF15151D, sel ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false, mx, my, click)) { accTagFilter = t; resetScroll(); return true; }
@@ -398,22 +646,218 @@ public class SharedModMenu {
         }
         List<ClientConfig.AccountEntry> shown = new ArrayList<ClientConfig.AccountEntry>();
         for (int pass = 0; pass < 2; pass++) for (ClientConfig.AccountEntry a : cfg.accounts) { if ((pass == 0) != a.pinned) continue; if (!"All".equalsIgnoreCase(accTagFilter) && !accTagFilter.equalsIgnoreCase(a.tag)) continue; shown.add(a); }
-        int listY = cy + 94, listH = ch - 94, rowH = 34, gap = 5, rw = cw - 10, totalH = Math.max(0, shown.size() * (rowH + gap) - gap);
+        int listY = cy + 115, listH = ch - 115, rowH = 34, gap = 5, rw = cw - 10, totalH = Math.max(0, shown.size() * (rowH + gap) - gap);
         maxScrollPx = Math.max(0, totalH - listH); if (targetScrollPx > maxScrollPx) targetScrollPx = maxScrollPx; int curScroll = Math.round(scrollPx);
-        if (!click && shown.isEmpty()) g.text("No accounts in this folder yet. Add an Alt above!", cx + 8, listY + 14, ClientState.UI_TEXT_MUTED, false);
+        if (!click && shown.isEmpty()) g.text("No accounts yet. Click 'Sync MSA', 'MS Login', or add an Offline Alt above!", cx + 8, listY + 14, ClientState.UI_TEXT_MUTED, false);
         for (int i = 0; i < shown.size(); i++) {
             ClientConfig.AccountEntry a = shown.get(i); int ry = listY + i * (rowH + gap) - curScroll; if (ry < listY || ry + rowH > listY + listH) continue;
             boolean inUse = a.name.equalsIgnoreCase(curName);
-            if (!click) { g.drawGlassCard(cx, ry, rw, rowH, Math.max(3, menuRad / 2), 0xFF14141B, inUse ? accent : ClientState.UI_BORDER); g.text(a.name + (inUse ? "  [IN USE]" : ""), cx + 28, ry + 7, inUse ? accent : ClientState.UI_TEXT, false); g.text(a.type.toUpperCase() + " account", cx + 28, ry + 19, ClientState.UI_TEXT_DIM, false); }
+            boolean isMsa = "msa".equalsIgnoreCase(a.type);
+            if (!click) {
+                g.drawGlassCard(cx, ry, rw, rowH, Math.max(3, menuRad / 2), 0xFF14141B, inUse ? (isMsa ? 0xFF10B981 : accent) : ClientState.UI_BORDER);
+                g.text(a.name + (inUse ? "  [IN USE]" : ""), cx + 28, ry + 7, inUse ? (isMsa ? 0xFF6EE7B7 : accent) : ClientState.UI_TEXT, false);
+                g.text((isMsa ? "MICROSOFT MSA" : "OFFLINE ALT") + (a.uuid != null && a.uuid.length() >= 8 ? (" \u2022 " + a.uuid.substring(0, 8)) : ""), cx + 28, ry + 19, isMsa ? 0xFF34D399 : ClientState.UI_TEXT_DIM, false);
+            }
             if (drawBtn(g, "apin_" + a.id, cx + 6, ry + 8, 16, 18, 4, a.pinned ? "*" : ".", 0x00000000, a.pinned ? accent : ClientState.UI_TEXT_DIM, false, mx, my, click)) { a.pinned = !a.pinned; cfg.save(); return true; }
-            if (drawBtn(g, "atag_" + a.id, cx + rw - 172, ry + 8, 42, 18, 4, a.tag.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.cycleAccountTag(a); return true; }
-            if (drawBtn(g, "aup_" + a.id, cx + rw - 126, ry + 8, 16, 18, 4, "^", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.moveAccount(a.id, -1); return true; }
-            if (drawBtn(g, "adn_" + a.id, cx + rw - 108, ry + 8, 16, 18, 4, "v", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.moveAccount(a.id, 1); return true; }
-            if (drawBtn(g, "ause_" + a.id, cx + rw - 88, ry + 8, 46, 18, 4, inUse ? "Active" : "Use", inUse ? accent : 0xFF1E293B, inUse ? accentFg : ClientState.UI_TEXT, inUse, mx, my, click)) { cfg.activeAccountId = a.id; cfg.save(); accStatusMsg = g.switchAccount(a.name, a.uuid) ? ("Switched session to " + a.name) : ("Selected " + a.name + " (next launch)"); return true; }
-            if (drawBtn(g, "adel_" + a.id, cx + rw - 38, ry + 8, 30, 18, 4, "Del", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) { cfg.removeAccount(a.id); return true; }
+            int rightEdge = cx + rw - 8;
+            if (drawBtn(g, "adel_" + a.id, rightEdge - 28, ry + 8, 28, 18, 4, "Del", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) { cfg.removeAccount(a.id); return true; }
+            if (drawBtn(g, "ause_" + a.id, rightEdge - 74, ry + 8, 42, 18, 4, inUse ? "Active" : "Use", inUse ? accent : 0xFF1E293B, inUse ? accentFg : ClientState.UI_TEXT, inUse, mx, my, click)) {
+                cfg.activeAccountId = a.id; cfg.save();
+                accStatusMsg = g.switchAccount(a.name, a.uuid, a.accessToken, a.type) ? ("Switched live session to " + a.name + (isMsa ? " (MSA)" : "")) : ("Selected " + a.name);
+                return true;
+            }
+            int xShift = rightEdge - 78;
+            if (isMsa) {
+                if (drawBtn(g, "aref_" + a.id, xShift - 42, ry + 8, 38, 18, 4, "Refr", 0xFF162C25, 0xFF6EE7B7, false, mx, my, click)) {
+                    MicrosoftAuth.refreshOrVerifyAsync(a, uiHostBridge); return true;
+                }
+                xShift -= 44;
+            }
+            if (drawBtn(g, "adn_" + a.id, xShift - 18, ry + 8, 16, 18, 4, "v", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.moveAccount(a.id, 1); return true; }
+            if (drawBtn(g, "aup_" + a.id, xShift - 36, ry + 8, 16, 18, 4, "^", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.moveAccount(a.id, -1); return true; }
+            if (drawBtn(g, "atag_" + a.id, xShift - 80, ry + 8, 40, 18, 4, a.tag.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.cycleAccountTag(a); return true; }
         }
         if (!click && maxScrollPx > 0) drawScrollbar(g, cx + cw - 4, listY, listH, totalH, curScroll, accent);
         return false;
+    }
+
+    private boolean renderHomescreenPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+        ClientConfig cfg = ClientConfig.get();
+        if (cfg.titleWidgets.isEmpty()) cfg.resetTitleLayout();
+
+        // Top controls bar
+        boolean customOn = cfg.getBool("ui_custom_title", true);
+        if (!click) {
+            g.drawGlassCard(cx, cy, cw, 34, menuRad, 0xFF14141B, ClientState.UI_BORDER);
+            g.text("Custom Homescreen (20 Widgets)", cx + 10, cy + 7, ClientState.UI_TEXT, false);
+            g.text("Locked on Homescreen - edit background, size, colors & layout here", cx + 10, cy + 19, ClientState.UI_TEXT_DIM, false);
+        }
+        if (drawSwitch(g, "hs_enable", cx + cw - 48, cy + 8, 38, 18, customOn, accent, accentFg, mx, my, click)) {
+            cfg.setOption("ui_custom_title", Boolean.valueOf(!customOn)); return true;
+        }
+        if (drawBtn(g, "hs_vis_edit", cx + cw - 144, cy + 8, 90, 18, 5, "Drag Layout", accent, accentFg, true, mx, my, click)) {
+            if (hostActions != null) hostActions.openTitleEditor(); return true;
+        }
+
+        // Background Dropdown + Dim Slider row
+        int ddY = cy + 40, ddW = Math.min(250, cw / 2);
+        String curBgId = cfg.getString("title_bg_style", "waves");
+        String curBgLabel = "1. Obsidian Waves";
+        for (int i = 0; i < SharedTitleScreen.BG_PRESETS.length; i++) {
+            if (SharedTitleScreen.BG_PRESETS[i][0].equalsIgnoreCase(curBgId)) { curBgLabel = SharedTitleScreen.BG_PRESETS[i][1]; break; }
+        }
+
+        // Handle open dropdown clicks FIRST so it intercepts clicks above the widget list
+        int menuX = cx, menuY = ddY + 24, menuW = ddW, itemH = 19;
+        int menuH = SharedTitleScreen.BG_PRESETS.length * itemH + 6;
+        if (bgDropdownOpen && click) {
+            if (mx >= menuX && mx <= menuX + menuW && my >= menuY && my <= menuY + menuH) {
+                int idx = (my - (menuY + 3)) / itemH;
+                if (idx >= 0 && idx < SharedTitleScreen.BG_PRESETS.length) {
+                    g.playClickSound();
+                    cfg.setOption("title_bg_style", SharedTitleScreen.BG_PRESETS[idx][0]);
+                    bgDropdownOpen = false;
+                    return true;
+                }
+            }
+            bgDropdownOpen = false;
+            return true;
+        }
+
+        if (drawBtn(g, "hs_bg_dd", cx, ddY, ddW, 22, 5, "BG: " + trimToWidth(g, curBgLabel, ddW - 34) + (bgDropdownOpen ? "  ^" : "  v"), 0xFF161620, ClientState.UI_TEXT, false, mx, my, click)) {
+            bgDropdownOpen = !bgDropdownOpen; return true;
+        }
+
+        // Dim slider inline to the right of dropdown
+        int dimX = cx + ddW + 8, dimW = cw - ddW - 78;
+        double dimVal = cfg.getDouble("title_bg_dim", 0.35), dimPct = Math.max(0.0, Math.min(1.0, dimVal / 0.85));
+        if (!click) {
+            g.drawGlassCard(dimX, ddY, dimW, 22, 5, 0xFF14141B, ClientState.UI_BORDER);
+            g.text("Dim " + Math.round(dimVal * 100) + "%", dimX + 6, ddY + 7, ClientState.UI_TEXT_MUTED, false);
+            int trX = dimX + 54, trW = Math.max(24, dimW - 62);
+            g.drawRoundedRect(trX, ddY + 9, trW, 4, 2, ClientState.UI_BORDER);
+            int fw = (int) Math.round(trW * dimPct);
+            if (fw > 2) g.drawRoundedRect(trX, ddY + 9, fw, 4, 2, accent);
+            g.drawCircleFilled(trX + fw, ddY + 11, 3, ClientState.UI_TEXT);
+        } else {
+            int trX = dimX + 54, trW = Math.max(24, dimW - 62);
+            if (mx >= trX - 4 && mx <= trX + trW + 4 && my >= ddY && my <= ddY + 22) {
+                activeSliderId = "title_bg_dim"; sliderX = trX; sliderW = trW; sliderMin = 0.0; sliderMax = 0.85; sliderStep = 0.05;
+                applySliderValue("title_bg_dim", mx); return true;
+            }
+        }
+        if (drawBtn(g, "hs_rst_all", cx + cw - 64, ddY, 64, 22, 5, "Reset 20", 0xFF2B181E, ClientState.UI_TEXT, false, mx, my, click)) {
+            cfg.resetTitleLayout(); cfg.save(); return true;
+        }
+
+        // 20 Widgets List
+        List<ClientConfig.TitleWidget> list = new ArrayList<ClientConfig.TitleWidget>(cfg.titleWidgets.values());
+        int listY = cy + 68, listH = ch - 68, rowH = 34, gap = 5, rw = cw - 10;
+        int totalH = Math.max(0, list.size() * (rowH + gap) - gap);
+        maxScrollPx = Math.max(0, totalH - listH); if (targetScrollPx > maxScrollPx) targetScrollPx = maxScrollPx;
+        int curScroll = Math.round(scrollPx);
+
+        for (int i = 0; i < list.size(); i++) {
+            ClientConfig.TitleWidget tw = list.get(i);
+            int ry = listY + i * (rowH + gap) - curScroll;
+            if (ry < listY || ry + rowH > listY + listH) continue;
+            if (!click) {
+                g.drawGlassCard(cx, ry, rw, rowH, Math.max(3, menuRad / 2), 0xFF14141B, tw.enabled ? accent : ClientState.UI_BORDER);
+                g.text((i + 1) + ". " + tw.label, cx + 10, ry + 7, ClientState.UI_TEXT, false);
+                String meta = String.format("Size %.2fx \u2022 Op %d%% \u2022 Rad %dpx", Double.valueOf(tw.scale), Integer.valueOf((int) Math.round(tw.opacity * 100.0)), Integer.valueOf(tw.borderRadius));
+                g.text(meta, cx + 10, ry + 19, ClientState.UI_TEXT_DIM, false);
+            }
+            if (drawBtn(g, "tw_edit_" + tw.id, cx + rw - 102, ry + 8, 52, 18, 4, "Edit", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+                editingTitleWidgetId = tw.id; titleTextFocused = false; resetScroll(); return true;
+            }
+            if (drawSwitch(g, "tw_tog_" + tw.id, cx + rw - 44, ry + 8, 36, 18, tw.enabled, accent, accentFg, mx, my, click)) {
+                tw.enabled = !tw.enabled; cfg.save(); return true;
+            }
+        }
+        if (!click && maxScrollPx > 0) drawScrollbar(g, cx + cw - 4, listY, listH, totalH, curScroll, accent);
+
+        // Render open Background Dropdown ON TOP of widget list
+        if (!click && bgDropdownOpen) {
+            g.drawGlassCard(menuX, menuY, menuW, menuH, 6, 0xF5101016, accent);
+            for (int i = 0; i < SharedTitleScreen.BG_PRESETS.length; i++) {
+                String id = SharedTitleScreen.BG_PRESETS[i][0], lbl = SharedTitleScreen.BG_PRESETS[i][1];
+                int iy = menuY + 3 + i * itemH;
+                boolean sel = id.equalsIgnoreCase(curBgId);
+                boolean hov = mx >= menuX + 3 && mx <= menuX + menuW - 3 && my >= iy && my <= iy + itemH;
+                if (sel || hov) g.drawRoundedRect(menuX + 3, iy, menuW - 6, itemH - 1, 4, sel ? ClientState.withAlpha(accent, 48) : 0x22FFFFFF);
+                g.text(lbl, menuX + 9, iy + 5, sel ? accent : (i >= 5 ? 0xFF6EE7B7 : ClientState.UI_TEXT), false);
+            }
+        }
+        return false;
+    }
+
+    private boolean renderTitleWidgetSettingsPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+        final ClientConfig cfg = ClientConfig.get();
+        final ClientConfig.TitleWidget tw = cfg.titleWidgets.get(editingTitleWidgetId);
+        if (tw == null) { editingTitleWidgetId = null; titleTextFocused = false; return false; }
+
+        if (drawBtn(g, "tws_back", cx, cy, 56, 20, Math.max(2, menuRad / 2), "< Back", 0xFF191922, ClientState.UI_TEXT, false, mx, my, click)) {
+            editingTitleWidgetId = null; titleTextFocused = false; resetScroll(); return true;
+        }
+        if (!click) g.text("Widget: " + tw.label, cx + 64, cy + 6, ClientState.UI_TEXT, false);
+        if (drawBtn(g, "tws_rst", cx + cw - 110, cy, 56, 20, Math.max(2, menuRad / 2), "Reset", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+            cfg.resetTitleWidget(tw.id); titleTextFocused = false; return true;
+        }
+        if (drawSwitch(g, "tws_tog", cx + cw - 46, cy + 1, 46, 18, tw.enabled, accent, accentFg, mx, my, click)) {
+            tw.enabled = !tw.enabled; cfg.save(); return true;
+        }
+
+        List<SettingRow> rows = new ArrayList<SettingRow>();
+        if ("custom_note".equals(tw.id) || "logo".equals(tw.id) || "quick_play".equals(tw.id)) {
+            rows.add(new SettingRow() {
+                @Override public int height() { return 36; }
+                @Override public boolean renderOrHandle(UiBridge.UiDraw g2, int x, int y, int w, int mx2, int my2, boolean ck, int ac, int afg, int mr) {
+                    if (!ck) {
+                        g2.drawGlassCard(x, y, w, 36, mr, 0xFF14141B, titleTextFocused ? ac : ClientState.UI_BORDER);
+                        g2.text("Custom Text", x + 12, y + 8, ClientState.UI_TEXT, false);
+                        g2.text("Click box to edit label", x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
+                        int bx = x + w - 190;
+                        g2.drawGlassCard(bx, y + 7, 178, 22, 5, ClientState.UI_INPUT, titleTextFocused ? ac : ClientState.UI_BORDER_HOV);
+                        String curTxt = tw.customText == null ? "" : tw.customText;
+                        g2.text(trimToWidth(g2, (titleTextFocused ? titleTextBuf + "_" : (curTxt.isEmpty() ? "(Default)" : curTxt)), 166), bx + 7, y + 14, curTxt.isEmpty() && !titleTextFocused ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
+                    } else if (mx2 >= x + w - 190 && mx2 <= x + w - 12 && my2 >= y + 7 && my2 <= y + 29) {
+                        g2.playClickSound(); titleTextFocused = true; titleTextBuf = tw.customText == null ? "" : tw.customText; return true;
+                    } else titleTextFocused = false;
+                    return false;
+                }
+            });
+        }
+        rows.add(sliderRow("Size (Scale)", "Resize widget from 0.50x to 2.00x", "tw_scale:" + tw.id, 0.50, 2.00, 0.05, false));
+        rows.add(sliderRow("X Position", "Horizontal position on homescreen", "tw_x:" + tw.id, 0.02, 0.98, 0.005, false));
+        rows.add(sliderRow("Y Position", "Vertical position on homescreen", "tw_y:" + tw.id, 0.03, 0.97, 0.005, false));
+        rows.add(sliderRow("Corner Radius", "Individual corner roundness (0-28px)", "tw_rad:" + tw.id, 0, 28, 1, true));
+        rows.add(sliderRow("Background Opacity", "Card backdrop alpha (0%-100%)", "tw_opac:" + tw.id, 0.0, 1.0, 0.05, false));
+        rows.add(sliderRow("Text Opacity", "Text alpha (10%-100%)", "tw_topac:" + tw.id, 0.1, 1.0, 0.05, false));
+        rows.add(colorRow("Background Color", "tw_bg:" + tw.id));
+        rows.add(colorRow("Text / Accent Color", "tw_txt:" + tw.id));
+        rows.add(twBoolRow("Border Outline", "Draw border around this widget", tw.id, "showBorder"));
+        rows.add(sliderRow("Border Thickness", "Border stroke width (1-3px)", "tw_bw:" + tw.id, 1, 3, 1, true));
+        rows.add(colorRow("Border Color", "tw_brd:" + tw.id));
+        rows.add(twBoolRow("Chroma RGB", "Animated rainbow wave on text & border", tw.id, "chroma"));
+        rows.add(twBoolRow("Text Shadow", "Drop shadow behind widget text", tw.id, "shadow"));
+
+        return renderScrollableRows(g, rows, cx, cy + 26, cw - 10, ch - 26, cw, mx, my, click, accent, accentFg, menuRad);
+    }
+
+    private SettingRow twBoolRow(final String label, final String desc, final String twId, final String field) {
+        return new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(twId); if (tw == null) return false;
+                boolean val = "showBorder".equals(field) ? tw.showBorder : ("chroma".equals(field) ? tw.chroma : tw.shadow);
+                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (drawSwitch(g, "twb_" + twId + "_" + field, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) {
+                    if ("showBorder".equals(field)) tw.showBorder = !tw.showBorder; else if ("chroma".equals(field)) tw.chroma = !tw.chroma; else tw.shadow = !tw.shadow;
+                    ClientConfig.get().save(); return true;
+                }
+                return false;
+            }
+        };
     }
 
     private boolean drawSideItem(UiBridge.UiDraw g, String id, int x, int y, int w, int h, int rad, String label, boolean sel, int accent, int mx, int my, boolean click) {
@@ -510,6 +954,7 @@ public class SharedModMenu {
         else if (isHud) buildHudInspectorRows(rows, cfg.hudModules.get(editingModId));
         return renderScrollableRows(g, rows, cx, listTop, cw - 10, (cy + ch) - listTop, cw, mx, my, click, accent, accentFg, menuRad);
     }
+
     private void buildHudInspectorRows(List<SettingRow> rows, ClientConfig.HudModule m) {
         if ("waypoints".equals(m.id) && "geom".equals(inspectorTab)) {
             rows.add(accordionRow("wp_mgr", "WAYPOINTS MANAGER"));
@@ -563,7 +1008,7 @@ public class SharedModMenu {
             }
         } else if ("text".equals(inspectorTab)) {
             if ("scoreboard".equals(m.id)) {
-                rows.add(boolRow("Replace Vanilla Scoreboard", "Completely hide default vanilla sidebar so only Aetheria Scoreboard is shown", "sb_hide_vanilla", true));
+                rows.add(boolRow("Replace Vanilla Scoreboard", "Hide default vanilla sidebar so only Aetheria Scoreboard is shown", "sb_hide_vanilla", true));
                 rows.add(boolRow("Hide Red Score Numbers", "Hide right-side numeric scores", "sb_hide_numbers", false));
             }
             if ("saturation".equals(m.id)) { rows.add(cycleRow("Saturation Style", "AppleSkin / Bar / Text", "saturation_style", SAT_STYLES)); rows.add(boolRow("AppleSkin Glint", "Pulse golden outlines", "saturation_glint", true)); }
@@ -603,12 +1048,12 @@ public class SharedModMenu {
 
     private boolean renderUiEnginePage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         List<SettingRow> rows = new ArrayList<SettingRow>();
-        rows.add(accordionRow("ui_theme", "THEMES, FONT & TITLE SCREEN"));
+        rows.add(accordionRow("ui_theme", "THEMES, FONT & HOMESCREEN"));
         if (!foldedAccordions.contains("ui_theme")) {
             rows.add(cycleRow("Menu Layout Mode", "OneClient, Topbar, Sidebar, Grid, or Palette", "ui_menu_layout", MENU_LAYOUTS));
             rows.add(boolRow("Clean Sans-Serif Font", "Smooth crisp non-Minecrafty font", "ui_clean_font", true));
-            rows.add(boolRow("Custom Title Screen", "10 movable widgets + account manager", "ui_custom_title", true));
-            rows.add(actionRow("Customize Title Screen", "Drag & toggle all 10 Title Screen widgets", "title_editor"));
+            rows.add(boolRow("Custom Homescreen", "20 customizable widgets + 10 HQ backgrounds", "ui_custom_title", true));
+            rows.add(actionRow("Homescreen Settings", "10-BG dropdown + 20-widget customizer", "homescreen_cfg"));
             rows.add(accentRow("Accent Color"));
             rows.add(colorRow("Custom Accent HEX", "opt:ui_accent_custom"));
             rows.add(sliderRow("Global Corner Rounding", "INDIV = per-HUD | 0-24 = force all", "global_hud_rounding", -1, 24, 1, true));
@@ -813,21 +1258,28 @@ public class SharedModMenu {
             }
         };
     }
+
     private SettingRow waypointRow(final ClientConfig.Waypoint wp) {
         return new SettingRow() {
             @Override public int height() { return 38; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 int col = ClientState.parseHexColor(wp.color, 0xFF22D3EE);
-                if (!click) { g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, wp.enabled ? col : ClientState.UI_BORDER); g.text(wp.x + ", " + wp.y + ", " + wp.z + " • " + wp.dimension.replace("minecraft:", "") + " • " + (wp.worldId == null ? "global" : wp.worldId), x + 30, y + 22, ClientState.UI_TEXT_DIM, false); }
+                String st = (wp.style == null || wp.style.isEmpty() || "global".equalsIgnoreCase(wp.style)) ? "" : (" [" + wp.style.toUpperCase() + "]");
+                if (!click) {
+                    g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, wp.enabled ? col : ClientState.UI_BORDER);
+                    g.text(wp.x + ", " + wp.y + ", " + wp.z + " \u2022 " + wp.dimension.replace("minecraft:", "") + st, x + 30, y + 22, ClientState.UI_TEXT_DIM, false);
+                }
                 if (mx >= x + 6 && mx <= x + 24 && my >= y + 9 && my <= y + 29) { hoveredTooltip = "Cycle Waypoint Color"; if (click) { g.playClickSound(); ClientConfig.get().cycleWaypointColor(wp); return true; } }
                 if (!click) g.drawCircleFilled(x + 15, y + 19, 6, col);
-                if (drawBtn(g, "wpn_" + wp.id, x + 28, y + 5, 92, 15, 4, wp.name, 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { int idx = 0; for (int i = 0; i < WP_NAME_PRESETS.length; i++) if (WP_NAME_PRESETS[i].equalsIgnoreCase(wp.name)) idx = (i + 1) % WP_NAME_PRESETS.length; wp.name = WP_NAME_PRESETS[idx]; ClientConfig.get().save(); return true; }
+                if (drawBtn(g, "wpn_" + wp.id, x + 28, y + 5, 88, 15, 4, wp.name, 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { int idx = 0; for (int i = 0; i < WP_NAME_PRESETS.length; i++) if (WP_NAME_PRESETS[i].equalsIgnoreCase(wp.name)) idx = (i + 1) % WP_NAME_PRESETS.length; wp.name = WP_NAME_PRESETS[idx]; ClientConfig.get().save(); return true; }
+                if (drawBtn(g, "wpcfg_" + wp.id, x + w - 122, y + 10, 34, 18, 4, "Cfg", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { editingWaypointId = wp.id; editingWpField = ""; wpEditBuf = ""; resetScroll(); return true; }
                 if (drawSwitch(g, "wpt_" + wp.id, x + w - 82, y + 10, 38, 18, wp.enabled, accent, accentFg, mx, my, click)) { wp.enabled = !wp.enabled; ClientConfig.get().save(); return true; }
                 if (drawBtn(g, "wpd_" + wp.id, x + w - 38, y + 10, 28, 18, 4, "Del", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) { ClientConfig.get().removeWaypoint(wp.id); return true; }
                 return false;
             }
         };
     }
+
     private SettingRow keybindRow(final String label, final String desc, final String optId, final String def) {
         return new SettingRow() {
             @Override public int height() { return 36; }
@@ -835,7 +1287,7 @@ public class SharedModMenu {
                 boolean listening = optId.equals(listeningKeyOptId); String cur = ClientConfig.get().getString(optId, def).toUpperCase();
                 if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, listening ? accent : ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 int bw = listening ? 104 : 84;
-                if (drawBtn(g, "kb_" + optId, x + w - bw - 10, y + 8, bw, 20, Math.max(2, menuRad / 2), listening ? "> PRESS KEY <" : cur, listening ? accent : 0xFF1E1E28, listening ? accentFg : ClientState.UI_TEXT, listening, mx, my, click)) { listeningKeyOptId = listening ? null : optId; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; return true; }
+                if (drawBtn(g, "kb_" + optId, x + w - bw - 10, y + 8, bw, 20, Math.max(2, menuRad / 2), listening ? "> PRESS KEY <" : cur, listening ? accent : 0xFF1E1E28, listening ? accentFg : ClientState.UI_TEXT, listening, mx, my, click)) { listeningKeyOptId = listening ? null : optId; searchFocused = false; accountInputFocused = false; msaInputFocused = false; waypointInputFocused = false; return true; }
                 return false;
             }
         };
@@ -917,7 +1369,11 @@ public class SharedModMenu {
                 if (!click) {
                     if (mx >= x && mx <= x + w && my >= y && my <= y + 44) hoveredTooltip = desc;
                     g.drawGlassCard(x, y, w, 44, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
-                    String valStr = (("global_hud_rounding".equals(sliderKey) || "global_hud_opacity".equals(sliderKey)) && val < 0.0) ? "INDIV" : (isInt ? String.valueOf(Math.round(val)) : ((sliderKey.contains("opacity") || sliderKey.contains("alpha") || sliderKey.contains("topac") || sliderKey.contains("mod_x:") || sliderKey.contains("mod_y:") || "pvp_hurtcam_factor".equals(sliderKey)) ? (Math.round(val * 100) + "%") : String.format("%.2f", Double.valueOf(val))));
+                    boolean isPct = sliderKey.contains("opacity") || sliderKey.contains("alpha") || sliderKey.contains("topac") || sliderKey.contains("opac")
+                        || sliderKey.contains("mod_x:") || sliderKey.contains("mod_y:") || sliderKey.contains("tw_x:") || sliderKey.contains("tw_y:")
+                        || "pvp_hurtcam_factor".equals(sliderKey) || "title_bg_dim".equals(sliderKey);
+                    String valStr = (("global_hud_rounding".equals(sliderKey) || "global_hud_opacity".equals(sliderKey)) && val < 0.0) ? "INDIV"
+                        : (isInt ? String.valueOf(Math.round(val)) : (isPct ? (Math.round(val * 100) + "%") : String.format("%.2f", Double.valueOf(val))));
                     g.text(valStr, x + w - g.textWidth(valStr) - 12, y + 8, accent, false); g.text(desc, x + 12, y + 18, ClientState.UI_TEXT_DIM, false);
                     g.drawRoundedRect(trackX, trackY, trackW, 4, 2, ClientState.UI_BORDER); int fillW = (int) Math.round(trackW * pct); if (fillW > 2) g.drawRoundedRect(trackX, trackY, fillW, 4, 2, accent);
                     g.drawCircleFilled(trackX + fillW, trackY + 2, 4, ClientState.UI_TEXT);
@@ -1025,10 +1481,10 @@ public class SharedModMenu {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
-                boolean prim = "wp_add".equals(actId) || "title_editor".equals(actId);
-                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, Math.max(2, menuRad / 2), "wp_add".equals(actId) ? "Add" : ("title_editor".equals(actId) ? "Edit" : "Run"), prim ? accent : 0xFF3B1A1E, prim ? accentFg : ClientState.UI_TEXT, prim, mx, my, click)) {
+                boolean prim = "wp_add".equals(actId) || "homescreen_cfg".equals(actId);
+                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, Math.max(2, menuRad / 2), "wp_add".equals(actId) ? "Add" : ("homescreen_cfg".equals(actId) ? "Open" : "Run"), prim ? accent : 0xFF3B1A1E, prim ? accentFg : ClientState.UI_TEXT, prim, mx, my, click)) {
                     if ("wp_add".equals(actId)) ClientConfig.get().addWaypointAt("WP #" + (ClientConfig.get().waypoints.size() + 1), ClientState.getPlayerX(), ClientState.getPlayerY(), ClientState.getPlayerZ(), ClientState.getPlayerDim(), ClientState.getCurrentWorldKey());
-                    else if ("title_editor".equals(actId)) { if (hostActions != null) hostActions.openTitleEditor(); }
+                    else if ("homescreen_cfg".equals(actId)) { activeMenu = "title_screen"; clearSubEdits(); resetScroll(); }
                     else if ("kd_reset".equals(actId)) ClientState.resetKd();
                     else if ("reset_layout".equals(actId)) ClientConfig.get().resetLayout();
                     else if ("reset_all".equals(actId)) ClientConfig.get().resetAll();
@@ -1044,6 +1500,14 @@ public class SharedModMenu {
 
     private double readSliderValue(String key) {
         ClientConfig cfg = ClientConfig.get();
+        if ("title_bg_dim".equals(key)) return cfg.getDouble("title_bg_dim", 0.35);
+        if (key.startsWith("wp_rad:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(7)); return wp != null ? wp.borderRadius : 6; }
+        if (key.startsWith("tw_")) {
+            ClientConfig.TitleWidget tw = cfg.titleWidgets.get(key.substring(key.indexOf(':') + 1)); if (tw == null) return 0;
+            if (key.startsWith("tw_scale:")) return tw.scale; if (key.startsWith("tw_x:")) return tw.x; if (key.startsWith("tw_y:")) return tw.y;
+            if (key.startsWith("tw_rad:")) return tw.borderRadius; if (key.startsWith("tw_opac:")) return tw.opacity;
+            if (key.startsWith("tw_topac:")) return tw.textOpacity; if (key.startsWith("tw_bw:")) return tw.borderWidth;
+        }
         if ("global_hud_rounding".equals(key)) return cfg.getDouble("global_hud_rounding", -1.0);
         if ("global_hud_opacity".equals(key)) return cfg.getDouble("global_hud_opacity", -1.0);
         if ("ui_menu_rounding".equals(key)) return cfg.getDouble("ui_menu_rounding", 10.0);
@@ -1086,7 +1550,18 @@ public class SharedModMenu {
         double pct = Math.max(0.0, Math.min(1.0, (mx - sliderX) / (double) Math.max(1, sliderW)));
         double snapped = Math.max(sliderMin, Math.min(sliderMax, Math.round((sliderMin + pct * (sliderMax - sliderMin)) / sliderStep) * sliderStep));
         ClientConfig cfg = ClientConfig.get();
-        if ("global_hud_rounding".equals(key)) cfg.setOption("global_hud_rounding", Integer.valueOf(snapped < 0 ? -1 : (int) Math.round(snapped)));
+        if ("title_bg_dim".equals(key)) cfg.setOption("title_bg_dim", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if (key.startsWith("wp_rad:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(7)); if (wp != null) { wp.borderRadius = (int) Math.round(snapped); cfg.save(); } }
+        else if (key.startsWith("tw_")) {
+            ClientConfig.TitleWidget tw = cfg.titleWidgets.get(key.substring(key.indexOf(':') + 1));
+            if (tw != null) {
+                int iv = (int) Math.round(snapped);
+                if (key.startsWith("tw_scale:")) tw.scale = snapped; else if (key.startsWith("tw_x:")) tw.x = snapped; else if (key.startsWith("tw_y:")) tw.y = snapped;
+                else if (key.startsWith("tw_rad:")) tw.borderRadius = iv; else if (key.startsWith("tw_opac:")) tw.opacity = snapped;
+                else if (key.startsWith("tw_topac:")) tw.textOpacity = snapped; else if (key.startsWith("tw_bw:")) tw.borderWidth = iv;
+                cfg.save();
+            }
+        } else if ("global_hud_rounding".equals(key)) cfg.setOption("global_hud_rounding", Integer.valueOf(snapped < 0 ? -1 : (int) Math.round(snapped)));
         else if ("global_hud_opacity".equals(key)) cfg.setOption("global_hud_opacity", Double.valueOf(snapped < 0 ? -1.0 : Math.round(snapped * 100.0) / 100.0));
         else if ("ui_menu_rounding".equals(key)) cfg.setOption("ui_menu_rounding", Integer.valueOf((int) Math.round(snapped)));
         else if ("ui_card_width".equals(key)) cfg.setOption("ui_card_width", Integer.valueOf((int) Math.round(snapped)));
@@ -1120,6 +1595,10 @@ public class SharedModMenu {
     }
 
     private int readColorTarget(String target) {
+        if (target.startsWith("wp:")) { ClientConfig.Waypoint wp = findWaypoint(target.substring(3)); return wp != null ? ClientState.parseHexColor(wp.color, 0xFF22D3EE) : 0xFF22D3EE; }
+        if (target.startsWith("tw_bg:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(6)); return tw != null ? ClientState.parseHexColor(tw.bgColor, 0xFF121219) : 0xFF121219; }
+        if (target.startsWith("tw_txt:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(7)); return tw != null ? ClientState.parseHexColor(tw.textColor, 0xFFF4F4F5) : 0xFFF4F4F5; }
+        if (target.startsWith("tw_brd:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(7)); return tw != null ? ClientState.parseHexColor(tw.borderColor, 0xFF27272A) : 0xFF27272A; }
         if (target.startsWith("opt:")) return ClientState.parseHexColor(ClientConfig.get().getString(target.substring(4), "#ffffff"), 0xFFFFFFFF);
         if (target.startsWith("mod_bg:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(7)); return m != null ? ClientState.parseHexColor(m.bgColor, 0xFF09090B) : 0xFF09090B; }
         if (target.startsWith("mod_brd2:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(9)); return m != null ? ClientState.parseHexColor(m.borderColor2, 0xFFFFFFFF) : 0xFFFFFFFF; }
@@ -1129,7 +1608,11 @@ public class SharedModMenu {
     }
 
     private void writeColorTarget(String target, String hex) {
-        if (target.startsWith("opt:")) ClientConfig.get().setOption(target.substring(4), hex);
+        if (target.startsWith("wp:")) { ClientConfig.Waypoint wp = findWaypoint(target.substring(3)); if (wp != null) { wp.color = hex; ClientConfig.get().save(); } }
+        else if (target.startsWith("tw_bg:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(6)); if (tw != null) { tw.bgColor = hex; ClientConfig.get().save(); } }
+        else if (target.startsWith("tw_txt:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(7)); if (tw != null) { tw.textColor = hex; tw.chroma = false; ClientConfig.get().save(); } }
+        else if (target.startsWith("tw_brd:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(7)); if (tw != null) { tw.borderColor = hex; ClientConfig.get().save(); } }
+        else if (target.startsWith("opt:")) ClientConfig.get().setOption(target.substring(4), hex);
         else if (target.startsWith("mod_bg:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(7)); if (m != null) { m.bgColor = hex; ClientConfig.get().save(); } }
         else if (target.startsWith("mod_brd2:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(9)); if (m != null) { m.borderColor2 = hex; ClientConfig.get().save(); } }
         else if (target.startsWith("mod_brd:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(8)); if (m != null) { m.borderColor = hex; ClientConfig.get().save(); } }
@@ -1171,7 +1654,7 @@ public class SharedModMenu {
     }
 
     private String getModTitle(String id) { for (ModEntry m : ALL_MODS) if (m.id.equals(id)) return m.name; return "Module Settings"; }
-    private String getMenuTitle(String id) { return "favorites".equals(id) ? "Favorites" : "waypoints".equals(id) ? "Waypoints" : "system".equals(id) ? "System & Perf" : "pvp".equals(id) ? "PvP & Combat" : "world".equals(id) ? "World & Survival" : "server".equals(id) ? "Server & Minigames" : "visuals".equals(id) ? "Visuals & HUD" : "utility".equals(id) ? "Core Utilities" : "All Mods"; }
+    private String getMenuTitle(String id) { return "favorites".equals(id) ? "Favorites" : "title_screen".equals(id) ? "Homescreen" : "waypoints".equals(id) ? "Waypoints" : "system".equals(id) ? "System & Perf" : "pvp".equals(id) ? "PvP & Combat" : "world".equals(id) ? "World & Survival" : "server".equals(id) ? "Server & Minigames" : "visuals".equals(id) ? "Visuals & HUD" : "utility".equals(id) ? "Core Utilities" : "All Mods"; }
     private String trimToWidth(UiBridge.UiDraw g, String s, int maxW) { if (g.textWidth(s) <= maxW) return s; while (s.length() > 3 && g.textWidth(s + "..") > maxW) s = s.substring(0, s.length() - 1); return s + ".."; }
     private List<String> wrapText(UiBridge.UiDraw g, String text, int maxW, int maxLines) {
         List<String> lines = new ArrayList<String>(); String[] words = text.split(" "); StringBuilder cur = new StringBuilder();

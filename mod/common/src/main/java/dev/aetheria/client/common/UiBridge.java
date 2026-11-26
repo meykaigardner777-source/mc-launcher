@@ -14,6 +14,12 @@ public final class UiBridge {
         default String currentUsername() { return "Player"; }
         default String currentUuid() { return ""; }
         default boolean switchAccount(String username, String uuid) { return false; }
+        default boolean switchAccount(String username, String uuid, String accessToken, String accountType) { return switchAccount(username, uuid); }
+        default String currentAccountType() { return "offline"; }
+        default int liveFps() { return 0; }
+        default String lastServerIp() { return "Singleplayer"; }
+        default void openUrl(String url) {}
+        default String clipboardText() { return ""; }
         default void drawEntity(int x, int y, int size, float mouseX, float mouseY) {}
         default void drawPaperdoll(int x1, int y1, int x2, int y2, int size, float mouseX, float mouseY) {
             pushTransform(x1, y1, 1.0F); drawEntity((x2 - x1) / 2, Math.max(12, y2 - y1 - 8), size, mouseX, mouseY); popTransform();
