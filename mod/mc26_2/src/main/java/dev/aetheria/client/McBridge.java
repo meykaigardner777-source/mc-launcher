@@ -197,7 +197,21 @@ public final class McBridge {
             @Override public String currentUuid() { return mc.getUser() != null && mc.getUser().getProfileId() != null ? mc.getUser().getProfileId().toString() : ""; }
             @Override public String currentAccountType() {
                 try {
-                    if (mc.getUser() != null && mc.getUser().getType() != null && "MSA".equalsIgnoreCase(mc.getUser().getType().name())) return "msa";
+                    User u = mc.getUser();
+                    if (u != null) {
+                        for (String m : new String[]{"getType", "type"}) {
+                            try {
+                                Object val = u.getClass().getMethod(m).invoke(u);
+                                if (val != null && "MSA".equalsIgnoreCase(String.valueOf(val))) return "msa";
+                            } catch (Throwable ignored) {}
+                        }
+                        for (String m : new String[]{"getAccessToken", "accessToken"}) {
+                            try {
+                                Object tok = u.getClass().getMethod(m).invoke(u);
+                                if (tok instanceof String && ((String) tok).length() > 16) return "msa";
+                            } catch (Throwable ignored) {}
+                        }
+                    }
                 } catch (Throwable ignored) {}
                 return "offline";
             }
