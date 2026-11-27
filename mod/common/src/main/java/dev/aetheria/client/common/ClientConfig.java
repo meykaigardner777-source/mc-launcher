@@ -27,6 +27,7 @@ public class ClientConfig {
     public static class Waypoint {
         public String id, name, dimension = "minecraft:overworld", worldId = "global", color = "#22d3ee", style = "global";
         public int x, y, z, borderRadius = 6;
+        public double scale = 1.0;
         public boolean enabled = true;
     }
     public static class AccountEntry {
@@ -69,7 +70,8 @@ public class ClientConfig {
     public void resetTitleLayout() {
         titleWidgets.clear();
         addTitle("logo", "Aetheria Banner", "Client title & active profile badge", true, 0.50, 0.17);
-        TitleWidget qp = addTitle("quick_play", "Play Button", "Quick launch into worlds menu", true, 0.50, 0.32); qp.bgColor = "#ffffff"; qp.textColor = "#09090b"; qp.borderColor = "#ffffff";
+        TitleWidget qp = addTitle("quick_play", "Play Button", "Quick launch into worlds menu", true, 0.50, 0.32);
+        qp.bgColor = "#ffffff"; qp.textColor = "#09090b"; qp.borderColor = "#ffffff";
         addTitle("singleplayer", "Singleplayer", "Local worlds & saves button", true, 0.50, 0.41);
         addTitle("multiplayer", "Multiplayer", "Server browser & quick-join", true, 0.50, 0.49);
         addTitle("realms", "Realms Button", "Minecraft Realms screen", true, 0.50, 0.57);
@@ -219,19 +221,20 @@ public class ClientConfig {
         setDefaultOpt("armor_text_mode", Boolean.FALSE); setDefaultOpt("pearl_auto_hide", Boolean.TRUE); setDefaultOpt("shield_auto_hide", Boolean.TRUE);
         setDefaultOpt("wp_style", "lunar"); setDefaultOpt("wp_auto_death", Boolean.TRUE); setDefaultOpt("wp_world_markers", Boolean.TRUE); setDefaultOpt("wp_beam_beacon", Boolean.TRUE);
         setDefaultOpt("wp_show_dist", Boolean.TRUE); setDefaultOpt("wp_nether_sync", Boolean.TRUE); setDefaultOpt("wp_offscreen_arrows", Boolean.TRUE);
+        setDefaultOpt("wp_scale", Double.valueOf(1.0));
+        setDefaultOpt("ping_above_hotbar", Boolean.FALSE); setDefaultOpt("ping_number_only", Boolean.FALSE);
+        setDefaultOpt("minimap_size", Integer.valueOf(96)); setDefaultOpt("minimap_zoom", Double.valueOf(1.0));
+        setDefaultOpt("minimap_shape", "circle"); setDefaultOpt("minimap_structures", Boolean.TRUE);
+        setDefaultOpt("minimap_seed", ""); setDefaultOpt("minimap_hide_looted", Boolean.FALSE);
+        setDefaultOpt("struct_village", Boolean.TRUE); setDefaultOpt("struct_monument", Boolean.TRUE); setDefaultOpt("struct_outpost", Boolean.TRUE);
+        setDefaultOpt("struct_mansion", Boolean.TRUE); setDefaultOpt("struct_trial_chamber", Boolean.TRUE); setDefaultOpt("struct_ancient_city", Boolean.TRUE);
+        setDefaultOpt("struct_portal", Boolean.TRUE); setDefaultOpt("struct_temple", Boolean.TRUE); setDefaultOpt("struct_fortress", Boolean.TRUE);
+        setDefaultOpt("struct_bastion", Boolean.TRUE); setDefaultOpt("struct_stronghold", Boolean.TRUE); setDefaultOpt("struct_end_city", Boolean.TRUE);
         setDefaultOpt("cam_zoom", Boolean.TRUE); setDefaultOpt("cam_zoom_fac", Integer.valueOf(4)); setDefaultOpt("cam_zoom_ease", Boolean.TRUE); setDefaultOpt("cam_zoom_slow", Boolean.TRUE);
         setDefaultOpt("cam_zoom_scroll", Boolean.TRUE); setDefaultOpt("cam_zoom_reset_scroll", Boolean.TRUE); setDefaultOpt("cam_zoom_key", "C");
         setDefaultOpt("util_fullbright", Boolean.FALSE); setDefaultOpt("util_fullbright_level", Double.valueOf(12.0));
         setDefaultOpt("util_freelook", Boolean.TRUE); setDefaultOpt("util_freelook_key", "LALT");
         setDefaultOpt("ctl_menu_key", "RSHIFT"); setDefaultOpt("ctl_waypoints_key", "B"); setDefaultOpt("ctl_fullbright_key", "F7"); setDefaultOpt("ctl_profile_key", "F6"); setDefaultOpt("ctl_worldmap_key", "M");
-        setDefaultOpt("wp_scale", Double.valueOf(1.0));
-        setDefaultOpt("ping_above_hotbar", Boolean.FALSE); setDefaultOpt("ping_number_only", Boolean.FALSE);
-        setDefaultOpt("minimap_size", Integer.valueOf(96)); setDefaultOpt("minimap_zoom", Double.valueOf(1.0));
-        setDefaultOpt("minimap_shape", "circle"); setDefaultOpt("minimap_structures", Boolean.TRUE); setDefaultOpt("minimap_seed", ""); setDefaultOpt("minimap_hide_looted", Boolean.FALSE);
-        setDefaultOpt("struct_village", Boolean.TRUE); setDefaultOpt("struct_monument", Boolean.TRUE); setDefaultOpt("struct_outpost", Boolean.TRUE);
-        setDefaultOpt("struct_mansion", Boolean.TRUE); setDefaultOpt("struct_trial_chamber", Boolean.TRUE); setDefaultOpt("struct_ancient_city", Boolean.TRUE);
-        setDefaultOpt("struct_portal", Boolean.TRUE); setDefaultOpt("struct_temple", Boolean.TRUE); setDefaultOpt("struct_fortress", Boolean.TRUE);
-        setDefaultOpt("struct_bastion", Boolean.TRUE); setDefaultOpt("struct_stronghold", Boolean.TRUE); setDefaultOpt("struct_end_city", Boolean.TRUE);
         setDefaultOpt("pvp_togglesprint", Boolean.TRUE); setDefaultOpt("pvp_togglesneak", Boolean.FALSE);
         setDefaultOpt("fps_show_label", Boolean.TRUE); setDefaultOpt("fps_detailed", Boolean.FALSE);
         setDefaultOpt("coords_facing", Boolean.TRUE); setDefaultOpt("coords_compact", Boolean.FALSE); setDefaultOpt("coords_nether", Boolean.TRUE);
@@ -244,7 +247,7 @@ public class ClientConfig {
         HudModule m = new HudModule(); m.id = id; m.label = label; m.category = cat; m.optId = optId; m.enabled = en; m.x = x; m.y = y; m.anchor = anc; m.desc = desc; hudModules.put(id, m);
     }
 
-        public synchronized boolean isStructureLooted(String key) { return key != null && lootedStructures.contains(key); }
+    public synchronized boolean isStructureLooted(String key) { return key != null && lootedStructures.contains(key); }
     public synchronized boolean isStructureVisited(String key) { return key != null && visitedStructures.contains(key); }
     public synchronized void toggleStructureLooted(String key) {
         if (key == null || key.isEmpty()) return;
@@ -259,6 +262,7 @@ public class ClientConfig {
         for (int i = 0; i < keys.length; i++) options.put(keys[i], new JsonPrimitive(Boolean.valueOf(en)));
         save();
     }
+
     public synchronized void addAccount(String name, String type, String tag) { addOrUpdateAccount(name, type, tag, "", "", "", 0L); }
     public synchronized AccountEntry addOrUpdateAccount(String name, String type, String tag, String uuid, String accessToken, String refreshToken, long expiresAt) {
         if (name == null || name.trim().isEmpty()) return null;
@@ -396,6 +400,14 @@ public class ClientConfig {
                     waypoints.add(w);
                 }
             }
+            if (root.has("lootedStructures") && root.get("lootedStructures").isJsonArray()) {
+                lootedStructures.clear();
+                for (JsonElement el : root.getAsJsonArray("lootedStructures")) if (el.isJsonPrimitive()) lootedStructures.add(el.getAsString());
+            }
+            if (root.has("visitedStructures") && root.get("visitedStructures").isJsonArray()) {
+                visitedStructures.clear();
+                for (JsonElement el : root.getAsJsonArray("visitedStructures")) if (el.isJsonPrimitive()) visitedStructures.add(el.getAsString());
+            }
             if (root.has("hudModules") && root.get("hudModules").isJsonObject()) {
                 for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("hudModules").entrySet()) {
                     if (!e.getValue().isJsonObject()) continue;
@@ -429,29 +441,13 @@ public class ClientConfig {
                     hudModules.put(e.getKey(), m);
                 }
             }
-                        if (root.has("lootedStructures") && root.get("lootedStructures").isJsonArray()) {
-                lootedStructures.clear();
-                for (JsonElement el : root.getAsJsonArray("lootedStructures")) if (el.isJsonPrimitive()) lootedStructures.add(el.getAsString());
-            }
-            if (root.has("visitedStructures") && root.get("visitedStructures").isJsonArray()) {
-                visitedStructures.clear();
-                for (JsonElement el : root.getAsJsonArray("visitedStructures")) if (el.isJsonPrimitive()) visitedStructures.add(el.getAsString());
-            }
             menuKey = getString("ctl_menu_key", menuKey);
         } catch (Exception ignored) {}
     }
 
     public synchronized void save() {
         if (configPath == null) return;
-        updatedAt = System.currentTimeMillis();             if (root.has("lootedStructures") && root.get("lootedStructures").isJsonArray()) {
-                lootedStructures.clear();
-                for (JsonElement el : root.getAsJsonArray("lootedStructures")) if (el.isJsonPrimitive()) lootedStructures.add(el.getAsString());
-            }
-            if (root.has("visitedStructures") && root.get("visitedStructures").isJsonArray()) {
-                visitedStructures.clear();
-                for (JsonElement el : root.getAsJsonArray("visitedStructures")) if (el.isJsonPrimitive()) visitedStructures.add(el.getAsString());
-            }
-            menuKey = getString("ctl_menu_key", menuKey);
+        updatedAt = System.currentTimeMillis(); menuKey = getString("ctl_menu_key", menuKey);
         JsonObject root = new JsonObject();
         root.addProperty("schemaVersion", Integer.valueOf(2)); root.addProperty("updatedAt", Long.valueOf(updatedAt));
         root.addProperty("menuKey", menuKey); root.addProperty("activeProfile", activeProfile); root.addProperty("activeAccountId", activeAccountId);
@@ -518,7 +514,8 @@ public class ClientConfig {
             wo.addProperty("x", Integer.valueOf(w.x)); wo.addProperty("y", Integer.valueOf(w.y)); wo.addProperty("z", Integer.valueOf(w.z));
             wo.addProperty("dimension", w.dimension); wo.addProperty("worldId", w.worldId == null ? "global" : w.worldId);
             wo.addProperty("color", w.color); wo.addProperty("style", w.style == null ? "global" : w.style);
-            wo.addProperty("borderRadius", Integer.valueOf(w.borderRadius)); wo.addProperty("scale", Double.valueOf(Math.round(w.scale * 100.0) / 100.0)); wo.addProperty("enabled", Boolean.valueOf(w.enabled)); wpArr.add(wo);
+            wo.addProperty("borderRadius", Integer.valueOf(w.borderRadius)); wo.addProperty("scale", Double.valueOf(Math.round(w.scale * 100.0) / 100.0));
+            wo.addProperty("enabled", Boolean.valueOf(w.enabled)); wpArr.add(wo);
         }
         root.add("waypoints", wpArr);
 

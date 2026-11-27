@@ -171,6 +171,10 @@ public class SharedModMenu {
             if (isBackspace && wpEditBuf.length() > 0) { wpEditBuf = wpEditBuf.substring(0, wpEditBuf.length() - 1); return true; }
             if (isEscape) { editingWpField = ""; wpEditBuf = ""; return true; }
         }
+        if (seedInputFocused) {
+            if (isBackspace && seedInput.length() > 0) { seedInput = seedInput.substring(0, seedInput.length() - 1); ClientConfig.get().setOption("minimap_seed", seedInput.trim()); return true; }
+            if (isEscape) { seedInputFocused = false; return true; }
+        }
         if (titleTextFocused) {
             if (isBackspace && titleTextBuf.length() > 0) {
                 titleTextBuf = titleTextBuf.substring(0, titleTextBuf.length() - 1);
@@ -207,6 +211,10 @@ public class SharedModMenu {
                     }
                 } catch (Exception ignored) {}
             }
+            return true;
+        }
+        if (seedInputFocused) {
+            if (ch >= 32 && ch != 127 && seedInput.length() < 32) { seedInput += ch; ClientConfig.get().setOption("minimap_seed", seedInput.trim()); }
             return true;
         }
         if (titleTextFocused) {
@@ -1498,6 +1506,40 @@ public class SharedModMenu {
         };
     }
     private String normalizePixelGrid(String raw, int n) { int len = n * n; char[] out = new char[len]; Arrays.fill(out, '0'); if (raw != null) { int copy = Math.min(len, raw.length()); for (int i = 0; i < copy; i++) if (raw.charAt(i) == '1') out[i] = '1'; } return new String(out); }
+    private SettingRow seedInputRow() {
+        return new SettingRow() {
+            @Override public int height() { return 48; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                ClientConfig cfg = ClientConfig.get();
+                String curSeed = seedInputFocused ? seedInput : cfg.getString("minimap_seed", "");
+                if (!click) {
+                    g.drawGlassCard(x, y, w, 48, menuRad, 0xFF14141B, seedInputFocused ? accent : ClientState.UI_BORDER);
+                    g.text("World Seed (" + ClientState.getActiveSeedMode() + ")", x + 12, y + 6, ClientState.UI_TEXT, false);
+                }
+                int iy = y + 20, inW = w - 122;
+                boolean inHov = mx >= x + 12 && mx <= x + 12 + inW && my >= iy && my <= iy + 20;
+                if (!click) {
+                    g.drawGlassCard(x + 12, iy, inW, 20, 5, ClientState.UI_INPUT, seedInputFocused ? accent : (inHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
+                    String disp = curSeed.isEmpty() ? (seedInputFocused ? "_" : "Optional: type seed (blank = scanned / auto SP)...") : (curSeed + (seedInputFocused ? "_" : ""));
+                    g.text(trimToWidth(g, disp, inW - 12), x + 18, iy + 6, curSeed.isEmpty() && !seedInputFocused ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
+                } else if (inHov) {
+                    g.playClickSound(); seedInputFocused = true; seedInput = cfg.getString("minimap_seed", ""); return true;
+                } else if (mx < x || mx > x + w || my < y || my > y + 48) {
+                    seedInputFocused = false;
+                }
+                if (drawBtn(g, "seed_paste", x + 16 + inW, iy, 46, 20, 4, "Paste", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+                    String clip = g.clipboardText();
+                    if (clip != null) { seedInput = clip.trim(); cfg.setOption("minimap_seed", seedInput); }
+                    return true;
+                }
+                if (drawBtn(g, "seed_clr", x + 66 + inW, iy, 44, 20, 4, "Clear", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) {
+                    seedInput = ""; seedInputFocused = false; cfg.setOption("minimap_seed", ""); return true;
+                }
+                return false;
+            }
+        };
+    }
+
     private SettingRow accentRow(final String label) {
         return new SettingRow() {
             @Override public int height() { return 46; }
@@ -1521,10 +1563,13 @@ public class SharedModMenu {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
-                boolean prim = "wp_add".equals(actId) || "homescreen_cfg".equals(actId);
-                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, Math.max(2, menuRad / 2), "wp_add".equals(actId) ? "Add" : ("homescreen_cfg".equals(actId) ? "Open" : "Run"), prim ? accent : 0xFF3B1A1E, prim ? accentFg : ClientState.UI_TEXT, prim, mx, my, click)) {
+                boolean prim = "wp_add".equals(actId) || "homescreen_cfg".equals(actId) || "open_worldmap".equals(actId) || "struct_all_on".equals(actId);
+                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, Math.max(2, menuRad / 2), "wp_add".equals(actId) ? "Add" : (("homescreen_cfg".equals(actId) || "open_worldmap".equals(actId)) ? "Open" : ("struct_all_on".equals(actId) ? "All ON" : ("struct_all_off".equals(actId) ? "All OFF" : "Run"))), prim ? accent : 0xFF3B1A1E, prim ? accentFg : ClientState.UI_TEXT, prim, mx, my, click)) {
                     if ("wp_add".equals(actId)) ClientConfig.get().addWaypointAt("WP #" + (ClientConfig.get().waypoints.size() + 1), ClientState.getPlayerX(), ClientState.getPlayerY(), ClientState.getPlayerZ(), ClientState.getPlayerDim(), ClientState.getCurrentWorldKey());
                     else if ("homescreen_cfg".equals(actId)) { activeMenu = "title_screen"; clearSubEdits(); resetScroll(); }
+                    else if ("open_worldmap".equals(actId)) { if (hostActions != null) hostActions.openWorldMap(); }
+                    else if ("struct_all_on".equals(actId)) ClientConfig.get().setAllStructureFilters(true);
+                    else if ("struct_all_off".equals(actId)) ClientConfig.get().setAllStructureFilters(false);
                     else if ("kd_reset".equals(actId)) ClientState.resetKd();
                     else if ("reset_layout".equals(actId)) ClientConfig.get().resetLayout();
                     else if ("reset_all".equals(actId)) ClientConfig.get().resetAll();
@@ -1548,6 +1593,10 @@ public class SharedModMenu {
             if (key.startsWith("tw_rad:")) return tw.borderRadius; if (key.startsWith("tw_opac:")) return tw.opacity;
             if (key.startsWith("tw_topac:")) return tw.textOpacity; if (key.startsWith("tw_bw:")) return tw.borderWidth;
         }
+        if ("wp_scale".equals(key)) return cfg.getDouble("wp_scale", 1.0);
+        if (key.startsWith("wp_scale:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(9)); return wp != null ? wp.scale : 1.0; }
+        if ("minimap_size".equals(key)) return cfg.getDouble("minimap_size", 96.0);
+        if ("minimap_zoom".equals(key)) return cfg.getDouble("minimap_zoom", 1.0);
         if ("global_hud_rounding".equals(key)) return cfg.getDouble("global_hud_rounding", -1.0);
         if ("global_hud_opacity".equals(key)) return cfg.getDouble("global_hud_opacity", -1.0);
         if ("ui_menu_rounding".equals(key)) return cfg.getDouble("ui_menu_rounding", 10.0);
@@ -1601,7 +1650,11 @@ public class SharedModMenu {
                 else if (key.startsWith("tw_topac:")) tw.textOpacity = snapped; else if (key.startsWith("tw_bw:")) tw.borderWidth = iv;
                 cfg.save();
             }
-        } else if ("global_hud_rounding".equals(key)) cfg.setOption("global_hud_rounding", Integer.valueOf(snapped < 0 ? -1 : (int) Math.round(snapped)));
+        } else if ("wp_scale".equals(key)) return cfg.getDouble("wp_scale", 1.0);
+        if (key.startsWith("wp_scale:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(9)); return wp != null ? wp.scale : 1.0; }
+        if ("minimap_size".equals(key)) return cfg.getDouble("minimap_size", 96.0);
+        if ("minimap_zoom".equals(key)) return cfg.getDouble("minimap_zoom", 1.0);
+        if ("global_hud_rounding".equals(key)) cfg.setOption("global_hud_rounding", Integer.valueOf(snapped < 0 ? -1 : (int) Math.round(snapped)));
         else if ("global_hud_opacity".equals(key)) cfg.setOption("global_hud_opacity", Double.valueOf(snapped < 0 ? -1.0 : Math.round(snapped * 100.0) / 100.0));
         else if ("ui_menu_rounding".equals(key)) cfg.setOption("ui_menu_rounding", Integer.valueOf((int) Math.round(snapped)));
         else if ("ui_card_width".equals(key)) cfg.setOption("ui_card_width", Integer.valueOf((int) Math.round(snapped)));
