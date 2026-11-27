@@ -148,7 +148,7 @@ public class SharedModMenu {
             ClientConfig.get().setOption(listeningKeyOptId, ClientState.glfwKeyToName(keyCode)); listeningKeyOptId = null; return true;
         }
         if (!editingWpField.isEmpty() && (keyCode == 257 || keyCode == 335)) { commitWpField(); return true; }
-        if (seedInputFocused && (keyCode == 257 || keyCode == 335)) { ClientConfig.get().setOption("minimap_seed", seedInput.trim()); seedInputFocused = false; return true; }
+        if (seedInputFocused && (keyCode == 257 || keyCode == 335)) { ClientConfig.get().setWorldSeed(ClientState.getCurrentWorldKey(), seedInput.trim()); seedInputFocused = false; return true; }
         if (titleTextFocused && (keyCode == 257 || keyCode == 335)) { titleTextFocused = false; ClientConfig.get().save(); return true; }
         if (msaInputFocused && (keyCode == 257 || keyCode == 335)) {
             if (!msaInput.trim().isEmpty()) { MicrosoftAuth.loginAsync(msaInput.trim(), uiHostBridge); msaInput = ""; msaInputFocused = false; }
@@ -172,7 +172,7 @@ public class SharedModMenu {
             if (isEscape) { editingWpField = ""; wpEditBuf = ""; return true; }
         }
         if (seedInputFocused) {
-            if (isBackspace && seedInput.length() > 0) { seedInput = seedInput.substring(0, seedInput.length() - 1); ClientConfig.get().setOption("minimap_seed", seedInput.trim()); return true; }
+            if (isBackspace && seedInput.length() > 0) { seedInput = seedInput.substring(0, seedInput.length() - 1); ClientConfig.get().setWorldSeed(ClientState.getCurrentWorldKey(), seedInput.trim()); return true; }
             if (isEscape) { seedInputFocused = false; return true; }
         }
         if (titleTextFocused) {
@@ -214,7 +214,7 @@ public class SharedModMenu {
             return true;
         }
         if (seedInputFocused) {
-            if (ch >= 32 && ch != 127 && seedInput.length() < 32) { seedInput += ch; ClientConfig.get().setOption("minimap_seed", seedInput.trim()); }
+            if (ch >= 32 && ch != 127 && seedInput.length() < 32) { seedInput += ch; ClientConfig.get().setWorldSeed(ClientState.getCurrentWorldKey(), seedInput.trim()); }
             return true;
         }
         if (titleTextFocused) {
@@ -234,7 +234,7 @@ public class SharedModMenu {
 
     private void clearSubEdits() {
         editingModId = null; editingWaypointId = null; editingWpField = ""; wpEditBuf = "";
-        editingTitleWidgetId = null; titleTextFocused = false; bgDropdownOpen = false;
+        editingTitleWidgetId = null; titleTextFocused = false; bgDropdownOpen = false; seedInputFocused = false;
         listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; msaInputFocused = false; waypointInputFocused = false;
     }
 
@@ -996,6 +996,8 @@ public class SharedModMenu {
                 rows.add(cycleRow("Minimap Shape", "Circle or Rounded Square", "minimap_shape", MINIMAP_SHAPES));
                 rows.add(boolRow("Show Structures", "Display villages, temples, monuments, bastions, etc.", "minimap_structures", true));
                 rows.add(boolRow("Hide Looted Structures", "Hide structures marked as Looted on Worldmap", "minimap_hide_looted", false));
+                rows.add(boolRow("Worldmap Chunk Grid", "Show 16x16 chunk borders on Worldmap", "worldmap_chunk_grid", false));
+                rows.add(boolRow("Minimap Coordinates", "Show XYZ pill at bottom of minimap", "minimap_coords", true));
                 rows.add(seedInputRow());
             }
             rows.add(accordionRow("mm_filters", "STRUCTURE FILTERS (SHOW / HIDE)"));
@@ -1053,6 +1055,8 @@ public class SharedModMenu {
             if ("ping".equals(m.id)) {
                 rows.add(boolRow("Small Ping Above Hotbar", "Show compact numerical Tab ping centered above hotbar", "ping_above_hotbar", false));
                 rows.add(boolRow("Number Only (e.g. 24ms)", "Hide 'Ping:' label on ping readout", "ping_number_only", false));
+                rows.add(boolRow("Tab List Numeric Ping", "Show exact ms ping for all players on Tab", "tab_numeric_ping", true));
+                rows.add(boolRow("Tab Ping 'ms' Suffix", "Display '24ms' vs '24' on Tab list", "tab_ping_suffix", true));
             }
             if ("scoreboard".equals(m.id)) {
                 rows.add(boolRow("Replace Vanilla Scoreboard", "Hide default vanilla sidebar so only Aetheria Scoreboard is shown", "sb_hide_vanilla", true));
@@ -1511,7 +1515,7 @@ public class SharedModMenu {
             @Override public int height() { return 48; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 ClientConfig cfg = ClientConfig.get();
-                String curSeed = seedInputFocused ? seedInput : cfg.getString("minimap_seed", "");
+                String curSeed = seedInputFocused ? seedInput : cfg.getWorldSeed(ClientState.getCurrentWorldKey());
                 if (!click) {
                     g.drawGlassCard(x, y, w, 48, menuRad, 0xFF14141B, seedInputFocused ? accent : ClientState.UI_BORDER);
                     g.text("World Seed (" + ClientState.getActiveSeedMode() + ")", x + 12, y + 6, ClientState.UI_TEXT, false);
@@ -1523,17 +1527,17 @@ public class SharedModMenu {
                     String disp = curSeed.isEmpty() ? (seedInputFocused ? "_" : "Optional: type seed (blank = scanned / auto SP)...") : (curSeed + (seedInputFocused ? "_" : ""));
                     g.text(trimToWidth(g, disp, inW - 12), x + 18, iy + 6, curSeed.isEmpty() && !seedInputFocused ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
                 } else if (inHov) {
-                    g.playClickSound(); seedInputFocused = true; seedInput = cfg.getString("minimap_seed", ""); return true;
+                    g.playClickSound(); seedInputFocused = true; seedInput = cfg.getWorldSeed(ClientState.getCurrentWorldKey()); return true;
                 } else if (mx < x || mx > x + w || my < y || my > y + 48) {
                     seedInputFocused = false;
                 }
                 if (drawBtn(g, "seed_paste", x + 16 + inW, iy, 46, 20, 4, "Paste", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
                     String clip = g.clipboardText();
-                    if (clip != null) { seedInput = clip.trim(); cfg.setOption("minimap_seed", seedInput); }
+                    if (clip != null) { seedInput = clip.trim(); cfg.setWorldSeed(ClientState.getCurrentWorldKey(), seedInput); }
                     return true;
                 }
                 if (drawBtn(g, "seed_clr", x + 66 + inW, iy, 44, 20, 4, "Clear", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) {
-                    seedInput = ""; seedInputFocused = false; cfg.setOption("minimap_seed", ""); return true;
+                    seedInput = ""; seedInputFocused = false; cfg.setWorldSeed(ClientState.getCurrentWorldKey(), ""); return true;
                 }
                 return false;
             }

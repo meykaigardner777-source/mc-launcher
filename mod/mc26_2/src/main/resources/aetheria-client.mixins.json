@@ -16,7 +16,8 @@
     "LivingEntityRendererMixin",
     "MultiPlayerGameModeMixin",
     "ClientLevelMixin",
-    "TitleScreenMixin"
+    "TitleScreenMixin",
+    "PlayerTabOverlayMixin"
   ],
   "injectors": { "defaultRequire": 1 }
 }

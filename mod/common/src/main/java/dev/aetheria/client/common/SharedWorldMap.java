@@ -9,8 +9,8 @@ public class SharedWorldMap {
     }
 
     private static final String[] QUICK_WP_PRESETS = {"Base", "Home", "Portal", "Loot", "Farm"};
-    private boolean initialized = false, dragging = false, showWaypoints = true, wpPopupOpen = false;
-    private String quickWpName = "";
+    private boolean initialized = false, dragging = false, showWaypoints = true, wpPopupOpen = false, seedPopupOpen = false;
+    private String quickWpName = "", seedInputBuf = "";
     private double centerX = 0.0, centerZ = 0.0, blocksPerPx = 1.0;
     private double dragStartMx = 0.0, dragStartMy = 0.0, dragStartCx = 0.0, dragStartCz = 0.0;
 
@@ -26,17 +26,17 @@ public class SharedWorldMap {
         g.fill(0, 0, sw, sh, 0xFF07080D);
         g.drawWorldMapTiles(0, 0, sw, sh, centerX, centerZ, blocksPerPx);
 
-        if (blocksPerPx <= 1.25) {
+        if (cfg.getBool("worldmap_chunk_grid", false) && blocksPerPx <= 1.5) {
             double leftW = centerX - (sw * 0.5) * blocksPerPx, topW = centerZ - (sh * 0.5) * blocksPerPx;
             int firstCx = (int) Math.floor(leftW / 16.0) * 16;
             int firstCz = (int) Math.floor(topW / 16.0) * 16;
             for (int wx = firstCx; wx <= leftW + sw * blocksPerPx; wx += 16) {
                 int sx = (int) Math.round(sw * 0.5 + (wx - centerX) / blocksPerPx);
-                g.fill(sx, 0, sx + 1, sh, 0x10FFFFFF);
+                g.fill(sx, 0, sx + 1, sh, 0x14FFFFFF);
             }
             for (int wz = firstCz; wz <= topW + sh * blocksPerPx; wz += 16) {
                 int sy = (int) Math.round(sh * 0.5 + (wz - centerZ) / blocksPerPx);
-                g.fill(0, sy, sw, sy + 1, 0x10FFFFFF);
+                g.fill(0, sy, sw, sy + 1, 0x14FFFFFF);
             }
         }
 
@@ -53,28 +53,30 @@ public class SharedWorldMap {
                 String sKey = ClientState.structureKey(sp, wKey);
                 boolean looted = cfg.isStructureLooted(sKey);
                 boolean visited = cfg.isStructureVisited(sKey);
+                boolean hov = Math.abs(mx - sx) <= 10 && Math.abs(my - sy) <= 10;
                 int col = SharedHudRenderer.structureColor(sp.type);
-                int brd = looted ? 0xFF52525B : (visited ? 0xFF22D3EE : col);
-                g.drawGlassCard(sx - 8, sy - 8, 16, 16, 4, looted ? 0xA009090B : 0xDC09090B, brd);
+                int ringCol = looted ? 0x8852525B : (visited ? 0xFF22D3EE : (hov ? 0xFFFFFFFF : ClientState.withAlpha(col, 190)));
+
+                g.drawCircleFilled(sx, sy, 9, looted ? 0xB809090B : 0xE209090B);
+                g.drawCircle(sx, sy, 9, 1, ringCol);
                 if (g.supportsStructureIcons()) {
                     g.drawStructureIcon(sp.type, sx - 6, sy - 6, 0.75F, looted);
                 } else {
                     String tag = SharedHudRenderer.structureTag(sp.type);
                     g.text(tag, sx - g.textWidth(tag) / 2, sy - 4, looted ? 0xFF71717A : col, false);
                 }
-                if (looted) {
-                    g.drawCircleFilled(sx + 7, sy - 7, 3, 0xFF10B981);
-                } else if (visited) {
-                    g.drawCircleFilled(sx + 7, sy - 7, 2, 0xFF22D3EE);
-                }
-                if (blocksPerPx <= 1.35) {
+                if (looted) g.drawCircleFilled(sx + 7, sy - 7, 3, 0xFF10B981);
+                else if (visited) g.drawCircleFilled(sx + 7, sy - 7, 2, 0xFF22D3EE);
+
+                if (blocksPerPx <= 1.35 || hov) {
                     int nw = g.textWidth(sp.name);
-                    g.text(sp.name, sx - nw / 2, sy + 10, looted ? 0xFF71717A : 0xFFE4E4E7, true);
+                    g.drawRoundedRect(sx - nw / 2 - 4, sy + 10, nw + 8, 11, 4, 0xB809090B);
+                    g.text(sp.name, sx - nw / 2, sy + 12, looted ? 0xFF71717A : 0xFFF4F4F5, false);
                 }
-                if (Math.abs(mx - sx) <= 10 && Math.abs(my - sy) <= 10) {
+                if (hov) {
                     long dist = Math.round(Math.hypot(sp.x - d.posX(), sp.z - d.posZ()));
                     String state = looted ? "LOOTED" : (visited ? "Visited" : (sp.fromSeed ? "Seed" : "Scanned"));
-                    hoverTooltip = sp.name + " (" + sp.x + ", " + sp.z + ") \u2022 " + dist + "m [" + state + "] (LClick=Looted, RClick=WP)";
+                    hoverTooltip = sp.name + " (" + sp.x + ", " + sp.z + ")  " + dist + "m [" + state + "]  LClick=Looted | RClick=WP";
                 }
             }
         }
@@ -92,11 +94,11 @@ public class SharedWorldMap {
                 g.drawCircleFilled(sx, sy, 5, 0xDD09090B);
                 g.drawCircleFilled(sx, sy, 4, wc);
                 int nw = g.textWidth(wp.name) + 8;
-                g.drawGlassCard(sx - nw / 2, sy + 6, nw, 12, 4, 0xB809090B, ClientState.withAlpha(wc, 160));
+                g.drawGlassCard(sx - nw / 2, sy + 6, nw, 12, 4, 0xC409090B, ClientState.withAlpha(wc, 165));
                 g.text(wp.name, sx - nw / 2 + 4, sy + 8, 0xFFF4F4F5, false);
                 if (Math.abs(mx - sx) <= 8 && Math.abs(my - sy) <= 8) {
                     long dist = Math.round(Math.hypot(pos[0] - d.posX(), pos[2] - d.posZ()));
-                    hoverTooltip = "WP: " + wp.name + " (" + Math.round(pos[0]) + ", " + wp.y + ", " + Math.round(pos[2]) + ") \u2022 " + dist + "m";
+                    hoverTooltip = "WP: " + wp.name + " (" + Math.round(pos[0]) + ", " + wp.y + ", " + Math.round(pos[2]) + ")  " + dist + "m";
                 }
             }
         }
@@ -105,26 +107,43 @@ public class SharedWorldMap {
             int px = (int) Math.round(sw * 0.5 + (d.posX() - centerX) / blocksPerPx);
             int py = (int) Math.round(sh * 0.5 + (d.posZ() - centerZ) / blocksPerPx);
             double rad = Math.toRadians(d.yaw() + 90.0);
-            g.drawLine(px, py, px + (int) Math.round(Math.cos(rad) * 11.0), py + (int) Math.round(Math.sin(rad) * 11.0), 2, accent);
+            g.drawLine(px, py, px + (int) Math.round(Math.cos(rad) * 12.0), py + (int) Math.round(Math.sin(rad) * 12.0), 2, accent);
             g.drawCircleFilled(px, py, 5, 0xFF09090B);
             g.drawCircleFilled(px, py, 3, 0xFFFFFFFF);
         }
 
         drawOrHandleTopBar(g, d, sw, sh, mx, my, false, null, accent, accentFg);
         if (wpPopupOpen) drawOrHandleQuickWpBar(g, d, sw, mx, my, false, accent, accentFg);
+        if (seedPopupOpen) drawOrHandleSeedBar(g, d, sw, mx, my, false, accent, accentFg);
 
-        String hint = "Drag=Pan  |  Scroll=Zoom (" + String.format("%.2fx", Double.valueOf(1.0 / blocksPerPx)) + ")  |  LClick Struct=Mark Looted  |  RClick=Quick WP  |  ESC=Close";
+        String hint = "Drag=Pan  |  Scroll=Zoom (" + String.format("%.2fx", Double.valueOf(1.0 / blocksPerPx)) + ")  |  LClick Struct=Looted  |  RClick=Quick WP  |  ESC=Close";
         int hw = g.textWidth(hint) + 16;
         g.drawGlassCard(8, sh - 24, hw, 18, 6, 0xD009090B, ClientState.UI_BORDER);
         g.text(hint, 16, sh - 19, ClientState.UI_TEXT_MUTED, false);
 
+        int scaleMeters = pickNiceScaleMeters(blocksPerPx);
+        int scalePx = Math.max(24, (int) Math.round(scaleMeters / blocksPerPx));
+        String scaleTxt = scaleMeters + "m";
+        int sbx = sw - scalePx - 20, sby = sh - 24;
+        g.drawGlassCard(sbx - 8, sby, scalePx + 16, 18, 6, 0xD009090B, ClientState.UI_BORDER);
+        g.fill(sbx, sby + 12, sbx + scalePx, sby + 14, accent);
+        g.fill(sbx, sby + 9, sbx + 1, sby + 14, accent);
+        g.fill(sbx + scalePx - 1, sby + 9, sbx + scalePx, sby + 14, accent);
+        g.text(scaleTxt, sbx + (scalePx - g.textWidth(scaleTxt)) / 2, sby + 3, ClientState.UI_TEXT, false);
+
         if (hoverTooltip != null) {
             int tw = g.textWidth(hoverTooltip) + 14;
             int tx = Math.max(8, Math.min(sw - tw - 8, mx + 12));
-            int ty = Math.max(36, Math.min(sh - 24, my - 10));
+            int ty = Math.max(36, Math.min(sh - 28, my - 12));
             g.drawGlassCard(tx, ty, tw, 16, 6, 0xF0121219, accent);
             g.text(hoverTooltip, tx + 7, ty + 4, ClientState.UI_TEXT, false);
         }
+    }
+
+    private int pickNiceScaleMeters(double bpp) {
+        int[] steps = {16, 32, 64, 128, 256, 512, 1024};
+        for (int i = 0; i < steps.length; i++) if (steps[i] / bpp >= 46.0) return steps[i];
+        return 1024;
     }
 
     public boolean mouseClicked(UiBridge.UiDraw g, UiBridge.HudData d, int sw, int sh, double mx, double my, int btn, Actions actions) {
@@ -132,6 +151,9 @@ public class SharedWorldMap {
             return true;
         }
         if (btn == 0 && wpPopupOpen && drawOrHandleQuickWpBar(g, d, sw, (int) mx, (int) my, true, ClientState.getAccentColor(), ClientState.getAccentFg())) {
+            return true;
+        }
+        if (btn == 0 && seedPopupOpen && drawOrHandleSeedBar(g, d, sw, (int) mx, (int) my, true, ClientState.getAccentColor(), ClientState.getAccentFg())) {
             return true;
         }
 
@@ -161,6 +183,7 @@ public class SharedWorldMap {
 
         if (btn == 0) {
             wpPopupOpen = false;
+            seedPopupOpen = false;
             dragging = true;
             dragStartMx = mx; dragStartMy = my;
             dragStartCx = centerX; dragStartCz = centerZ;
@@ -196,6 +219,16 @@ public class SharedWorldMap {
     }
 
     public boolean keyPressed(boolean isBackspace, boolean isEscape, boolean isEnter, UiBridge.HudData d) {
+        if (seedPopupOpen) {
+            if (isEscape) { seedPopupOpen = false; return true; }
+            if (isBackspace && seedInputBuf.length() > 0) { seedInputBuf = seedInputBuf.substring(0, seedInputBuf.length() - 1); return true; }
+            if (isEnter) {
+                ClientConfig.get().setWorldSeed(d.worldKey(), seedInputBuf.trim());
+                seedPopupOpen = false;
+                return true;
+            }
+            return true;
+        }
         if (!wpPopupOpen) return false;
         if (isEscape) { wpPopupOpen = false; return true; }
         if (isBackspace && quickWpName.length() > 0) { quickWpName = quickWpName.substring(0, quickWpName.length() - 1); return true; }
@@ -207,8 +240,42 @@ public class SharedWorldMap {
     }
 
     public boolean charTyped(char ch) {
+        if (seedPopupOpen) {
+            if (ch >= 32 && ch != 127 && seedInputBuf.length() < 32) seedInputBuf += ch;
+            return true;
+        }
         if (!wpPopupOpen) return false;
         if (ch >= 32 && ch != 127 && quickWpName.length() < 24) quickWpName += ch;
+        return true;
+    }
+
+    private boolean drawOrHandleSeedBar(UiBridge.UiDraw g, UiBridge.HudData d, int sw, int mx, int my, boolean click, int accent, int accentFg) {
+        int pw = Math.min(440, sw - 20), px = (sw - pw) / 2, py = 36, ph = 38;
+        if (click && (mx < px || mx > px + pw || my < py || my > py + ph)) return false;
+        if (!click) g.drawGlassCard(px, py, pw, ph, 8, 0xEC101018, accent);
+
+        int inW = pw - 166;
+        if (!click) {
+            g.drawGlassCard(px + 8, py + 9, inW, 20, 5, ClientState.UI_INPUT, accent);
+            String shown = seedInputBuf.isEmpty() ? "Type multiplayer seed (numeric or text)..." : (seedInputBuf + "_");
+            g.text(shown, px + 14, py + 15, seedInputBuf.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
+        }
+        if (btn(g, px + 12 + inW, py + 9, 44, 20, "Paste", 0xFF1E1E28, ClientState.UI_TEXT, mx, my, click)) {
+            String clip = g.clipboardText();
+            if (clip != null) seedInputBuf = clip.trim();
+            return true;
+        }
+        if (btn(g, px + 60 + inW, py + 9, 48, 20, "Apply", accent, accentFg, mx, my, click)) {
+            ClientConfig.get().setWorldSeed(d.worldKey(), seedInputBuf.trim());
+            seedPopupOpen = false;
+            return true;
+        }
+        if (btn(g, px + 112 + inW, py + 9, 46, 20, "Clear", 0xFF3B1A1E, 0xFFFFFFFF, mx, my, click)) {
+            seedInputBuf = "";
+            ClientConfig.get().setWorldSeed(d.worldKey(), "");
+            seedPopupOpen = false;
+            return true;
+        }
         return true;
     }
 
@@ -246,7 +313,7 @@ public class SharedWorldMap {
     }
 
     private boolean drawOrHandleTopBar(UiBridge.UiDraw g, UiBridge.HudData d, int sw, int sh, int mx, int my, boolean click, Actions actions, int accent, int accentFg) {
-        int barW = Math.min(680, sw - 16), bx = (sw - barW) / 2, by = 8, bh = 24;
+        int barW = Math.min(735, sw - 16), bx = (sw - barW) / 2, by = 8, bh = 24;
         if (click && (mx < bx || mx > bx + barW || my < by || my > by + bh)) return false;
 
         ClientConfig cfg = ClientConfig.get();
@@ -254,27 +321,40 @@ public class SharedWorldMap {
         int curWz = (int) Math.round(centerZ + (my - sh * 0.5) * blocksPerPx);
         if (!click) {
             g.drawGlassCard(bx, by, barW, bh, 8, 0xDC09090B, ClientState.UI_BORDER);
-            String info = "WORLDMAP \u2022 X:" + curWx + " Z:" + curWz + " \u2022 " + ClientState.getActiveSeedMode();
-            int maxInfoW = barW - 332;
+            String info = "WORLDMAP  X:" + curWx + " Z:" + curWz + "  [" + ClientState.getActiveSeedMode() + "]";
+            int maxInfoW = barW - 420;
             while (info.length() > 8 && g.textWidth(info) > maxInfoW) info = info.substring(0, info.length() - 1);
             g.text(info, bx + 9, by + 8, ClientState.UI_TEXT_MUTED, false);
         }
 
         int rx = bx + barW - 6, y0 = by + 4;
-        if (btn(g, rx - 38, y0, 38, 16, "Close", 0xFF3B1A1E, 0xFFFFFFFF, mx, my, click)) { if (actions != null) actions.closeMap(); return true; }
+        if (btn(g, rx - 36, y0, 36, 16, "Close", 0xFF3B1A1E, 0xFFFFFFFF, mx, my, click)) { if (actions != null) actions.closeMap(); return true; }
+        rx -= 39;
+        if (btn(g, rx - 28, y0, 28, 16, "Cfg", 0xFF1E1E28, ClientState.UI_TEXT, mx, my, click)) { if (actions != null) actions.openMinimapSettings(); return true; }
+        rx -= 31;
+        if (btn(g, rx - 44, y0, 44, 16, "Center", accent, accentFg, mx, my, click)) { if (d.hasWorld()) { centerX = d.posX(); centerZ = d.posZ(); } return true; }
+        rx -= 47;
+        if (btn(g, rx - 38, y0, 38, 16, "Seed", seedPopupOpen ? accent : 0xFF1E293B, seedPopupOpen ? accentFg : ClientState.UI_TEXT, mx, my, click)) {
+            seedPopupOpen = !seedPopupOpen;
+            if (seedPopupOpen) { wpPopupOpen = false; seedInputBuf = cfg.getWorldSeed(d.worldKey()); }
+            return true;
+        }
         rx -= 41;
-        if (btn(g, rx - 30, y0, 30, 16, "Cfg", 0xFF1E1E28, ClientState.UI_TEXT, mx, my, click)) { if (actions != null) actions.openMinimapSettings(); return true; }
-        rx -= 33;
-        if (btn(g, rx - 46, y0, 46, 16, "Center", accent, accentFg, mx, my, click)) { if (d.hasWorld()) { centerX = d.posX(); centerZ = d.posZ(); } return true; }
-        rx -= 49;
-        if (btn(g, rx - 42, y0, 42, 16, "+ WP", wpPopupOpen ? accent : 0xFF1E293B, wpPopupOpen ? accentFg : ClientState.UI_TEXT, mx, my, click)) { wpPopupOpen = !wpPopupOpen; return true; }
-        rx -= 45;
-        boolean hideLoot = cfg.getBool("minimap_hide_looted", false);
-        if (btn(g, rx - 52, y0, 52, 16, hideLoot ? "Loot:Hid" : "Loot:Shw", hideLoot ? 0xFF2B181E : 0xFF1A1A24, ClientState.UI_TEXT_MUTED, mx, my, click)) { cfg.setOption("minimap_hide_looted", Boolean.valueOf(!hideLoot)); return true; }
-        rx -= 55;
-        boolean stOn = cfg.getBool("minimap_structures", true);
-        if (btn(g, rx - 48, y0, 48, 16, "Str:" + (stOn ? "ON" : "OFF"), stOn ? 0xFF162C25 : 0xFF1A1A24, stOn ? 0xFF6EE7B7 : ClientState.UI_TEXT_DIM, mx, my, click)) { cfg.setOption("minimap_structures", Boolean.valueOf(!stOn)); return true; }
+        if (btn(g, rx - 36, y0, 36, 16, "+ WP", wpPopupOpen ? accent : 0xFF1E293B, wpPopupOpen ? accentFg : ClientState.UI_TEXT, mx, my, click)) {
+            wpPopupOpen = !wpPopupOpen;
+            if (wpPopupOpen) seedPopupOpen = false;
+            return true;
+        }
+        rx -= 39;
+        boolean gridOn = cfg.getBool("worldmap_chunk_grid", false);
+        if (btn(g, rx - 48, y0, 48, 16, "Grid:" + (gridOn ? "ON" : "OFF"), gridOn ? ClientState.withAlpha(accent, 45) : 0xFF1A1A24, gridOn ? ClientState.UI_TEXT : ClientState.UI_TEXT_DIM, mx, my, click)) { cfg.setOption("worldmap_chunk_grid", Boolean.valueOf(!gridOn)); return true; }
         rx -= 51;
+        boolean hideLoot = cfg.getBool("minimap_hide_looted", false);
+        if (btn(g, rx - 50, y0, 50, 16, hideLoot ? "Loot:Hid" : "Loot:Shw", hideLoot ? 0xFF2B181E : 0xFF1A1A24, ClientState.UI_TEXT_MUTED, mx, my, click)) { cfg.setOption("minimap_hide_looted", Boolean.valueOf(!hideLoot)); return true; }
+        rx -= 53;
+        boolean stOn = cfg.getBool("minimap_structures", true);
+        if (btn(g, rx - 46, y0, 46, 16, "Str:" + (stOn ? "ON" : "OFF"), stOn ? 0xFF162C25 : 0xFF1A1A24, stOn ? 0xFF6EE7B7 : ClientState.UI_TEXT_DIM, mx, my, click)) { cfg.setOption("minimap_structures", Boolean.valueOf(!stOn)); return true; }
+        rx -= 49;
         if (btn(g, rx - 42, y0, 42, 16, "WP:" + (showWaypoints ? "ON" : "OFF"), showWaypoints ? ClientState.withAlpha(accent, 45) : 0xFF1A1A24, ClientState.UI_TEXT, mx, my, click)) { showWaypoints = !showWaypoints; return true; }
         return false;
     }

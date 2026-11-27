@@ -19,7 +19,7 @@ import java.util.*;
 
 public final class MapEngine {
     private static final int MINI_SZ = 192;
-    private static final int WORLD_W = 384, WORLD_H = 256;
+    private static final int WORLD_W = 512, WORLD_H = 320;
     private static final Identifier MINI_TEX = Identifier.fromNamespaceAndPath("aetheria", "minimap_terrain_hq");
     private static final Identifier WORLD_TEX = Identifier.fromNamespaceAndPath("aetheria", "worldmap_terrain_hq");
 
@@ -34,6 +34,7 @@ public final class MapEngine {
     private static float lastMiniYaw = 999F;
     private static boolean lastMiniCircle = true;
     private static double lastWmCx = 1e9, lastWmCz = 1e9, lastWmBpp = -1.0;
+    private static boolean lastWmGrid = false;
     private static int cachedSeedChunkX = Integer.MIN_VALUE, cachedSeedChunkZ = Integer.MIN_VALUE;
     private static String cachedSeedStr = "__unset__";
 
@@ -55,6 +56,8 @@ public final class MapEngine {
             SCANNED_STRUCT_CHUNKS.clear();
             cachedSeedChunkX = Integer.MIN_VALUE;
             cachedSeedChunkZ = Integer.MIN_VALUE;
+            cachedSeedStr = "__unset__";
+            ClientState.markSeedDirty();
             lastMiniX = 1e9;
             lastWmCx = 1e9;
         }
@@ -79,40 +82,18 @@ public final class MapEngine {
     public static void tick(Minecraft mc) {
         if (mc == null || mc.player == null || mc.level == null) return;
         ensureContext(mc);
-        long now = System.currentTimeMillis();
-        if (now - lastTickScanMs < 110L) return;
-        lastTickScanMs = now;
-
         int pcx = mc.player.blockPosition().getX() >> 4;
         int pcz = mc.player.blockPosition().getZ() >> 4;
+        int py = mc.player.blockPosition().getY();
         String dim = mc.level.dimension().identifier().toString();
         String wKey = McBridge.data(mc).worldKey();
         boolean isNether = "minecraft:the_nether".equals(dim);
 
-        int sampled = 0;
-        for (int r = 0; r <= 7 && sampled < 10; r++) {
-            for (int dx = -r; dx <= r && sampled < 10; dx++) {
-                for (int dz = -r; dz <= r && sampled < 10; dz++) {
-                    if (Math.abs(dx) != r && Math.abs(dz) != r) continue;
-                    int cx = pcx + dx, cz = pcz + dz;
-                    long ck = chunkKey(cx, cz);
-                    LevelChunk chunk = mc.level.getChunkSource().getChunkNow(cx, cz);
-                    if (chunk == null) continue;
-                    if (!CHUNK_PIXELS.containsKey(ck)) {
-                        sampleChunk(mc, chunk, cx, cz, isNether);
-                        sampled++;
-                    }
-                    if (!SCANNED_STRUCT_CHUNKS.contains(Long.valueOf(ck))) {
-                        SCANNED_STRUCT_CHUNKS.add(Long.valueOf(ck));
-                        scanChunkStructures(chunk, dim, wKey);
-                    }
-                }
-            }
-        }
-
-        if (now - lastStructUpdateMs > 1200L) {
+        long now = System.currentTimeMillis();
+        boolean dirty = ClientState.consumeSeedDirty();
+        if (dirty || now - lastStructUpdateMs > 1200L) {
             lastStructUpdateMs = now;
-            refreshSeedStructures(mc, pcx, pcz, dim, wKey);
+            refreshSeedStructures(mc, pcx, pcz, dim, wKey, dirty);
             List<ClientState.StructurePin> vis = ClientState.getVisibleStructures(dim, wKey);
             double px = mc.player.getX(), pz = mc.player.getZ();
             for (int i = 0; i < vis.size(); i++) {
@@ -122,9 +103,33 @@ public final class MapEngine {
                 }
             }
         }
+
+        if (now - lastTickScanMs < 90L) return;
+        lastTickScanMs = now;
+
+        int sampled = 0;
+        for (int r = 0; r <= 9 && sampled < 16; r++) {
+            for (int dx = -r; dx <= r && sampled < 16; dx++) {
+                for (int dz = -r; dz <= r && sampled < 16; dz++) {
+                    if (Math.abs(dx) != r && Math.abs(dz) != r) continue;
+                    int cx = pcx + dx, cz = pcz + dz;
+                    long ck = chunkKey(cx, cz);
+                    LevelChunk chunk = mc.level.getChunkSource().getChunkNow(cx, cz);
+                    if (chunk == null) continue;
+                    if (!CHUNK_PIXELS.containsKey(ck)) {
+                        sampleChunk(mc, chunk, cx, cz, isNether, py);
+                        sampled++;
+                    }
+                    if (!SCANNED_STRUCT_CHUNKS.contains(Long.valueOf(ck))) {
+                        SCANNED_STRUCT_CHUNKS.add(Long.valueOf(ck));
+                        scanChunkStructures(chunk, dim, wKey);
+                    }
+                }
+            }
+        }
     }
 
-    private static synchronized void sampleChunk(Minecraft mc, LevelChunk chunk, int cx, int cz, boolean isNether) {
+    private static synchronized void sampleChunk(Minecraft mc, LevelChunk chunk, int cx, int cz, boolean isNether, int playerY) {
         int[] cols = new int[256];
         int[] hgts = new int[256];
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
@@ -133,7 +138,7 @@ public final class MapEngine {
         for (int lz = 0; lz < 16; lz++) {
             for (int lx = 0; lx < 16; lx++) {
                 int wx = (cx << 4) + lx, wz = (cz << 4) + lz;
-                int y = isNether ? findNetherSurface(chunk, pos, wx, wz) : chunk.getHeight(Heightmap.Types.WORLD_SURFACE, lx, lz);
+                int y = isNether ? findNetherSurface(chunk, pos, wx, wz, playerY) : chunk.getHeight(Heightmap.Types.WORLD_SURFACE, lx, lz);
                 int rgb = 0x1E222A;
                 boolean isWater = false;
                 int waterDepth = 0;
@@ -174,9 +179,9 @@ public final class MapEngine {
         long ck = chunkKey(cx, cz);
         CHUNK_PIXELS.put(ck, cols);
         CHUNK_HEIGHTS.put(ck, hgts);
-        if (CHUNK_PIXELS.size() > 2800) {
+        if (CHUNK_PIXELS.size() > 6400) {
             Iterator<Long> it = CHUNK_PIXELS.keySet().iterator();
-            for (int k = 0; k < 400 && it.hasNext(); k++) {
+            for (int k = 0; k < 600 && it.hasNext(); k++) {
                 Long rm = it.next();
                 it.remove();
                 CHUNK_HEIGHTS.remove(rm);
@@ -184,9 +189,10 @@ public final class MapEngine {
         }
     }
 
-    private static int findNetherSurface(LevelChunk chunk, BlockPos.MutableBlockPos pos, int wx, int wz) {
+    private static int findNetherSurface(LevelChunk chunk, BlockPos.MutableBlockPos pos, int wx, int wz, int playerY) {
+        int startY = Math.min(122, Math.max(48, playerY + 18));
         boolean sawAir = false;
-        for (int y = 104; y >= 16; y--) {
+        for (int y = startY; y >= 16; y--) {
             pos.set(wx, y, wz);
             BlockState st = chunk.getBlockState(pos);
             if (st.isAir()) { sawAir = true; continue; }
@@ -210,33 +216,35 @@ public final class MapEngine {
         } catch (Throwable ignored) {}
     }
 
-    private static Long resolveSeed(Minecraft mc) {
-        String raw = ClientConfig.get().getString("minimap_seed", "").trim();
+    private static Long resolveSeed(Minecraft mc, String wKey) {
+        String raw = ClientConfig.get().getWorldSeed(wKey);
         if (!raw.isEmpty()) {
-            ClientState.setActiveSeedMode("Custom Seed: " + raw);
+            ClientState.setActiveSeedMode("Seed: " + raw);
             try { return Long.valueOf(Long.parseLong(raw)); }
             catch (NumberFormatException e) { return Long.valueOf((long) raw.hashCode()); }
         }
         if (mc.getSingleplayerServer() != null) {
             try {
                 long s = mc.getSingleplayerServer().overworld().getSeed();
-                ClientState.setActiveSeedMode("Auto Seed (Singleplayer)");
+                ClientState.setActiveSeedMode("Auto Seed (SP)");
                 return Long.valueOf(s);
             } catch (Throwable ignored) {}
         }
-        ClientState.setActiveSeedMode("No Seed (Scanned Only)");
+        ClientState.setActiveSeedMode("No Seed (Scanned)");
         return null;
     }
 
-    private static void refreshSeedStructures(Minecraft mc, int pcx, int pcz, String dim, String wKey) {
-        Long seedObj = resolveSeed(mc);
+    private static void refreshSeedStructures(Minecraft mc, int pcx, int pcz, String dim, String wKey, boolean force) {
+        Long seedObj = resolveSeed(mc, wKey);
         if (seedObj == null) {
             ClientState.setSeedStructures(Collections.<ClientState.StructurePin>emptyList());
             cachedSeedStr = "";
             return;
         }
-        String seedTag = seedObj + "|" + dim;
-        if (seedTag.equals(cachedSeedStr) && Math.abs(pcx - cachedSeedChunkX) < 6 && Math.abs(pcz - cachedSeedChunkZ) < 6) {
+        String seedTag = seedObj + "|" + dim + "|" + wKey;
+        if (!force && seedTag.equals(cachedSeedStr) && cachedSeedChunkX != Integer.MIN_VALUE
+                && Math.abs((long) pcx - (long) cachedSeedChunkX) < 6L
+                && Math.abs((long) pcz - (long) cachedSeedChunkZ) < 6L) {
             return;
         }
         cachedSeedStr = seedTag;
@@ -245,7 +253,7 @@ public final class MapEngine {
 
         long seed = seedObj.longValue();
         List<ClientState.StructurePin> out = new ArrayList<ClientState.StructurePin>();
-        int radiusChunks = 64;
+        int radiusChunks = 112;
 
         if ("minecraft:overworld".equals(dim)) {
             addSpreadStructures(mc, out, seed, pcx, pcz, radiusChunks, 34, 8, 10387312, false, "Village", "village", dim, wKey);
@@ -255,7 +263,10 @@ public final class MapEngine {
             addSpreadStructures(mc, out, seed, pcx, pcz, radiusChunks, 34, 12, 94251327, false, "Trial Chamber", "trial_chamber", dim, wKey);
             addSpreadStructures(mc, out, seed, pcx, pcz, radiusChunks, 24, 8, 20083232, false, "Ancient City", "ancient_city", dim, wKey);
             addSpreadStructures(mc, out, seed, pcx, pcz, radiusChunks, 40, 15, 34222645, false, "Ruined Portal", "portal", dim, wKey);
-            addSpreadStructures(mc, out, seed, pcx, pcz, radiusChunks, 32, 8, 14357617, false, "Desert/Temple", "temple", dim, wKey);
+            addSpreadStructures(mc, out, seed, pcx, pcz, radiusChunks, 32, 8, 14357617, false, "Desert Pyramid", "temple", dim, wKey);
+            addSpreadStructures(mc, out, seed, pcx, pcz, radiusChunks, 32, 8, 14357619, false, "Jungle Temple", "temple", dim, wKey);
+            addSpreadStructures(mc, out, seed, pcx, pcz, radiusChunks, 32, 8, 14357620, false, "Swamp Hut", "temple", dim, wKey);
+            addStrongholds(out, seed, pcx, pcz, radiusChunks, dim, wKey);
         } else if ("minecraft:the_nether".equals(dim)) {
             int spacing = 27, sep = 4, salt = 30084232;
             int minR = Math.floorDiv(pcx - radiusChunks, spacing), maxR = Math.floorDiv(pcx + radiusChunks, spacing);
@@ -287,6 +298,29 @@ public final class MapEngine {
         ClientState.setSeedStructures(out);
     }
 
+    private static void addStrongholds(List<ClientState.StructurePin> out, long seed, int pcx, int pcz, int radChunks, String dim, String wKey) {
+        Random rng = new Random(seed);
+        double angle = rng.nextDouble() * Math.PI * 2.0;
+        int ring = 0, inRing = 0, ringCount = 3;
+        for (int i = 0; i < 128; i++) {
+            double dist = 128.0 + (192.0 * ring) + (rng.nextDouble() - 0.5) * 80.0;
+            int cx = (int) Math.round(Math.cos(angle) * dist);
+            int cz = (int) Math.round(Math.sin(angle) * dist);
+            if (Math.abs(cx - pcx) <= radChunks && Math.abs(cz - pcz) <= radChunks) {
+                out.add(new ClientState.StructurePin("Stronghold", "stronghold", (cx << 4) + 8, (cz << 4) + 8, dim, wKey, true));
+            }
+            angle += (Math.PI * 2.0) / Math.max(1, ringCount);
+            inRing++;
+            if (inRing == ringCount) {
+                ring++;
+                inRing = 0;
+                ringCount += 2 * ringCount / (ring + 1);
+                ringCount = Math.min(ringCount, 128 - (i + 1));
+                angle += rng.nextDouble() * Math.PI * 2.0;
+            }
+        }
+    }
+
     private static void addSpreadStructures(Minecraft mc, List<ClientState.StructurePin> out, long seed, int pcx, int pcz, int radChunks,
                                             int spacing, int sep, int salt, boolean tri, String name, String type, String dim, String wKey) {
         int minR = Math.floorDiv(pcx - radChunks, spacing), maxR = Math.floorDiv(pcx + radChunks, spacing);
@@ -302,20 +336,24 @@ public final class MapEngine {
                 if (mc.level != null && mc.level.getChunkSource().getChunkNow(cx, cz) != null) {
                     String biome = mc.level.getBiome(new BlockPos(wx, 64, wz)).unwrapKey().map(k -> k.identifier().getPath()).orElse("");
                     if ("monument".equals(type) && !biome.contains("ocean")) continue;
-                    if ("village".equals(type) && (biome.contains("ocean") || biome.contains("forest") && !biome.contains("taiga"))) continue;
-                    if ("mansion".equals(type) && !biome.contains("dark_forest")) continue;
+                    if ("village".equals(type) && !(biome.contains("plains") || biome.contains("meadow") || biome.contains("desert") || biome.contains("savanna") || biome.contains("taiga"))) continue;
+                    if ("mansion".equals(type) && !biome.contains("dark_forest") && !biome.contains("pale_garden")) continue;
+                    if (salt == 14357617 && !biome.contains("desert")) continue;
+                    if (salt == 14357619 && !biome.contains("jungle") && !biome.contains("bamboo")) continue;
+                    if (salt == 14357620 && !biome.contains("swamp")) continue;
                 }
                 out.add(new ClientState.StructurePin(name, type, wx, wz, dim, wKey, true));
             }
         }
     }
 
-    private static synchronized int sampleShadedPixel(int wx, int wz) {
+    private static synchronized int sampleShadedPixel(int wx, int wz, boolean showChunkGrid) {
         int cx = wx >> 4, cz = wz >> 4;
         long ck = chunkKey(cx, cz);
         int[] cols = CHUNK_PIXELS.get(ck);
         if (cols == null) {
-            return (((wx >> 4) + (wz >> 4)) & 1) == 0 ? 0xFF0C0D12 : 0xFF0F1117;
+            if (!showChunkGrid) return 0xFF090B10;
+            return (((wx >> 4) + (wz >> 4)) & 1) == 0 ? 0xFF0B0D13 : 0xFF0E1017;
         }
         int idx = ((wz & 15) << 4) | (wx & 15);
         int argb = cols[idx];
@@ -354,18 +392,21 @@ public final class MapEngine {
                 double blocksPerPx = (128.0 / Math.max(0.5, zoom)) / MINI_SZ;
                 double yRad = Math.toRadians(yaw), cosY = Math.cos(yRad), sinY = Math.sin(yRad);
                 double half = MINI_SZ * 0.5;
-                double rSq = (half - 1.0) * (half - 1.0);
+                double rad = half - 1.2;
                 for (int py = 0; py < MINI_SZ; py++) {
                     double dy = (py + 0.5 - half) * blocksPerPx;
                     for (int ppx = 0; ppx < MINI_SZ; ppx++) {
                         double dx = (ppx + 0.5 - half) * blocksPerPx;
+                        int alpha = 255;
                         if (circle) {
-                            double d2 = Math.pow(ppx + 0.5 - half, 2) + Math.pow(py + 0.5 - half, 2);
-                            if (d2 > rSq) { ni.setPixel(ppx, py, 0); continue; }
+                            double dist = Math.hypot(ppx + 0.5 - half, py + 0.5 - half);
+                            if (dist >= rad + 0.8) { ni.setPixel(ppx, py, 0); continue; }
+                            if (dist > rad - 0.8) alpha = Math.max(0, Math.min(255, (int) Math.round((rad + 0.8 - dist) / 1.6 * 255.0)));
                         }
                         int wx = (int) Math.floor(px - dx * cosY + dy * sinY);
                         int wz = (int) Math.floor(pz - dx * sinY - dy * cosY);
-                        ni.setPixel(ppx, py, sampleShadedPixel(wx, wz));
+                        int pix = sampleShadedPixel(wx, wz, false);
+                        ni.setPixel(ppx, py, (alpha << 24) | (pix & 0x00FFFFFF));
                     }
                 }
                 miniDyn.upload();
@@ -378,10 +419,16 @@ public final class MapEngine {
         if (g == null || mc == null || mc.level == null) return;
         ensureContext(mc);
         ensureWorldTex(mc);
+        if (ClientState.consumeSeedDirty() && mc.player != null) {
+            refreshSeedStructures(mc, mc.player.blockPosition().getX() >> 4, mc.player.blockPosition().getZ() >> 4,
+                    mc.level.dimension().identifier().toString(), McBridge.data(mc).worldKey(), true);
+        }
+        boolean showGrid = ClientConfig.get().getBool("worldmap_chunk_grid", false);
         long now = System.currentTimeMillis();
-        if (now - lastWorldUploadMs >= 90L || Math.abs(centerX - lastWmCx) > 0.25 || Math.abs(centerZ - lastWmCz) > 0.25 || Math.abs(blocksPerPx - lastWmBpp) > 0.005) {
+        if (now - lastWorldUploadMs >= 80L || Math.abs(centerX - lastWmCx) > 0.25 || Math.abs(centerZ - lastWmCz) > 0.25
+                || Math.abs(blocksPerPx - lastWmBpp) > 0.005 || showGrid != lastWmGrid) {
             lastWorldUploadMs = now;
-            lastWmCx = centerX; lastWmCz = centerZ; lastWmBpp = blocksPerPx;
+            lastWmCx = centerX; lastWmCz = centerZ; lastWmBpp = blocksPerPx; lastWmGrid = showGrid;
             NativeImage ni = worldDyn.getPixels();
             if (ni != null) {
                 double scaleX = w / (double) WORLD_W, scaleY = h / (double) WORLD_H;
@@ -390,7 +437,7 @@ public final class MapEngine {
                     int wz = (int) Math.floor(centerZ + (py + 0.5 - halfH) * scaleY * blocksPerPx);
                     for (int ppx = 0; ppx < WORLD_W; ppx++) {
                         int wx = (int) Math.floor(centerX + (ppx + 0.5 - halfW) * scaleX * blocksPerPx);
-                        ni.setPixel(ppx, py, sampleShadedPixel(wx, wz));
+                        ni.setPixel(ppx, py, sampleShadedPixel(wx, wz, showGrid));
                     }
                 }
                 worldDyn.upload();

@@ -23,6 +23,7 @@ public class ClientConfig {
     public final List<AccountEntry> accounts = new ArrayList<AccountEntry>();
     public final Set<String> lootedStructures = new LinkedHashSet<String>();
     public final Set<String> visitedStructures = new LinkedHashSet<String>();
+    public final Map<String, String> worldSeeds = new LinkedHashMap<String, String>();
 
     public static class Waypoint {
         public String id, name, dimension = "minecraft:overworld", worldId = "global", color = "#22d3ee", style = "global";
@@ -226,6 +227,8 @@ public class ClientConfig {
         setDefaultOpt("minimap_size", Integer.valueOf(96)); setDefaultOpt("minimap_zoom", Double.valueOf(1.0));
         setDefaultOpt("minimap_shape", "circle"); setDefaultOpt("minimap_structures", Boolean.TRUE);
         setDefaultOpt("minimap_seed", ""); setDefaultOpt("minimap_hide_looted", Boolean.FALSE);
+        setDefaultOpt("worldmap_chunk_grid", Boolean.FALSE); setDefaultOpt("minimap_coords", Boolean.TRUE);
+        setDefaultOpt("tab_numeric_ping", Boolean.TRUE); setDefaultOpt("tab_ping_suffix", Boolean.TRUE);
         setDefaultOpt("struct_village", Boolean.TRUE); setDefaultOpt("struct_monument", Boolean.TRUE); setDefaultOpt("struct_outpost", Boolean.TRUE);
         setDefaultOpt("struct_mansion", Boolean.TRUE); setDefaultOpt("struct_trial_chamber", Boolean.TRUE); setDefaultOpt("struct_ancient_city", Boolean.TRUE);
         setDefaultOpt("struct_portal", Boolean.TRUE); setDefaultOpt("struct_temple", Boolean.TRUE); setDefaultOpt("struct_fortress", Boolean.TRUE);
@@ -247,6 +250,23 @@ public class ClientConfig {
         HudModule m = new HudModule(); m.id = id; m.label = label; m.category = cat; m.optId = optId; m.enabled = en; m.x = x; m.y = y; m.anchor = anc; m.desc = desc; hudModules.put(id, m);
     }
 
+    public synchronized String getWorldSeed(String worldKey) {
+        if (worldKey != null && !worldKey.isEmpty()) {
+            String s = worldSeeds.get(worldKey);
+            if (s != null && !s.trim().isEmpty()) return s.trim();
+        }
+        return getString("minimap_seed", "").trim();
+    }
+    public synchronized void setWorldSeed(String worldKey, String seed) {
+        String clean = seed == null ? "" : seed.trim();
+        if (worldKey != null && !worldKey.isEmpty()) {
+            if (clean.isEmpty()) worldSeeds.remove(worldKey);
+            else worldSeeds.put(worldKey, clean);
+        }
+        options.put("minimap_seed", new JsonPrimitive(clean));
+        ClientState.markSeedDirty();
+        save();
+    }
     public synchronized boolean isStructureLooted(String key) { return key != null && lootedStructures.contains(key); }
     public synchronized boolean isStructureVisited(String key) { return key != null && visitedStructures.contains(key); }
     public synchronized void toggleStructureLooted(String key) {
@@ -404,6 +424,12 @@ public class ClientConfig {
                 lootedStructures.clear();
                 for (JsonElement el : root.getAsJsonArray("lootedStructures")) if (el.isJsonPrimitive()) lootedStructures.add(el.getAsString());
             }
+            worldSeeds.clear();
+            if (root.has("worldSeeds") && root.get("worldSeeds").isJsonObject()) {
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("worldSeeds").entrySet()) {
+                    if (e.getValue().isJsonPrimitive()) worldSeeds.put(e.getKey(), e.getValue().getAsString());
+                }
+            }
             if (root.has("visitedStructures") && root.get("visitedStructures").isJsonArray()) {
                 visitedStructures.clear();
                 for (JsonElement el : root.getAsJsonArray("visitedStructures")) if (el.isJsonPrimitive()) visitedStructures.add(el.getAsString());
@@ -527,6 +553,10 @@ public class ClientConfig {
         for (String s : visitedStructures) visArr.add(new JsonPrimitive(s));
         root.add("visitedStructures", visArr);
 
+        JsonObject wsObj = new JsonObject();
+        for (Map.Entry<String, String> e : worldSeeds.entrySet()) wsObj.addProperty(e.getKey(), e.getValue());
+        root.add("worldSeeds", wsObj);
+
         JsonObject opts = new JsonObject();
         for (Map.Entry<String, JsonElement> e : options.entrySet()) opts.add(e.getKey(), e.getValue());
         root.add("options", opts);
@@ -549,5 +579,5 @@ public class ClientConfig {
     public void toggleModule(HudModule m) { m.enabled = !m.enabled; if (m.optId != null) options.put(m.optId, new JsonPrimitive(Boolean.valueOf(m.enabled))); save(); }
     public double getZoomFactor() { return Math.max(1.5, getDouble("cam_zoom_fac", 4.0)); }
     public void resetLayout() { Map<String, JsonElement> kept = new LinkedHashMap<String, JsonElement>(options); initDefaults(); options.putAll(kept); save(); }
-    public void resetAll() { options.clear(); waypoints.clear(); lootedStructures.clear(); visitedStructures.clear(); resetTitleLayout(); initDefaults(); save(); }
+    public void resetAll() { options.clear(); waypoints.clear(); lootedStructures.clear(); visitedStructures.clear(); worldSeeds.clear(); resetTitleLayout(); initDefaults(); save(); }
 }

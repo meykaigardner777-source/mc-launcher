@@ -75,6 +75,10 @@ public final class ClientState {
     private static final List<StructurePin> SEED_STRUCTURES = new ArrayList<StructurePin>();
     private static final List<StructurePin> SCANNED_STRUCTURES = new ArrayList<StructurePin>();
     private static volatile String activeSeedMode = "No Seed (Scanned)";
+    private static volatile boolean seedDirty = true;
+
+    public static void markSeedDirty() { seedDirty = true; }
+    public static boolean consumeSeedDirty() { boolean d = seedDirty; seedDirty = false; return d; }
 
     public static String getActiveSeedMode() { return activeSeedMode; }
     public static void setActiveSeedMode(String m) { if (m != null) activeSeedMode = m; }

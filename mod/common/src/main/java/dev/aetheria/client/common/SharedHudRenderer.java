@@ -412,74 +412,81 @@ public final class SharedHudRenderer {
 
         g.drawMinimapTerrain(mx0, my0, mapSz, circle, zoom);
         if (circle) {
-            g.drawCircle(cx, cy, r, 2, 0xCC27272A);
-            g.drawCircle(cx, cy, r - 1, 1, ClientState.withAlpha(textCol, 120));
+            g.drawCircle(cx, cy, r, 2, 0xCC18181E);
+            g.drawCircle(cx, cy, r - 1, 1, ClientState.withAlpha(textCol, 130));
         } else {
-            g.drawRoundedOutline(mx0, my0, mapSz, mapSz, 6, 2, "solid", ClientState.withAlpha(textCol, 120), 0xCC27272A);
+            g.drawRoundedOutline(mx0, my0, mapSz, mapSz, 8, 2, "solid", ClientState.withAlpha(textCol, 130), 0xCC18181E);
         }
 
         double pxPerBlock = (mapSz / (128.0 / zoom));
         double yRad = Math.toRadians(d.yaw()), cosY = Math.cos(yRad), sinY = Math.sin(yRad);
 
-        // Structure pins (if enabled)
         if (cfg.getBool("minimap_structures", true)) {
             List<ClientState.StructurePin> structs = ClientState.getVisibleStructures(d.dimensionId(), d.worldKey());
             for (int i = 0; i < structs.size(); i++) {
                 ClientState.StructurePin sp = structs.get(i);
                 double dx = sp.x - d.posX(), dz = sp.z - d.posZ();
                 int rx = (int) Math.round(-(dx * cosY + dz * sinY) * pxPerBlock);
-                int rz = (int) Math.round((-dx * sinY + dz * cosY) * pxPerBlock);
+                int rz = (int) Math.round((dx * sinY - dz * cosY) * pxPerBlock);
                 if (circle) {
                     double len = Math.hypot(rx, rz);
-                    if (len > r - 5) { rx = (int) Math.round(rx * (r - 5) / len); rz = (int) Math.round(rz * (r - 5) / len); }
+                    if (len > r - 6) { rx = (int) Math.round(rx * (r - 6) / len); rz = (int) Math.round(rz * (r - 6) / len); }
                 } else {
-                    rx = Math.max(-r + 5, Math.min(r - 5, rx)); rz = Math.max(-r + 5, Math.min(r - 5, rz));
+                    rx = Math.max(-r + 6, Math.min(r - 6, rx)); rz = Math.max(-r + 6, Math.min(r - 6, rz));
                 }
                 String sKey = ClientState.structureKey(sp, d.worldKey());
                 boolean looted = cfg.isStructureLooted(sKey);
                 int sc = structureColor(sp.type);
                 if (g.supportsStructureIcons()) {
-                    g.drawCircleFilled(cx + rx, cy + rz, 6, 0xCC09090B);
+                    g.drawCircleFilled(cx + rx, cy + rz, 6, 0xD809090B);
+                    g.drawCircle(cx + rx, cy + rz, 6, 1, looted ? 0x8852525B : ClientState.withAlpha(sc, 160));
                     g.drawStructureIcon(sp.type, cx + rx - 4, cy + rz - 4, 0.50F, looted);
                     if (looted) g.drawCircleFilled(cx + rx + 4, cy + rz - 4, 2, 0xFF10B981);
                 } else {
-                    g.drawCircleFilled(cx + rx, cy + rz, 4, 0xCC09090B);
+                    g.drawCircleFilled(cx + rx, cy + rz, 4, 0xD809090B);
                     g.drawCircleFilled(cx + rx, cy + rz, 3, looted ? 0xFF52525B : sc);
                 }
             }
         }
 
-        // Waypoints (no entity radar!)
         boolean sync = cfg.getBool("wp_nether_sync", true);
         for (int i = 0; i < cfg.waypoints.size(); i++) {
             double[] pos = ClientState.resolveWaypointCoords(cfg.waypoints.get(i), d.dimensionId(), sync);
             if (pos == null) continue;
             double dx = pos[0] - d.posX(), dz = pos[2] - d.posZ();
             int rx = (int) Math.round(-(dx * cosY + dz * sinY) * pxPerBlock);
-            int rz = (int) Math.round((-dx * sinY + dz * cosY) * pxPerBlock);
+            int rz = (int) Math.round((dx * sinY - dz * cosY) * pxPerBlock);
             if (circle) {
                 double len = Math.hypot(rx, rz);
-                if (len > r - 4) { rx = (int) Math.round(rx * (r - 4) / len); rz = (int) Math.round(rz * (r - 4) / len); }
+                if (len > r - 5) { rx = (int) Math.round(rx * (r - 5) / len); rz = (int) Math.round(rz * (r - 5) / len); }
             } else {
-                rx = Math.max(-r + 4, Math.min(r - 4, rx)); rz = Math.max(-r + 4, Math.min(r - 4, rz));
+                rx = Math.max(-r + 5, Math.min(r - 5, rx)); rz = Math.max(-r + 5, Math.min(r - 5, rz));
             }
             int wc = ClientState.parseHexColor(cfg.waypoints.get(i).color, 0xFF22D3EE);
-            g.drawCircleFilled(cx + rx, cy + rz, 3, 0xDD09090B);
-            g.drawCircleFilled(cx + rx, cy + rz, 2, wc);
+            g.drawCircleFilled(cx + rx, cy + rz, 4, 0xDD09090B);
+            g.drawCircleFilled(cx + rx, cy + rz, 3, wc);
         }
 
-        // Compass N marker
-        double nRad = Math.toRadians(-d.yaw() - 90.0);
-        int nx = cx + (int) Math.round(Math.cos(nRad) * (r - 2)), ny = cy + (int) Math.round(Math.sin(nRad) * (r - 2));
-        g.drawCircleFilled(nx, ny, 5, 0xDD09090B);
+        int nx = cx + (int) Math.round(sinY * (r - 2));
+        int ny = cy + (int) Math.round(cosY * (r - 2));
+        g.drawCircleFilled(nx, ny, 5, 0xE609090B);
+        g.drawCircle(nx, ny, 5, 1, 0x88EF4444);
         g.text("N", nx - 2, ny - 4, 0xFFEF4444, false);
 
-        // Crisp center player indicator (heading-locked up)
-        g.drawCircleFilled(cx, cy, 3, 0xFF09090B);
+        g.drawLine(cx - 3, cy + 2, cx, cy - 4, 1, 0xFF09090B);
+        g.drawLine(cx + 3, cy + 2, cx, cy - 4, 1, 0xFF09090B);
+        g.drawCircleFilled(cx, cy, 3, 0xEE09090B);
         g.drawCircleFilled(cx, cy, 2, 0xFFFFFFFF);
         g.fill(cx, cy - 5, cx + 1, cy - 2, textCol);
-    }
 
+        if (cfg.getBool("minimap_coords", true)) {
+            String cTxt = d.x() + " " + d.y() + " " + d.z();
+            int cw = g.textWidth(cTxt) + 8;
+            int cyPill = my0 + mapSz - 11;
+            g.drawRoundedRect(cx - cw / 2, cyPill, cw, 11, 5, 0xCC09090B);
+            g.text(cTxt, cx - cw / 2 + 4, cyPill + 2, 0xFFF4F4F5, false);
+        }
+    }
     private static void renderTargetHud(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int boxH, int textCol, boolean shadow, boolean editorPreview) {
         String name = (d.targetName() != null && !d.targetName().isEmpty()) ? d.targetName() : (editorPreview ? "Player" : "");
         float hp = (d.targetName() != null && !d.targetName().isEmpty()) ? d.targetHealth() : 16.0F, maxHp = Math.max(1.0F, (d.targetName() != null && !d.targetName().isEmpty()) ? d.targetMaxHealth() : 20.0F);
