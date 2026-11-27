@@ -1650,11 +1650,11 @@ public class SharedModMenu {
                 else if (key.startsWith("tw_topac:")) tw.textOpacity = snapped; else if (key.startsWith("tw_bw:")) tw.borderWidth = iv;
                 cfg.save();
             }
-        } else if ("wp_scale".equals(key)) return cfg.getDouble("wp_scale", 1.0);
-        if (key.startsWith("wp_scale:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(9)); return wp != null ? wp.scale : 1.0; }
-        if ("minimap_size".equals(key)) return cfg.getDouble("minimap_size", 96.0);
-        if ("minimap_zoom".equals(key)) return cfg.getDouble("minimap_zoom", 1.0);
-        if ("global_hud_rounding".equals(key)) cfg.setOption("global_hud_rounding", Integer.valueOf(snapped < 0 ? -1 : (int) Math.round(snapped)));
+        } else if ("wp_scale".equals(key)) cfg.setOption("wp_scale", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if (key.startsWith("wp_scale:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(9)); if (wp != null) { wp.scale = Math.round(snapped * 100.0) / 100.0; cfg.save(); } }
+        else if ("minimap_size".equals(key)) cfg.setOption("minimap_size", Integer.valueOf((int) Math.round(snapped)));
+        else if ("minimap_zoom".equals(key)) cfg.setOption("minimap_zoom", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if ("global_hud_rounding".equals(key)) cfg.setOption("global_hud_rounding", Integer.valueOf(snapped < 0 ? -1 : (int) Math.round(snapped)));
         else if ("global_hud_opacity".equals(key)) cfg.setOption("global_hud_opacity", Double.valueOf(snapped < 0 ? -1.0 : Math.round(snapped * 100.0) / 100.0));
         else if ("ui_menu_rounding".equals(key)) cfg.setOption("ui_menu_rounding", Integer.valueOf((int) Math.round(snapped)));
         else if ("ui_card_width".equals(key)) cfg.setOption("ui_card_width", Integer.valueOf((int) Math.round(snapped)));
