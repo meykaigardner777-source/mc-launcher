@@ -520,11 +520,11 @@ public class ClientConfig {
         root.add("waypoints", wpArr);
 
         JsonArray lootArr = new JsonArray();
-        for (String s : lootedStructures) lootArr.add(s);
+        for (String s : lootedStructures) lootArr.add(new JsonPrimitive(s));
         root.add("lootedStructures", lootArr);
 
         JsonArray visArr = new JsonArray();
-        for (String s : visitedStructures) visArr.add(s);
+        for (String s : visitedStructures) visArr.add(new JsonPrimitive(s));
         root.add("visitedStructures", visArr);
 
         JsonObject opts = new JsonObject();
