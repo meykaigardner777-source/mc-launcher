@@ -229,7 +229,7 @@ public final class McBridge {
                 else if ("bastion".equals(type)) st = new ItemStack(Items.GILDED_BLACKSTONE);
                 else if ("stronghold".equals(type)) st = new ItemStack(Items.END_PORTAL_FRAME);
                 else if ("mansion".equals(type)) st = new ItemStack(Items.DARK_OAK_LOG);
-                else if ("trial_chamber".equals(type)) st = new ItemStack(Items.CHISELED_COPPER);
+                else if ("trial_chamber".equals(type)) st = new ItemStack(Items.TRIAL_KEY);
                 else if ("outpost".equals(type)) st = new ItemStack(Items.CROSSBOW);
                 else if ("portal".equals(type)) st = new ItemStack(Items.CRYING_OBSIDIAN);
                 else if ("temple".equals(type)) st = new ItemStack(Items.CHISELED_SANDSTONE);
