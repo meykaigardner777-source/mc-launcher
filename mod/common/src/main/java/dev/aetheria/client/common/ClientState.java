@@ -87,7 +87,14 @@ public final class ClientState {
         SCANNED_STRUCTURES.add(new StructurePin(name, type, x, z, dim, worldId, false));
         if (SCANNED_STRUCTURES.size() > 250) SCANNED_STRUCTURES.remove(0);
     }
+    public static String structureKey(StructurePin s, String worldKey) {
+        if (s == null) return "";
+        String wk = (worldKey == null || worldKey.isEmpty()) ? s.worldId : worldKey;
+        return wk + "|" + s.dimension + "|" + s.type + "|" + s.x + "|" + s.z;
+    }
     public static synchronized List<StructurePin> getVisibleStructures(String dim, String worldKey) {
+        ClientConfig cfg = ClientConfig.get();
+        boolean hideLooted = cfg.getBool("minimap_hide_looted", false);
         List<StructurePin> out = new ArrayList<StructurePin>();
         for (int pass = 0; pass < 2; pass++) {
             List<StructurePin> src = (pass == 0) ? SCANNED_STRUCTURES : SEED_STRUCTURES;
@@ -95,6 +102,8 @@ public final class ClientState {
                 StructurePin s = src.get(i);
                 if (dim != null && !dim.equals(s.dimension)) continue;
                 if (!"global".equalsIgnoreCase(s.worldId) && worldKey != null && !worldKey.equalsIgnoreCase(s.worldId)) continue;
+                if (!cfg.getBool("struct_" + s.type, true)) continue;
+                if (hideLooted && cfg.isStructureLooted(structureKey(s, worldKey))) continue;
                 out.add(s);
             }
         }

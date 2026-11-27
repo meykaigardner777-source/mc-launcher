@@ -8,6 +8,7 @@ import dev.aetheria.client.common.SharedWorldMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -52,11 +53,19 @@ public class WorldMapScreen extends Screen {
     }
 
     @Override public boolean keyPressed(KeyEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (map.keyPressed(event.key() == InputConstants.KEY_BACKSPACE, event.key() == InputConstants.KEY_ESCAPE, event.key() == 257 || event.key() == 335, McBridge.data(mc))) return true;
         int mapKey = ClientState.nameToGlfwKey(ClientConfig.get().getString("ctl_worldmap_key", "M"), InputConstants.KEY_M);
         if (event.key() == InputConstants.KEY_ESCAPE || event.key() == mapKey) {
-            Minecraft.getInstance().gui.setScreen(null);
+            mc.gui.setScreen(null);
             return true;
         }
         return super.keyPressed(event);
+    }
+
+    @Override public boolean charTyped(CharacterEvent event) {
+        String s = event.codepointAsString();
+        if (s != null && s.length() == 1 && map.charTyped(s.charAt(0))) return true;
+        return super.charTyped(event);
     }
 }

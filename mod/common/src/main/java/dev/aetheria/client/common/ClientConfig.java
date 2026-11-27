@@ -21,6 +21,8 @@ public class ClientConfig {
     public final Map<String, JsonElement> options = new LinkedHashMap<String, JsonElement>();
     public final List<Waypoint> waypoints = new ArrayList<Waypoint>();
     public final List<AccountEntry> accounts = new ArrayList<AccountEntry>();
+    public final Set<String> lootedStructures = new LinkedHashSet<String>();
+    public final Set<String> visitedStructures = new LinkedHashSet<String>();
 
     public static class Waypoint {
         public String id, name, dimension = "minecraft:overworld", worldId = "global", color = "#22d3ee", style = "global";
@@ -225,7 +227,11 @@ public class ClientConfig {
         setDefaultOpt("wp_scale", Double.valueOf(1.0));
         setDefaultOpt("ping_above_hotbar", Boolean.FALSE); setDefaultOpt("ping_number_only", Boolean.FALSE);
         setDefaultOpt("minimap_size", Integer.valueOf(96)); setDefaultOpt("minimap_zoom", Double.valueOf(1.0));
-        setDefaultOpt("minimap_shape", "circle"); setDefaultOpt("minimap_structures", Boolean.TRUE); setDefaultOpt("minimap_seed", "");
+        setDefaultOpt("minimap_shape", "circle"); setDefaultOpt("minimap_structures", Boolean.TRUE); setDefaultOpt("minimap_seed", ""); setDefaultOpt("minimap_hide_looted", Boolean.FALSE);
+        setDefaultOpt("struct_village", Boolean.TRUE); setDefaultOpt("struct_monument", Boolean.TRUE); setDefaultOpt("struct_outpost", Boolean.TRUE);
+        setDefaultOpt("struct_mansion", Boolean.TRUE); setDefaultOpt("struct_trial_chamber", Boolean.TRUE); setDefaultOpt("struct_ancient_city", Boolean.TRUE);
+        setDefaultOpt("struct_portal", Boolean.TRUE); setDefaultOpt("struct_temple", Boolean.TRUE); setDefaultOpt("struct_fortress", Boolean.TRUE);
+        setDefaultOpt("struct_bastion", Boolean.TRUE); setDefaultOpt("struct_stronghold", Boolean.TRUE); setDefaultOpt("struct_end_city", Boolean.TRUE);
         setDefaultOpt("pvp_togglesprint", Boolean.TRUE); setDefaultOpt("pvp_togglesneak", Boolean.FALSE);
         setDefaultOpt("fps_show_label", Boolean.TRUE); setDefaultOpt("fps_detailed", Boolean.FALSE);
         setDefaultOpt("coords_facing", Boolean.TRUE); setDefaultOpt("coords_compact", Boolean.FALSE); setDefaultOpt("coords_nether", Boolean.TRUE);
@@ -238,6 +244,21 @@ public class ClientConfig {
         HudModule m = new HudModule(); m.id = id; m.label = label; m.category = cat; m.optId = optId; m.enabled = en; m.x = x; m.y = y; m.anchor = anc; m.desc = desc; hudModules.put(id, m);
     }
 
+        public synchronized boolean isStructureLooted(String key) { return key != null && lootedStructures.contains(key); }
+    public synchronized boolean isStructureVisited(String key) { return key != null && visitedStructures.contains(key); }
+    public synchronized void toggleStructureLooted(String key) {
+        if (key == null || key.isEmpty()) return;
+        if (!lootedStructures.remove(key)) lootedStructures.add(key);
+        save();
+    }
+    public synchronized void markStructureVisited(String key) {
+        if (key != null && !key.isEmpty() && visitedStructures.add(key)) save();
+    }
+    public synchronized void setAllStructureFilters(boolean en) {
+        String[] keys = {"struct_village","struct_monument","struct_outpost","struct_mansion","struct_trial_chamber","struct_ancient_city","struct_portal","struct_temple","struct_fortress","struct_bastion","struct_stronghold","struct_end_city"};
+        for (int i = 0; i < keys.length; i++) options.put(keys[i], new JsonPrimitive(Boolean.valueOf(en)));
+        save();
+    }
     public synchronized void addAccount(String name, String type, String tag) { addOrUpdateAccount(name, type, tag, "", "", "", 0L); }
     public synchronized AccountEntry addOrUpdateAccount(String name, String type, String tag, String uuid, String accessToken, String refreshToken, long expiresAt) {
         if (name == null || name.trim().isEmpty()) return null;
@@ -408,13 +429,29 @@ public class ClientConfig {
                     hudModules.put(e.getKey(), m);
                 }
             }
+                        if (root.has("lootedStructures") && root.get("lootedStructures").isJsonArray()) {
+                lootedStructures.clear();
+                for (JsonElement el : root.getAsJsonArray("lootedStructures")) if (el.isJsonPrimitive()) lootedStructures.add(el.getAsString());
+            }
+            if (root.has("visitedStructures") && root.get("visitedStructures").isJsonArray()) {
+                visitedStructures.clear();
+                for (JsonElement el : root.getAsJsonArray("visitedStructures")) if (el.isJsonPrimitive()) visitedStructures.add(el.getAsString());
+            }
             menuKey = getString("ctl_menu_key", menuKey);
         } catch (Exception ignored) {}
     }
 
     public synchronized void save() {
         if (configPath == null) return;
-        updatedAt = System.currentTimeMillis(); menuKey = getString("ctl_menu_key", menuKey);
+        updatedAt = System.currentTimeMillis();             if (root.has("lootedStructures") && root.get("lootedStructures").isJsonArray()) {
+                lootedStructures.clear();
+                for (JsonElement el : root.getAsJsonArray("lootedStructures")) if (el.isJsonPrimitive()) lootedStructures.add(el.getAsString());
+            }
+            if (root.has("visitedStructures") && root.get("visitedStructures").isJsonArray()) {
+                visitedStructures.clear();
+                for (JsonElement el : root.getAsJsonArray("visitedStructures")) if (el.isJsonPrimitive()) visitedStructures.add(el.getAsString());
+            }
+            menuKey = getString("ctl_menu_key", menuKey);
         JsonObject root = new JsonObject();
         root.addProperty("schemaVersion", Integer.valueOf(2)); root.addProperty("updatedAt", Long.valueOf(updatedAt));
         root.addProperty("menuKey", menuKey); root.addProperty("activeProfile", activeProfile); root.addProperty("activeAccountId", activeAccountId);
@@ -485,6 +522,14 @@ public class ClientConfig {
         }
         root.add("waypoints", wpArr);
 
+        JsonArray lootArr = new JsonArray();
+        for (String s : lootedStructures) lootArr.add(s);
+        root.add("lootedStructures", lootArr);
+
+        JsonArray visArr = new JsonArray();
+        for (String s : visitedStructures) visArr.add(s);
+        root.add("visitedStructures", visArr);
+
         JsonObject opts = new JsonObject();
         for (Map.Entry<String, JsonElement> e : options.entrySet()) opts.add(e.getKey(), e.getValue());
         root.add("options", opts);
@@ -507,5 +552,5 @@ public class ClientConfig {
     public void toggleModule(HudModule m) { m.enabled = !m.enabled; if (m.optId != null) options.put(m.optId, new JsonPrimitive(Boolean.valueOf(m.enabled))); save(); }
     public double getZoomFactor() { return Math.max(1.5, getDouble("cam_zoom_fac", 4.0)); }
     public void resetLayout() { Map<String, JsonElement> kept = new LinkedHashMap<String, JsonElement>(options); initDefaults(); options.putAll(kept); save(); }
-    public void resetAll() { options.clear(); waypoints.clear(); resetTitleLayout(); initDefaults(); save(); }
+    public void resetAll() { options.clear(); waypoints.clear(); lootedStructures.clear(); visitedStructures.clear(); resetTitleLayout(); initDefaults(); save(); }
 }

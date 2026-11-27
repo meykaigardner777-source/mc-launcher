@@ -24,6 +24,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.*;
 import net.minecraft.world.scores.*;
 
@@ -217,6 +218,33 @@ public final class McBridge {
             }
             @Override public int liveFps() { return mc.getFps(); }
             @Override public void drawMinimapTerrain(int x, int y, int size, boolean circle, double zoom) { MapEngine.drawMinimap(g, mc, x, y, size, circle, zoom); }
+                        @Override public boolean supportsStructureIcons() { return true; }
+            @Override public void drawStructureIcon(String type, int x, int y, float scale, boolean dimmed) {
+                if (g == null) return;
+                ItemStack st;
+                if ("ancient_city".equals(type)) st = new ItemStack(Items.SCULK);
+                else if ("village".equals(type)) st = new ItemStack(Items.BELL);
+                else if ("monument".equals(type)) st = new ItemStack(Items.PRISMARINE_BRICKS);
+                else if ("fortress".equals(type)) st = new ItemStack(Items.NETHER_BRICKS);
+                else if ("bastion".equals(type)) st = new ItemStack(Items.GILDED_BLACKSTONE);
+                else if ("stronghold".equals(type)) st = new ItemStack(Items.END_PORTAL_FRAME);
+                else if ("mansion".equals(type)) st = new ItemStack(Items.DARK_OAK_LOG);
+                else if ("trial_chamber".equals(type)) st = new ItemStack(Items.CHISELED_COPPER);
+                else if ("outpost".equals(type)) st = new ItemStack(Items.CROSSBOW);
+                else if ("portal".equals(type)) st = new ItemStack(Items.CRYING_OBSIDIAN);
+                else if ("temple".equals(type)) st = new ItemStack(Items.CHISELED_SANDSTONE);
+                else if ("end_city".equals(type)) st = new ItemStack(Items.PURPUR_BLOCK);
+                else st = new ItemStack(Items.COMPASS);
+                g.pose().pushMatrix();
+                g.pose().translate(x, y);
+                g.pose().scale(scale, scale);
+                g.item(st, 0, 0);
+                g.pose().popMatrix();
+                if (dimmed) {
+                    int sz = Math.max(6, Math.round(16.0F * scale));
+                    g.fill(x, y, x + sz, y + sz, 0x9909090B);
+                }
+            }
             @Override public void drawWorldMapTiles(int x, int y, int w, int h, double centerX, double centerZ, double blocksPerPx) { MapEngine.drawWorldMap(g, mc, x, y, w, h, centerX, centerZ, blocksPerPx); }
             @Override public String clipboardText() { try { return mc.keyboardHandler.getClipboard(); } catch (Throwable t) { return ""; } }
             @Override public String lastServerIp() { return mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"; }

@@ -435,9 +435,17 @@ public final class SharedHudRenderer {
                 } else {
                     rx = Math.max(-r + 5, Math.min(r - 5, rx)); rz = Math.max(-r + 5, Math.min(r - 5, rz));
                 }
+                String sKey = ClientState.structureKey(sp, d.worldKey());
+                boolean looted = cfg.isStructureLooted(sKey);
                 int sc = structureColor(sp.type);
-                g.drawCircleFilled(cx + rx, cy + rz, 4, 0xCC09090B);
-                g.drawCircleFilled(cx + rx, cy + rz, 3, sc);
+                if (g.supportsStructureIcons()) {
+                    g.drawCircleFilled(cx + rx, cy + rz, 6, 0xCC09090B);
+                    g.drawStructureIcon(sp.type, cx + rx - 4, cy + rz - 4, 0.50F, looted);
+                    if (looted) g.drawCircleFilled(cx + rx + 4, cy + rz - 4, 2, 0xFF10B981);
+                } else {
+                    g.drawCircleFilled(cx + rx, cy + rz, 4, 0xCC09090B);
+                    g.drawCircleFilled(cx + rx, cy + rz, 3, looted ? 0xFF52525B : sc);
+                }
             }
         }
 

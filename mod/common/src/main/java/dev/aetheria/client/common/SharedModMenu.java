@@ -987,7 +987,25 @@ public class SharedModMenu {
                 rows.add(sliderRow("Minimap Zoom", "Terrain zoom level (0.50x - 3.00x)", "minimap_zoom", 0.50, 3.00, 0.10, false));
                 rows.add(cycleRow("Minimap Shape", "Circle or Rounded Square", "minimap_shape", MINIMAP_SHAPES));
                 rows.add(boolRow("Show Structures", "Display villages, temples, monuments, bastions, etc.", "minimap_structures", true));
+                rows.add(boolRow("Hide Looted Structures", "Hide structures marked as Looted on Worldmap", "minimap_hide_looted", false));
                 rows.add(seedInputRow());
+            }
+            rows.add(accordionRow("mm_filters", "STRUCTURE FILTERS (SHOW / HIDE)"));
+            if (!foldedAccordions.contains("mm_filters")) {
+                rows.add(actionRow("Enable All Structures", "Turn ON all 12 structure types", "struct_all_on"));
+                rows.add(actionRow("Disable All Structures", "Turn OFF all 12 (then enable only what you want)", "struct_all_off"));
+                rows.add(boolRow("Ancient Cities (Sculk)", "Deep Dark Ancient Cities", "struct_ancient_city", true));
+                rows.add(boolRow("Villages (Bell)", "Overworld Villages", "struct_village", true));
+                rows.add(boolRow("Trial Chambers (Copper)", "Overworld Trial Chambers", "struct_trial_chamber", true));
+                rows.add(boolRow("Ocean Monuments (Prismarine)", "Deep Ocean Monuments", "struct_monument", true));
+                rows.add(boolRow("Pillager Outposts (Crossbow)", "Overworld Pillager Outposts", "struct_outpost", true));
+                rows.add(boolRow("Woodland Mansions (Dark Oak)", "Dark Forest Mansions", "struct_mansion", true));
+                rows.add(boolRow("Desert / Jungle Temples", "Surface Temples & Huts", "struct_temple", true));
+                rows.add(boolRow("Ruined Portals (Crying Obs.)", "Overworld Ruined Portals", "struct_portal", true));
+                rows.add(boolRow("Strongholds / Dungeons", "End Portal & Spawner markers", "struct_stronghold", true));
+                rows.add(boolRow("Nether Fortresses (Bricks)", "Nether Fortresses & Blaze Spawners", "struct_fortress", true));
+                rows.add(boolRow("Bastion Remnants (Gilded)", "Nether Bastion Remnants", "struct_bastion", true));
+                rows.add(boolRow("End Cities (Purpur)", "Outer End Cities", "struct_end_city", true));
             }
         }
         if ("geom".equals(inspectorTab)) {

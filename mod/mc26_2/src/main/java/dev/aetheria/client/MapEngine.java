@@ -113,6 +113,14 @@ public final class MapEngine {
         if (now - lastStructUpdateMs > 1200L) {
             lastStructUpdateMs = now;
             refreshSeedStructures(mc, pcx, pcz, dim, wKey);
+            List<ClientState.StructurePin> vis = ClientState.getVisibleStructures(dim, wKey);
+            double px = mc.player.getX(), pz = mc.player.getZ();
+            for (int i = 0; i < vis.size(); i++) {
+                ClientState.StructurePin sp = vis.get(i);
+                if (Math.hypot(sp.x - px, sp.z - pz) <= 36.0) {
+                    ClientConfig.get().markStructureVisited(ClientState.structureKey(sp, wKey));
+                }
+            }
         }
     }
 
