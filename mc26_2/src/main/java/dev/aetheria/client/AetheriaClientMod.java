@@ -66,38 +66,7 @@ public class AetheriaClientMod implements ClientModInitializer {
                 prevShieldCd = scd;
             } catch (Throwable ignored) {}
         }
-        if (mc.player != null && mc.level != null) {
-            checkAutoProfileAndDeath(mc, cfg);
-            MapEngine.tick(mc);
-            if (!cfg.getBool("perf_unfocused_fps", true) || mc.isWindowActive()) McBridge.emitWorldGizmos(mc);
-        }
+        if (mc.player != null && mc.level != null) { MapEngine.tick(mc); if (!cfg.getBool("perf_unfocused_fps", true) || mc.isWindowActive()) McBridge.emitWorldGizmos(mc); }
         ClientState.tickComboTimeout();
-    }
-
-    private static String lastAutoWorldKey = "";
-    private static void checkAutoProfileAndDeath(Minecraft mc, ClientConfig cfg) {
-        String wKey = McBridge.data(mc).worldKey();
-        if (wKey != null && !wKey.equals(lastAutoWorldKey)) {
-            lastAutoWorldKey = wKey;
-            if (cfg.getBool("profile_auto_world", true)) {
-                String saved = cfg.getWorldProfile(wKey);
-                if (saved != null && !saved.isEmpty() && !saved.equalsIgnoreCase(cfg.activeProfile)) {
-                    cfg.applyProfilePreset(saved);
-                }
-            }
-        }
-        if (cfg.getBool("wp_auto_clear_death", false) && !cfg.waypoints.isEmpty()) {
-            String dim = mc.level.dimension().identifier().toString();
-            double px = mc.player.getX(), py = mc.player.getY(), pz = mc.player.getZ();
-            boolean changed = false;
-            for (int i = cfg.waypoints.size() - 1; i >= 0; i--) {
-                ClientConfig.Waypoint w = cfg.waypoints.get(i);
-                if (w.name != null && w.name.startsWith("Death (") && dim.equals(w.dimension) && ClientState.isWaypointInWorld(w, wKey)) {
-                    double dist = Math.sqrt(Math.pow(w.x + 0.5 - px, 2) + Math.pow(w.y - py, 2) + Math.pow(w.z + 0.5 - pz, 2));
-                    if (dist <= 6.0) { cfg.waypoints.remove(i); changed = true; }
-                }
-            }
-            if (changed) cfg.save();
-        }
     }
 }
