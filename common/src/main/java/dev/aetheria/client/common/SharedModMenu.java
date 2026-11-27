@@ -5,6 +5,7 @@ import java.util.*;
 public class SharedModMenu {
     public interface Actions {
         void openHudEditor();
+        default void openWorldMap() {}
         default void openTitleEditor() {}
         void closeMenu();
     }
@@ -45,6 +46,10 @@ public class SharedModMenu {
         ALL_MODS.add(new ModEntry("hit_color", "Hit Colorizer", "pvp", "Custom damage tint & chroma flash on hit targets"));
         ALL_MODS.add(new ModEntry("hitboxes", "Custom Hitboxes", "pvp", "Customizable 3D hitboxes, eye line & live preview"));
         ALL_MODS.add(new ModEntry("block_break", "Block Break FX", "visuals", "5 custom 3D block breaking animations + preview"));
+        ALL_MODS.add(new ModEntry("block_outline", "Block Outline", "visuals", "Custom wireframe & fill on targeted block"));
+        ALL_MODS.add(new ModEntry("world_env", "Time & Weather", "visuals", "Client sky time, weather, fog & overlay cleaners"));
+        ALL_MODS.add(new ModEntry("particles", "Particles", "pvp", "Crit hit multiplier & clutter particle filters"));
+        ALL_MODS.add(new ModEntry("chat_mod", "Chat & Coords", "utility", "Compact dupes, timestamps, mentions & WP picker"));
         for (ClientConfig.HudModule m : ClientConfig.get().hudModules.values()) {
             if (REAL_HUDS.contains(m.id)) ALL_MODS.add(new ModEntry(m.id, m.label, m.category, m.desc));
         }
@@ -52,8 +57,13 @@ public class SharedModMenu {
 
     private static final String[] SWATCHES = {"#ffffff","#ff3333","#09090b","#27272a","#a1a1aa","#22d3ee","#10b981","#a855f7","#f43f5e","#f59e0b"};
     private static final String[] WP_STYLES = {"lunar", "block", "dot", "beacon"};
+    private static final String[] MINIMAP_SHAPES = {"circle", "square"};
+    private static final String[] WP_EDIT_STYLES = {"global", "lunar", "block", "dot", "beacon"};
+    private static final String[] WP_DIMS = {"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"};
     private static final String[] WP_NAME_PRESETS = {"Base", "Home", "Portal", "Farm", "Raid", "End", "Stronghold", "Village"};
     private static final String[] BB_STYLES = {"shrink", "expand", "rise", "slide_down", "pulse"};
+    private static final String[] TIME_MODES = {"vanilla", "day", "noon", "sunset", "night", "midnight"};
+    private static final String[] WEATHER_MODES = {"vanilla", "clear", "rain", "thunder"};
     private static final String[] ACC_FILTER_TAGS = {"All", "Main", "PvP", "SMP", "Alt", "Test"};
     private static final String[] ANCHORS = {"top-left","top-center","top-right","mid-left","center","mid-right","bottom-left","bottom-center","bottom-right"};
     private static final String[] BORDER_STYLES = {"solid", "dashed", "gradient"};
@@ -70,8 +80,12 @@ public class SharedModMenu {
     private static final String[][] ACCENTS = {{"white","Obsidian"},{"crimson","Crimson"},{"cyan","Cyan"},{"emerald","Emerald"},{"amethyst","Amethyst"},{"amber","Amber"},{"lime","Lime"},{"custom","Custom"}};
 
     private String activeMenu = "all", editingModId = null, inspectorTab = "geom", searchQuery = "", listeningKeyOptId = null;
-    private String accountInput = "", accTagFilter = "All", accStatusMsg = "", waypointNameInput = "", hoveredTooltip = null;
-    private boolean searchFocused = false, accountInputFocused = false, waypointInputFocused = false, onlyEnabledFilter = false, wpShowAllWorlds = false;
+    private String editingWaypointId = null, editingWpField = "", wpEditBuf = "";
+    private String editingTitleWidgetId = null, titleTextBuf = "";
+    private String accountInput = "", msaInput = "", accTagFilter = "All", accStatusMsg = "", waypointNameInput = "", hoveredTooltip = null;
+    private boolean searchFocused = false, accountInputFocused = false, msaInputFocused = false, waypointInputFocused = false, titleTextFocused = false;
+    private boolean onlyEnabledFilter = false, wpShowAllWorlds = false, bgDropdownOpen = false, seedInputFocused = false;
+    private String seedInput = "";
     private boolean foldMods = false, foldPersonalize = false, editingTargetPixels = false, pixelMirrorX = true, pixelMirrorY = false;
     private final Set<String> foldedAccordions = new HashSet<String>();
     private float scrollPx = 0.0F, targetScrollPx = 0.0F;
@@ -83,6 +97,7 @@ public class SharedModMenu {
     private String activeSliderId = null;
     private double sliderMin, sliderMax, sliderStep;
     private Actions hostActions = null;
+    private UiBridge.UiDraw uiHostBridge = null;
 
     public SharedModMenu() { this(null, "all"); }
     public SharedModMenu(String initialModId) { this(initialModId, "all"); }
@@ -93,7 +108,7 @@ public class SharedModMenu {
     }
 
     public void render(UiBridge.UiDraw g, int sw, int sh, int mx, int my) {
-        ensureMods(); hoveredTooltip = null;
+        ensureMods(); hoveredTooltip = null; this.uiHostBridge = g;
         long now = System.nanoTime(); frameDt = Math.min(0.05F, Math.max(0.001F, (now - lastFrameNs) / 1_000_000_000.0F)); lastFrameNs = now;
         ClientConfig cfg = ClientConfig.get(); boolean anim = cfg.getBool("ui_animations", true);
         float mult = (float) (Math.max(0.5, cfg.getDouble("ui_anim_speed", 1.0)) * ("snappy".equalsIgnoreCase(cfg.getString("ui_anim_curve", "smooth")) ? 1.5 : 1.0));
@@ -110,18 +125,40 @@ public class SharedModMenu {
     }
 
     public boolean mouseClicked(UiBridge.UiDraw g, int sw, int sh, double mx, double my, Actions actions) {
-        this.hostActions = actions;
+        this.hostActions = actions; this.uiHostBridge = g;
         return handleFrame(g, sw, sh, (int) mx, (int) my, true, actions);
     }
     public boolean mouseDragged(double mx) { if (activeSliderId == null) return false; applySliderValue(activeSliderId, (int) mx); return true; }
     public boolean mouseReleased() { if (activeSliderId != null) { activeSliderId = null; ClientConfig.get().save(); return true; } return false; }
     public boolean mouseScrolled(double scrollY) { if (scrollY == 0) return false; targetScrollPx = Math.max(0.0F, Math.min(maxScrollPx, targetScrollPx - (float) (scrollY * 36.0))); return true; }
 
+    private void commitWpField() {
+        if (editingWaypointId == null || editingWpField.isEmpty()) return;
+        ClientConfig.Waypoint wp = findWaypoint(editingWaypointId);
+        if (wp != null) {
+            try {
+                if ("name".equals(editingWpField)) { if (!wpEditBuf.trim().isEmpty()) wp.name = wpEditBuf.trim(); }
+                else if ("x".equals(editingWpField)) wp.x = Integer.parseInt(wpEditBuf.trim());
+                else if ("y".equals(editingWpField)) wp.y = Integer.parseInt(wpEditBuf.trim());
+                else if ("z".equals(editingWpField)) wp.z = Integer.parseInt(wpEditBuf.trim());
+                ClientConfig.get().save();
+            } catch (Exception ignored) {}
+        }
+        editingWpField = ""; wpEditBuf = "";
+    }
+
     public boolean keyPressedCode(int keyCode) {
         if (listeningKeyOptId != null) {
             if (keyCode == 256) { listeningKeyOptId = null; return true; }
             if (keyCode == 259 || keyCode == 261) { ClientConfig.get().setOption(listeningKeyOptId, "NONE"); listeningKeyOptId = null; return true; }
             ClientConfig.get().setOption(listeningKeyOptId, ClientState.glfwKeyToName(keyCode)); listeningKeyOptId = null; return true;
+        }
+        if (!editingWpField.isEmpty() && (keyCode == 257 || keyCode == 335)) { commitWpField(); return true; }
+        if (seedInputFocused && (keyCode == 257 || keyCode == 335)) { ClientConfig.get().setWorldSeed(ClientState.getCurrentWorldKey(), seedInput.trim()); seedInputFocused = false; return true; }
+        if (titleTextFocused && (keyCode == 257 || keyCode == 335)) { titleTextFocused = false; ClientConfig.get().save(); return true; }
+        if (msaInputFocused && (keyCode == 257 || keyCode == 335)) {
+            if (!msaInput.trim().isEmpty()) { MicrosoftAuth.loginAsync(msaInput.trim(), uiHostBridge); msaInput = ""; msaInputFocused = false; }
+            return true;
         }
         if (waypointInputFocused && (keyCode == 257 || keyCode == 335)) {
             ClientConfig.get().addWaypointAt(waypointNameInput.trim(), ClientState.getPlayerX(), ClientState.getPlayerY(), ClientState.getPlayerZ(), ClientState.getPlayerDim(), ClientState.getCurrentWorldKey());
@@ -136,6 +173,24 @@ public class SharedModMenu {
 
     public boolean keyPressed(boolean isBackspace, boolean isEscape) {
         if (listeningKeyOptId != null) { if (isEscape) { listeningKeyOptId = null; return true; } if (isBackspace) { ClientConfig.get().setOption(listeningKeyOptId, "NONE"); listeningKeyOptId = null; return true; } }
+        if (!editingWpField.isEmpty()) {
+            if (isBackspace && wpEditBuf.length() > 0) { wpEditBuf = wpEditBuf.substring(0, wpEditBuf.length() - 1); return true; }
+            if (isEscape) { editingWpField = ""; wpEditBuf = ""; return true; }
+        }
+        if (seedInputFocused) {
+            if (isBackspace && seedInput.length() > 0) { seedInput = seedInput.substring(0, seedInput.length() - 1); ClientConfig.get().setWorldSeed(ClientState.getCurrentWorldKey(), seedInput.trim()); return true; }
+            if (isEscape) { seedInputFocused = false; return true; }
+        }
+        if (titleTextFocused) {
+            if (isBackspace && titleTextBuf.length() > 0) {
+                titleTextBuf = titleTextBuf.substring(0, titleTextBuf.length() - 1);
+                ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(editingTitleWidgetId);
+                if (tw != null) { tw.customText = titleTextBuf; ClientConfig.get().save(); }
+                return true;
+            }
+            if (isEscape) { titleTextFocused = false; return true; }
+        }
+        if (msaInputFocused) { if (isBackspace && msaInput.length() > 0) { msaInput = msaInput.substring(0, msaInput.length() - 1); return true; } if (isEscape) { msaInputFocused = false; return true; } }
         if (waypointInputFocused) { if (isBackspace && waypointNameInput.length() > 0) { waypointNameInput = waypointNameInput.substring(0, waypointNameInput.length() - 1); return true; } if (isEscape) { waypointInputFocused = false; return true; } }
         if (accountInputFocused) { if (isBackspace && accountInput.length() > 0) { accountInput = accountInput.substring(0, accountInput.length() - 1); return true; } if (isEscape) { accountInputFocused = false; return true; } }
         if (searchFocused) { if (isBackspace && searchQuery.length() > 0) { searchQuery = searchQuery.substring(0, searchQuery.length() - 1); resetScroll(); return true; } if (isEscape) { searchFocused = false; searchQuery = ""; resetScroll(); return true; } }
@@ -144,10 +199,55 @@ public class SharedModMenu {
 
     public boolean charTyped(char ch) {
         if (listeningKeyOptId != null) return false;
+        if (!editingWpField.isEmpty()) {
+            if ("name".equals(editingWpField)) {
+                if (ch >= 32 && ch != 127 && wpEditBuf.length() < 24) {
+                    wpEditBuf += ch;
+                    ClientConfig.Waypoint wp = findWaypoint(editingWaypointId);
+                    if (wp != null) { wp.name = wpEditBuf; ClientConfig.get().save(); }
+                }
+            } else if (((ch >= '0' && ch <= '9') || (ch == '-' && wpEditBuf.isEmpty())) && wpEditBuf.length() < 9) {
+                wpEditBuf += ch;
+                try {
+                    int val = Integer.parseInt(wpEditBuf);
+                    ClientConfig.Waypoint wp = findWaypoint(editingWaypointId);
+                    if (wp != null) {
+                        if ("x".equals(editingWpField)) wp.x = val; else if ("y".equals(editingWpField)) wp.y = val; else if ("z".equals(editingWpField)) wp.z = val;
+                        ClientConfig.get().save();
+                    }
+                } catch (Exception ignored) {}
+            }
+            return true;
+        }
+        if (seedInputFocused) {
+            if (ch >= 32 && ch != 127 && seedInput.length() < 32) { seedInput += ch; ClientConfig.get().setWorldSeed(ClientState.getCurrentWorldKey(), seedInput.trim()); }
+            return true;
+        }
+        if (titleTextFocused) {
+            if (ch >= 32 && ch != 127 && titleTextBuf.length() < 48) {
+                titleTextBuf += ch;
+                ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(editingTitleWidgetId);
+                if (tw != null) { tw.customText = titleTextBuf; ClientConfig.get().save(); }
+            }
+            return true;
+        }
+        if (msaInputFocused) { if (ch >= 33 && ch <= 126 && msaInput.length() < 2400) msaInput += ch; return true; }
         if (waypointInputFocused) { if (ch >= 32 && ch != 127 && waypointNameInput.length() < 24) waypointNameInput += ch; return true; }
         if (accountInputFocused) { if (ch >= 33 && ch <= 126 && accountInput.length() < 16) accountInput += ch; return false; }
         if (searchFocused && ch >= 32 && ch != 127 && searchQuery.length() < 32) { searchQuery += ch; resetScroll(); return true; }
         return false;
+    }
+
+    private void clearSubEdits() {
+        editingModId = null; editingWaypointId = null; editingWpField = ""; wpEditBuf = "";
+        editingTitleWidgetId = null; titleTextFocused = false; bgDropdownOpen = false; seedInputFocused = false;
+        listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; msaInputFocused = false; waypointInputFocused = false;
+    }
+
+    private ClientConfig.Waypoint findWaypoint(String id) {
+        if (id == null) return null;
+        for (ClientConfig.Waypoint w : ClientConfig.get().waypoints) if (id.equals(w.id)) return w;
+        return null;
     }
 
     private void resetScroll() { scrollPx = 0.0F; targetScrollPx = 0.0F; }
@@ -193,30 +293,30 @@ public class SharedModMenu {
             int next = 0; for (int i = 0; i < MENU_LAYOUTS.length; i++) if (MENU_LAYOUTS[i].equalsIgnoreCase(layout)) next = (i + 1) % MENU_LAYOUTS.length;
             cfg.setOption("ui_menu_layout", MENU_LAYOUTS[next]); return true;
         }
-        String[][] cats = {{"all","All"},{"favorites","Fav"},{"pvp","PvP"},{"visuals","Vis"},{"world","World"},{"system","Sys"},{"utility","Util"},{"waypoints","WP"},{"accounts","Acc"},{"profiles","Prof"},{"ui_engine","UI"}};
+        String[][] cats = {{"all","All"},{"favorites","Fav"},{"pvp","PvP"},{"visuals","Vis"},{"world","World"},{"system","Sys"},{"utility","Util"},{"waypoints","WP"},{"title_screen","Home"},{"accounts","Acc"},{"profiles","Prof"},{"ui_engine","UI"}};
         int cx = px + 12, cy = py + topH + 8, cw = panelW - 24, ch = panelH - topH - 16;
         if ("sidebar".equals(layout)) {
             int sideW = 86; if (!click) g.fill(px + sideW + 8, py + topH + 4, px + sideW + 9, py + panelH - 6, ClientState.UI_BORDER);
             for (int i = 0; i < cats.length; i++) {
                 int by = py + topH + 8 + i * 24; if (by + 20 > py + panelH - 6) break;
-                boolean sel = editingModId == null && activeMenu.equals(cats[i][0]);
+                boolean sel = editingModId == null && editingWaypointId == null && editingTitleWidgetId == null && activeMenu.equals(cats[i][0]);
                 if (drawBtn(g, "sb_" + cats[i][0], px + 10, by, sideW - 6, 20, Math.max(2, menuRad / 2), cats[i][1], sel ? ClientState.withAlpha(accent, 45) : 0x00000000, sel ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
-                    activeMenu = cats[i][0]; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true;
+                    activeMenu = cats[i][0]; clearSubEdits(); resetScroll(); return true;
                 }
             }
             cx = px + sideW + 16; cw = panelW - sideW - 28;
         } else {
             int navX = px + 116, navRight = layX - 6;
             for (int i = 0; i < cats.length; i++) {
-                String id = cats[i][0], lbl = cats[i][1]; int bw = g.textWidth(lbl) + 10; if (navX + bw > navRight) break;
-                boolean sel = (editingModId == null) && activeMenu.equals(id), hov = mx >= navX && mx <= navX + bw && my >= py + 9 && my <= py + 29;
+                String id = cats[i][0], lbl = cats[i][1]; int bw = g.textWidth(lbl) + 9; if (navX + bw > navRight) break;
+                boolean sel = (editingModId == null && editingWaypointId == null && editingTitleWidgetId == null) && activeMenu.equals(id), hov = mx >= navX && mx <= navX + bw && my >= py + 9 && my <= py + 29;
                 if (!click) {
                     float ht = animHover("nav_" + id, hov);
                     int bg = sel ? ClientState.withAlpha(accent, 40) : ClientState.lerpColor(0x00000000, 0x22FFFFFF, ht), brd = sel ? accent : ClientState.lerpColor(0x00000000, ClientState.UI_BORDER, ht);
                     if ((bg >>> 24) > 4 || (brd >>> 24) > 4) g.drawGlassCard(navX, py + 9, bw, 20, Math.max(2, menuRad / 2), bg, brd);
-                    g.text(lbl, navX + 5, py + 15, sel || hov ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false);
-                } else if (hov) { g.playClickSound(); activeMenu = id; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true; }
-                navX += bw + 3;
+                    g.text(lbl, navX + 4, py + 15, sel || hov ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false);
+                } else if (hov) { g.playClickSound(); activeMenu = id; clearSubEdits(); resetScroll(); return true; }
+                navX += bw + 2;
             }
         }
         return renderActiveContent(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad, "palette".equals(layout));
@@ -239,9 +339,9 @@ public class SharedModMenu {
         if (!foldMods) {
             for (int i = 0; i < modCats.length; i++) {
                 if (sy + 18 > sideMaxY) break;
-                boolean sel = editingModId == null && activeMenu.equals(modCats[i][0]);
+                boolean sel = editingModId == null && editingWaypointId == null && editingTitleWidgetId == null && activeMenu.equals(modCats[i][0]);
                 if (drawSideItem(g, "1cm_" + modCats[i][0], sx, sy, sbW, 18, Math.max(3, menuRad / 2), modCats[i][1], sel, accent, mx, my, click)) {
-                    activeMenu = modCats[i][0]; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true;
+                    activeMenu = modCats[i][0]; clearSubEdits(); resetScroll(); return true;
                 }
                 sy += 19;
             }
@@ -251,14 +351,12 @@ public class SharedModMenu {
         if (!foldPersonalize) {
             if (sy + 18 <= sideMaxY && drawSideItem(g, "1cp_hud", sx, sy, sbW, 18, Math.max(3, menuRad / 2), "Edit HUD Layout", false, accent, mx, my, click)) { listeningKeyOptId = null; if (actions != null) actions.openHudEditor(); return true; }
             sy += 19;
-            if (sy + 18 <= sideMaxY && drawSideItem(g, "1cp_title", sx, sy, sbW, 18, Math.max(3, menuRad / 2), "Title Screen Editor", false, accent, mx, my, click)) { listeningKeyOptId = null; if (actions != null) actions.openTitleEditor(); return true; }
-            sy += 19;
-            String[][] pers = {{"waypoints","Waypoints"},{"profiles","HUD Profiles"},{"ui_engine","Themes & UI"},{"accounts","Accounts"}};
+            String[][] pers = {{"title_screen","Homescreen"},{"waypoints","Waypoints"},{"profiles","HUD Profiles"},{"ui_engine","Themes & UI"},{"accounts","Accounts"}};
             for (int i = 0; i < pers.length; i++) {
                 if (sy + 18 > sideMaxY) break;
-                boolean sel = editingModId == null && activeMenu.equals(pers[i][0]);
+                boolean sel = editingModId == null && editingWaypointId == null && activeMenu.equals(pers[i][0]);
                 if (drawSideItem(g, "1cp_" + pers[i][0], sx, sy, sbW, 18, Math.max(3, menuRad / 2), pers[i][1], sel, accent, mx, my, click)) {
-                    activeMenu = pers[i][0]; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true;
+                    activeMenu = pers[i][0]; clearSubEdits(); resetScroll(); return true;
                 }
                 sy += 19;
             }
@@ -266,20 +364,29 @@ public class SharedModMenu {
         int acX = px + 8, acY = py + panelH - accCardH - 6, acW = sideW - 14;
         boolean acSel = editingModId == null && "accounts".equals(activeMenu), acHov = mx >= acX && mx <= acX + acW && my >= acY && my <= acY + accCardH;
         String curUser = g.currentUsername();
+        boolean isMsa = "msa".equalsIgnoreCase(g.currentAccountType());
         if (!click) {
-            if (acHov) hoveredTooltip = "Open Account Organizer";
+            if (acHov) hoveredTooltip = "Open Real Account Manager";
             g.drawGlassCard(acX, acY, acW, accCardH, Math.max(4, menuRad - 2), acSel ? 0xFF1A1B24 : (acHov ? 0xFF16161F : 0xFF121218), acSel ? accent : ClientState.UI_BORDER);
-            g.drawRoundedRect(acX + 6, acY + 6, 24, 24, 5, ClientState.withAlpha(accent, 45));
+            g.drawRoundedRect(acX + 6, acY + 6, 24, 24, 5, ClientState.withAlpha(isMsa ? 0xFF10B981 : accent, 45));
             String ini = curUser.isEmpty() ? "P" : curUser.substring(0, 1).toUpperCase();
-            g.text(ini, acX + 18 - g.textWidth(ini) / 2, acY + 14, accent, false);
-            g.drawCircleFilled(acX + 27, acY + 27, 3, 0xFF10B981);
+            g.text(ini, acX + 18 - g.textWidth(ini) / 2, acY + 14, isMsa ? 0xFF10B981 : accent, false);
+            g.drawCircleFilled(acX + 27, acY + 27, 3, isMsa ? 0xFF10B981 : 0xFFF59E0B);
             g.text(trimToWidth(g, curUser, acW - 40), acX + 36, acY + 9, ClientState.UI_TEXT, false);
-            g.text("Accounts >", acX + 36, acY + 21, ClientState.UI_TEXT_DIM, false);
-        } else if (acHov) { g.playClickSound(); activeMenu = "accounts"; editingModId = null; listeningKeyOptId = null; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; resetScroll(); return true; }
+            g.text(isMsa ? "MSA >" : "Offline >", acX + 36, acY + 21, ClientState.UI_TEXT_DIM, false);
+        } else if (acHov) { g.playClickSound(); activeMenu = "accounts"; clearSubEdits(); resetScroll(); return true; }
 
         int cx = px + sideW + 12, cw = panelW - sideW - 22, cy = py + topH + 8, ch = panelH - topH - 16;
         if (!click) {
-            String crumb = editingModId != null ? ("Mods > " + getModTitle(editingModId)) : ("accounts".equals(activeMenu) ? "Personalize > Accounts" : ("waypoints".equals(activeMenu) ? "Personalize > Waypoints" : ("profiles".equals(activeMenu) ? "Personalize > Profiles" : ("ui_engine".equals(activeMenu) ? "Personalize > UI" : ("Mods > " + getMenuTitle(activeMenu))))));
+            String crumb = editingWaypointId != null ? "Waypoints > Edit Waypoint"
+                : editingTitleWidgetId != null ? "Homescreen > Edit Widget"
+                : editingModId != null ? ("Mods > " + getModTitle(editingModId))
+                : "title_screen".equals(activeMenu) ? "Personalize > Homescreen"
+                : "accounts".equals(activeMenu) ? "Personalize > Accounts"
+                : "waypoints".equals(activeMenu) ? "Personalize > Waypoints"
+                : "profiles".equals(activeMenu) ? "Personalize > Profiles"
+                : "ui_engine".equals(activeMenu) ? "Personalize > UI"
+                : ("Mods > " + getMenuTitle(activeMenu));
             g.text(trimToWidth(g, crumb, cw - 230), cx, py + 15, ClientState.UI_TEXT, false);
         }
         int closeX = px + panelW - 26; boolean closeHov = mx >= closeX && mx <= closeX + 18 && my >= py + 10 && my <= py + 28;
@@ -289,18 +396,23 @@ public class SharedModMenu {
         int layX = closeX - 38;
         if (mx >= layX && mx <= layX + 34 && my >= py + 10 && my <= py + 28) hoveredTooltip = "Switch Menu Layout Mode";
         if (drawBtn(g, "1c_lay", layX, py + 10, 34, 18, 5, "1C", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { ClientConfig.get().setOption("ui_menu_layout", "topbar"); return true; }
-        boolean showModTools = editingModId == null && !"accounts".equals(activeMenu) && !"waypoints".equals(activeMenu) && !"profiles".equals(activeMenu) && !"ui_engine".equals(activeMenu);
+        boolean showModTools = editingModId == null && editingWaypointId == null && editingTitleWidgetId == null
+            && !"accounts".equals(activeMenu) && !"waypoints".equals(activeMenu) && !"title_screen".equals(activeMenu)
+            && !"profiles".equals(activeMenu) && !"ui_engine".equals(activeMenu);
         if (showModTools) {
             int sbW2 = 122, sbX = layX - sbW2 - 5; boolean sHov = mx >= sbX && mx <= sbX + sbW2 && my >= py + 10 && my <= py + 28;
             if (!click) {
                 g.drawGlassCard(sbX, py + 10, sbW2, 18, 5, ClientState.UI_INPUT, searchFocused ? accent : (sHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
                 g.text(searchQuery.isEmpty() ? (searchFocused ? "_" : "Search...") : trimToWidth(g, searchQuery + (searchFocused ? "_" : ""), sbW2 - 18), sbX + 6, py + 15, searchQuery.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
                 if (!searchQuery.isEmpty()) g.text("x", sbX + sbW2 - 10, py + 15, ClientState.UI_TEXT_MUTED, false);
-            } else if (sHov) { g.playClickSound(); accountInputFocused = false; waypointInputFocused = false; if (!searchQuery.isEmpty() && mx >= sbX + sbW2 - 14) { searchQuery = ""; resetScroll(); } else searchFocused = true; return true; }
+            } else if (sHov) { g.playClickSound(); accountInputFocused = false; msaInputFocused = false; waypointInputFocused = false; if (!searchQuery.isEmpty() && mx >= sbX + sbW2 - 14) { searchQuery = ""; resetScroll(); } else searchFocused = true; return true; }
             int actX = sbX - 48;
             if (drawBtn(g, "1c_on", actX, py + 10, 44, 18, 5, onlyEnabledFilter ? "ON:Y" : "All", onlyEnabledFilter ? ClientState.withAlpha(accent, 45) : 0xFF191922, onlyEnabledFilter ? accent : ClientState.UI_TEXT_MUTED, false, mx, my, click)) { onlyEnabledFilter = !onlyEnabledFilter; resetScroll(); return true; }
         }
+        if (editingWaypointId != null) return renderWaypointSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
+        if (editingTitleWidgetId != null) return renderTitleWidgetSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if (editingModId != null) return renderModSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
+        if ("title_screen".equals(activeMenu)) return renderHomescreenPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("waypoints".equals(activeMenu)) return renderWaypointsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("accounts".equals(activeMenu)) return renderAccountsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("ui_engine".equals(activeMenu)) return renderUiEnginePage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
@@ -309,7 +421,10 @@ public class SharedModMenu {
     }
 
     private boolean renderActiveContent(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad, boolean isPalette) {
+        if (editingWaypointId != null) return renderWaypointSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
+        if (editingTitleWidgetId != null) return renderTitleWidgetSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if (editingModId != null) return renderModSettingsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
+        if ("title_screen".equals(activeMenu)) return renderHomescreenPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("waypoints".equals(activeMenu)) return renderWaypointsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("accounts".equals(activeMenu)) return renderAccountsPage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
         if ("ui_engine".equals(activeMenu)) return renderUiEnginePage(g, cx, cy, cw, ch, mx, my, click, accent, accentFg, menuRad);
@@ -321,7 +436,7 @@ public class SharedModMenu {
             g.drawGlassCard(sbX, sbY, sbW, 20, Math.max(2, menuRad / 2), ClientState.UI_INPUT, searchFocused ? accent : (sHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
             g.text(searchQuery.isEmpty() ? (searchFocused ? "_" : "Search modules...") : (searchQuery + (searchFocused ? "_" : "")), sbX + 8, sbY + 6, searchQuery.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
             if (!searchQuery.isEmpty()) g.text("x", sbX + sbW - 12, sbY + 6, ClientState.UI_TEXT_MUTED, false);
-        } else if (sHov) { g.playClickSound(); accountInputFocused = false; waypointInputFocused = false; if (!searchQuery.isEmpty() && mx >= sbX + sbW - 16) { searchQuery = ""; resetScroll(); } else searchFocused = true; return true; } else searchFocused = false;
+        } else if (sHov) { g.playClickSound(); accountInputFocused = false; msaInputFocused = false; waypointInputFocused = false; if (!searchQuery.isEmpty() && mx >= sbX + sbW - 16) { searchQuery = ""; resetScroll(); } else searchFocused = true; return true; } else searchFocused = false;
         return renderModCardGrid(g, cx, cy + 26, cw, ch - 26, mx, my, click, accent, accentFg, menuRad, isPalette);
     }
 
@@ -329,14 +444,14 @@ public class SharedModMenu {
         ClientConfig cfg = ClientConfig.get(); String curW = ClientState.getCurrentWorldKey();
         if (!click) {
             g.drawGlassCard(cx, cy, cw, 34, menuRad, 0xFF14141B, accent);
-            g.text("Waypoints (" + curW + ")  •  XYZ: " + ClientState.getPlayerX() + ", " + ClientState.getPlayerY() + ", " + ClientState.getPlayerZ(), cx + 10, cy + 8, ClientState.UI_TEXT, false);
-            g.text("Isolated per server/world so waypoints never overlap across servers", cx + 10, cy + 20, ClientState.UI_TEXT_MUTED, false);
+            g.text("Waypoints (" + curW + ") \u2022 XYZ: " + ClientState.getPlayerX() + ", " + ClientState.getPlayerY() + ", " + ClientState.getPlayerZ(), cx + 10, cy + 8, ClientState.UI_TEXT, false);
+            g.text("Click 'Cfg' on any waypoint to edit roundness, exact color, coords & type", cx + 10, cy + 20, ClientState.UI_TEXT_MUTED, false);
         }
         int addY = cy + 40, inW = cw - 92; boolean inHov = mx >= cx && mx <= cx + inW && my >= addY && my <= addY + 22;
         if (!click) {
             g.drawGlassCard(cx, addY, inW, 22, Math.max(3, menuRad / 2), ClientState.UI_INPUT, waypointInputFocused ? accent : (inHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
             g.text(waypointNameInput.isEmpty() ? (waypointInputFocused ? "_" : "Type waypoint name & click + Save Here...") : (waypointNameInput + (waypointInputFocused ? "_" : "")), cx + 8, addY + 7, waypointNameInput.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
-        } else if (inHov) { g.playClickSound(); waypointInputFocused = true; accountInputFocused = false; searchFocused = false; return true; }
+        } else if (inHov) { g.playClickSound(); waypointInputFocused = true; accountInputFocused = false; msaInputFocused = false; searchFocused = false; return true; }
         else if (mx < cx || mx > cx + cw || my < addY || my > addY + 22) waypointInputFocused = false;
 
         if (drawBtn(g, "wp_save_here", cx + inW + 6, addY, 86, 22, Math.max(3, menuRad / 2), "+ Save Here", accent, accentFg, true, mx, my, click)) {
@@ -369,28 +484,180 @@ public class SharedModMenu {
         return false;
     }
 
+    private boolean renderWaypointSettingsPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+        final ClientConfig.Waypoint wp = findWaypoint(editingWaypointId);
+        if (wp == null) { editingWaypointId = null; editingWpField = ""; return false; }
+
+        if (drawBtn(g, "wp_back", cx, cy, 56, 20, Math.max(2, menuRad / 2), "< Back", 0xFF191922, ClientState.UI_TEXT, false, mx, my, click)) {
+            commitWpField(); editingWaypointId = null; resetScroll(); return true;
+        }
+        if (!click) g.text("Waypoint: " + wp.name, cx + 64, cy + 6, ClientState.UI_TEXT, false);
+        if (drawBtn(g, "wp_del_edit", cx + cw - 106, cy, 52, 20, Math.max(2, menuRad / 2), "Delete", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) {
+            ClientConfig.get().removeWaypoint(wp.id); editingWaypointId = null; editingWpField = ""; resetScroll(); return true;
+        }
+        if (drawSwitch(g, "wp_tog_edit", cx + cw - 46, cy + 1, 46, 18, wp.enabled, accent, accentFg, mx, my, click)) {
+            wp.enabled = !wp.enabled; ClientConfig.get().save(); return true;
+        }
+
+        List<SettingRow> rows = new ArrayList<SettingRow>();
+        rows.add(new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g2, int x, int y, int w, int mx2, int my2, boolean ck, int ac, int afg, int mr) {
+                boolean foc = "name".equals(editingWpField);
+                if (!ck) {
+                    g2.drawGlassCard(x, y, w, 36, mr, 0xFF14141B, foc ? ac : ClientState.UI_BORDER);
+                    g2.text("Waypoint Name", x + 12, y + 8, ClientState.UI_TEXT, false);
+                    g2.text("Click box to rename", x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
+                    int bx = x + w - 170;
+                    g2.drawGlassCard(bx, y + 7, 158, 22, 5, ClientState.UI_INPUT, foc ? ac : ClientState.UI_BORDER_HOV);
+                    g2.text((foc ? wpEditBuf + "_" : wp.name), bx + 7, y + 14, ClientState.UI_TEXT, false);
+                } else if (mx2 >= x + w - 170 && mx2 <= x + w - 12 && my2 >= y + 7 && my2 <= y + 29) {
+                    g2.playClickSound(); commitWpField(); editingWpField = "name"; wpEditBuf = wp.name; return true;
+                }
+                return false;
+            }
+        });
+        rows.add(new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g2, int x, int y, int w, int mx2, int my2, boolean ck, int ac, int afg, int mr) {
+                String cur = (wp.style == null || wp.style.isEmpty()) ? "global" : wp.style;
+                if (!ck) {
+                    g2.drawGlassCard(x, y, w, 36, mr, 0xFF14141B, ClientState.UI_BORDER);
+                    g2.text("Waypoint Type / Style", x + 12, y + 8, ClientState.UI_TEXT, false);
+                    g2.text("Global, Lunar Card, 3D Block, Dot, or Beacon", x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
+                }
+                if (drawBtn(g2, "wps_type_" + wp.id, x + w - 104, y + 8, 94, 20, Math.max(2, mr / 2), cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx2, my2, ck)) {
+                    int nx = 0; for (int i = 0; i < WP_EDIT_STYLES.length; i++) if (WP_EDIT_STYLES[i].equalsIgnoreCase(cur)) nx = (i + 1) % WP_EDIT_STYLES.length;
+                    wp.style = WP_EDIT_STYLES[nx]; ClientConfig.get().save(); return true;
+                }
+                return false;
+            }
+        });
+        rows.add(sliderRow("Corner Roundness", "Individual card roundness for this waypoint (0-20px)", "wp_rad:" + wp.id, 0, 20, 1, true));
+        rows.add(sliderRow("Waypoint Size", "Scale this waypoint in-world (0.40x-2.50x)", "wp_scale:" + wp.id, 0.40, 2.50, 0.05, false));
+        rows.add(colorRow("Exact Waypoint Color", "wp:" + wp.id));
+        rows.add(wpCoordRow(wp, "X Coordinate", "x"));
+        rows.add(wpCoordRow(wp, "Y Coordinate", "y"));
+        rows.add(wpCoordRow(wp, "Z Coordinate", "z"));
+        rows.add(new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g2, int x, int y, int w, int mx2, int my2, boolean ck, int ac, int afg, int mr) {
+                String dim = (wp.dimension == null || wp.dimension.isEmpty()) ? "minecraft:overworld" : wp.dimension;
+                if (!ck) {
+                    g2.drawGlassCard(x, y, w, 36, mr, 0xFF14141B, ClientState.UI_BORDER);
+                    g2.text("Dimension & World Scope", x + 12, y + 8, ClientState.UI_TEXT, false);
+                    g2.text("World: " + (wp.worldId == null ? "global" : wp.worldId), x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
+                }
+                if (drawBtn(g2, "wp_pos_here", x + w - 258, y + 8, 82, 20, 5, "Use My Pos", ac, afg, true, mx2, my2, ck)) {
+                    wp.x = ClientState.getPlayerX(); wp.y = ClientState.getPlayerY(); wp.z = ClientState.getPlayerZ();
+                    wp.dimension = ClientState.getPlayerDim(); ClientConfig.get().save(); return true;
+                }
+                if (drawBtn(g2, "wp_dim_" + wp.id, x + w - 170, y + 8, 86, 20, 5, dim.replace("minecraft:", "").toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx2, my2, ck)) {
+                    int nx = 0; for (int i = 0; i < WP_DIMS.length; i++) if (WP_DIMS[i].equalsIgnoreCase(dim)) nx = (i + 1) % WP_DIMS.length;
+                    wp.dimension = WP_DIMS[nx]; ClientConfig.get().save(); return true;
+                }
+                boolean isGlob = "global".equalsIgnoreCase(wp.worldId);
+                if (drawBtn(g2, "wp_wid_" + wp.id, x + w - 78, y + 8, 68, 20, 5, isGlob ? "GLOBAL" : "WORLD", 0xFF1E1E28, ClientState.UI_TEXT_MUTED, false, mx2, my2, ck)) {
+                    wp.worldId = isGlob ? ClientState.getCurrentWorldKey() : "global"; ClientConfig.get().save(); return true;
+                }
+                return false;
+            }
+        });
+
+        return renderScrollableRows(g, rows, cx, cy + 26, cw - 10, ch - 26, cw, mx, my, click, accent, accentFg, menuRad);
+    }
+
+    private SettingRow wpCoordRow(final ClientConfig.Waypoint wp, final String label, final String axis) {
+        return new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                int val = "x".equals(axis) ? wp.x : ("y".equals(axis) ? wp.y : wp.z);
+                boolean foc = axis.equals(editingWpField);
+                if (!click) {
+                    g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, foc ? accent : ClientState.UI_BORDER);
+                    g.text(label, x + 12, y + 14, ClientState.UI_TEXT, false);
+                }
+                int bx = x + w - 216;
+                if (drawBtn(g, "wpc_m10_" + axis, bx, y + 8, 28, 20, 4, "-10", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { adjustWpAxis(wp, axis, -10); return true; }
+                if (drawBtn(g, "wpc_m1_" + axis, bx + 31, y + 8, 24, 20, 4, "-1", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { adjustWpAxis(wp, axis, -1); return true; }
+                boolean boxHov = mx >= bx + 58 && mx <= bx + 138 && my >= y + 7 && my <= y + 29;
+                if (!click) {
+                    g.drawGlassCard(bx + 58, y + 7, 80, 22, 5, ClientState.UI_INPUT, foc ? accent : (boxHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
+                    String shown = foc ? (wpEditBuf + "_") : String.valueOf(val);
+                    g.text(shown, bx + 64, y + 14, ClientState.UI_TEXT, false);
+                } else if (boxHov) {
+                    g.playClickSound(); commitWpField(); editingWpField = axis; wpEditBuf = String.valueOf(val); return true;
+                }
+                if (drawBtn(g, "wpc_p1_" + axis, bx + 141, y + 8, 24, 20, 4, "+1", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { adjustWpAxis(wp, axis, 1); return true; }
+                if (drawBtn(g, "wpc_p10_" + axis, bx + 168, y + 8, 30, 20, 4, "+10", 0xFF1A1A24, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { adjustWpAxis(wp, axis, 10); return true; }
+                return false;
+            }
+        };
+    }
+
+    private void adjustWpAxis(ClientConfig.Waypoint wp, String axis, int delta) {
+        commitWpField();
+        if ("x".equals(axis)) wp.x += delta; else if ("y".equals(axis)) wp.y += delta; else wp.z += delta;
+        ClientConfig.get().save();
+    }
+
     private boolean renderAccountsPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         ClientConfig cfg = ClientConfig.get(); String curName = g.currentUsername();
+        boolean curMsa = "msa".equalsIgnoreCase(g.currentAccountType());
         if (!click) {
-            g.drawGlassCard(cx, cy, cw, 38, menuRad, 0xFF14141B, accent);
-            g.drawRoundedRect(cx + 8, cy + 7, 24, 24, 5, ClientState.withAlpha(accent, 45));
+            g.drawGlassCard(cx, cy, cw, 38, menuRad, 0xFF14141B, curMsa ? 0xFF10B981 : accent);
+            g.drawRoundedRect(cx + 8, cy + 7, 24, 24, 5, ClientState.withAlpha(curMsa ? 0xFF10B981 : accent, 45));
             String ini = curName.isEmpty() ? "P" : curName.substring(0, 1).toUpperCase();
-            g.text(ini, cx + 20 - g.textWidth(ini) / 2, cy + 15, accent, false);
-            g.text("Active Session: " + curName, cx + 40, cy + 9, ClientState.UI_TEXT, false);
-            g.text(accStatusMsg.isEmpty() ? "Organize offline alts with tags, pins & 1-click swap" : accStatusMsg, cx + 40, cy + 22, ClientState.UI_TEXT_MUTED, false);
+            g.text(ini, cx + 20 - g.textWidth(ini) / 2, cy + 15, curMsa ? 0xFF10B981 : accent, false);
+            g.text((curMsa ? "[MSA] " : "[ALT] ") + curName, cx + 40, cy + 9, ClientState.UI_TEXT, false);
+            String stLine = !MicrosoftAuth.statusMsg.isEmpty() ? MicrosoftAuth.statusMsg : (accStatusMsg.isEmpty() ? "Sync launcher MSAs, sign in with Microsoft, or manage offline alts" : accStatusMsg);
+            g.text(trimToWidth(g, stLine, cw - 290), cx + 40, cy + 22, MicrosoftAuth.busy ? 0xFFF59E0B : ClientState.UI_TEXT_MUTED, false);
         }
-        if (drawBtn(g, "acc_savecur", cx + cw - 88, cy + 9, 78, 20, Math.max(2, menuRad / 2), "Save Current", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { cfg.addAccount(curName, "offline", "Main"); accStatusMsg = "Saved " + curName + " to organizer."; return true; }
-        int addY = cy + 44, inW = cw - 78; boolean inHov = mx >= cx && mx <= cx + inW && my >= addY && my <= addY + 22;
-        if (!click) {
-            g.drawGlassCard(cx, addY, inW, 22, Math.max(3, menuRad / 2), ClientState.UI_INPUT, accountInputFocused ? accent : (inHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
-            g.text(accountInput.isEmpty() ? (accountInputFocused ? "_" : "Click here & type Alt username...") : (accountInput + (accountInputFocused ? "_" : "")), cx + 8, addY + 7, accountInput.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
-        } else if (inHov) { g.playClickSound(); accountInputFocused = true; searchFocused = false; waypointInputFocused = false; return true; }
-        else if (mx < cx || mx > cx + cw || my < addY || my > addY + 22) accountInputFocused = false;
-        if (drawBtn(g, "acc_add", cx + inW + 6, addY, 72, 22, Math.max(3, menuRad / 2), "+ Add Alt", accent, accentFg, true, mx, my, click)) {
-            if (!accountInput.trim().isEmpty()) { String added = accountInput.trim(); cfg.addAccount(added, "offline", "Alt"); accountInput = ""; accountInputFocused = false; accStatusMsg = g.switchAccount(added, "") ? ("Switched live session to " + added) : ("Saved " + added + "!"); }
+        if (drawBtn(g, "acc_sync", cx + cw - 242, cy + 9, 74, 20, Math.max(2, menuRad / 2), "Sync MSA", 0xFF162C25, 0xFF6EE7B7, false, mx, my, click)) {
+            MicrosoftAuth.syncFromLauncherAsync(null); return true;
+        }
+        if (drawBtn(g, "acc_mslogin", cx + cw - 164, cy + 9, 76, 20, Math.max(2, menuRad / 2), "MS Login", accent, accentFg, true, mx, my, click)) {
+            g.openUrl(MicrosoftAuth.getAuthorizeUrl());
+            MicrosoftAuth.statusMsg = "Browser opened! Paste redirect URL or code below & click Verify.";
+            msaInputFocused = true; accountInputFocused = false; searchFocused = false; waypointInputFocused = false;
             return true;
         }
-        int fx = cx, fy = cy + 72;
+        if (drawBtn(g, "acc_savecur", cx + cw - 84, cy + 9, 74, 20, Math.max(2, menuRad / 2), "Save Cur", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+            cfg.addAccount(curName, curMsa ? "msa" : "offline", curMsa ? "Main" : "Alt"); accStatusMsg = "Saved " + curName + "."; return true;
+        }
+
+        // Row 1: Paste MS redirect URL / auth code / MC token
+        int msaY = cy + 43, msaW = cw - 116; boolean mHov = mx >= cx && mx <= cx + msaW && my >= msaY && my <= msaY + 20;
+        if (!click) {
+            g.drawGlassCard(cx, msaY, msaW, 20, Math.max(3, menuRad / 2), ClientState.UI_INPUT, msaInputFocused ? accent : (mHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
+            String disp = msaInput.isEmpty() ? (msaInputFocused ? "_" : "Paste Microsoft redirect URL, code, or MC token...") : trimToWidth(g, msaInput + (msaInputFocused ? "_" : ""), msaW - 14);
+            g.text(disp, cx + 7, msaY + 6, msaInput.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
+        } else if (mHov) { g.playClickSound(); msaInputFocused = true; accountInputFocused = false; searchFocused = false; waypointInputFocused = false; return true; }
+        else if (mx < cx || mx > cx + cw || my < msaY || my > msaY + 20) msaInputFocused = false;
+
+        if (drawBtn(g, "acc_paste", cx + msaW + 4, msaY, 48, 20, Math.max(3, menuRad / 2), "Paste", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+            String clip = g.clipboardText();
+            if (clip != null && !clip.trim().isEmpty()) { msaInput = clip.trim(); msaInputFocused = true; }
+            return true;
+        }
+        if (drawBtn(g, "acc_verify", cx + msaW + 56, msaY, 60, 20, Math.max(3, menuRad / 2), "Verify", 0xFF162C25, 0xFF6EE7B7, false, mx, my, click)) {
+            if (!msaInput.trim().isEmpty()) { MicrosoftAuth.loginAsync(msaInput.trim(), uiHostBridge); msaInput = ""; msaInputFocused = false; }
+            return true;
+        }
+
+        // Row 2: Offline alt input
+        int addY = cy + 68, inW = cw - 78; boolean inHov = mx >= cx && mx <= cx + inW && my >= addY && my <= addY + 20;
+        if (!click) {
+            g.drawGlassCard(cx, addY, inW, 20, Math.max(3, menuRad / 2), ClientState.UI_INPUT, accountInputFocused ? accent : (inHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
+            g.text(accountInput.isEmpty() ? (accountInputFocused ? "_" : "Click here & type Offline Alt username...") : (accountInput + (accountInputFocused ? "_" : "")), cx + 7, addY + 6, accountInput.isEmpty() ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
+        } else if (inHov) { g.playClickSound(); accountInputFocused = true; msaInputFocused = false; searchFocused = false; waypointInputFocused = false; return true; }
+        else if (mx < cx || mx > cx + cw || my < addY || my > addY + 20) accountInputFocused = false;
+        if (drawBtn(g, "acc_add", cx + inW + 6, addY, 72, 20, Math.max(3, menuRad / 2), "+ Add Alt", accent, accentFg, true, mx, my, click)) {
+            if (!accountInput.trim().isEmpty()) { String added = accountInput.trim(); cfg.addAccount(added, "offline", "Alt"); accountInput = ""; accountInputFocused = false; accStatusMsg = g.switchAccount(added, "", "", "offline") ? ("Switched live session to " + added) : ("Saved " + added + "!"); }
+            return true;
+        }
+
+        int fx = cx, fy = cy + 93;
         for (int i = 0; i < ACC_FILTER_TAGS.length; i++) {
             String t = ACC_FILTER_TAGS[i]; int tw = g.textWidth(t) + 14; boolean sel = accTagFilter.equalsIgnoreCase(t);
             if (drawBtn(g, "accf_" + t, fx, fy, tw, 17, 5, t, sel ? ClientState.withAlpha(accent, 45) : 0xFF15151D, sel ? ClientState.UI_TEXT : ClientState.UI_TEXT_MUTED, false, mx, my, click)) { accTagFilter = t; resetScroll(); return true; }
@@ -398,22 +665,220 @@ public class SharedModMenu {
         }
         List<ClientConfig.AccountEntry> shown = new ArrayList<ClientConfig.AccountEntry>();
         for (int pass = 0; pass < 2; pass++) for (ClientConfig.AccountEntry a : cfg.accounts) { if ((pass == 0) != a.pinned) continue; if (!"All".equalsIgnoreCase(accTagFilter) && !accTagFilter.equalsIgnoreCase(a.tag)) continue; shown.add(a); }
-        int listY = cy + 94, listH = ch - 94, rowH = 34, gap = 5, rw = cw - 10, totalH = Math.max(0, shown.size() * (rowH + gap) - gap);
+        int listY = cy + 115, listH = ch - 115, rowH = 34, gap = 5, rw = cw - 10, totalH = Math.max(0, shown.size() * (rowH + gap) - gap);
         maxScrollPx = Math.max(0, totalH - listH); if (targetScrollPx > maxScrollPx) targetScrollPx = maxScrollPx; int curScroll = Math.round(scrollPx);
-        if (!click && shown.isEmpty()) g.text("No accounts in this folder yet. Add an Alt above!", cx + 8, listY + 14, ClientState.UI_TEXT_MUTED, false);
+        if (!click && shown.isEmpty()) g.text("No accounts yet. Click 'Sync MSA', 'MS Login', or add an Offline Alt above!", cx + 8, listY + 14, ClientState.UI_TEXT_MUTED, false);
         for (int i = 0; i < shown.size(); i++) {
             ClientConfig.AccountEntry a = shown.get(i); int ry = listY + i * (rowH + gap) - curScroll; if (ry < listY || ry + rowH > listY + listH) continue;
             boolean inUse = a.name.equalsIgnoreCase(curName);
-            if (!click) { g.drawGlassCard(cx, ry, rw, rowH, Math.max(3, menuRad / 2), 0xFF14141B, inUse ? accent : ClientState.UI_BORDER); g.text(a.name + (inUse ? "  [IN USE]" : ""), cx + 28, ry + 7, inUse ? accent : ClientState.UI_TEXT, false); g.text(a.type.toUpperCase() + " account", cx + 28, ry + 19, ClientState.UI_TEXT_DIM, false); }
+            boolean isMsa = "msa".equalsIgnoreCase(a.type);
+            if (!click) {
+                g.drawGlassCard(cx, ry, rw, rowH, Math.max(3, menuRad / 2), 0xFF14141B, inUse ? (isMsa ? 0xFF10B981 : accent) : ClientState.UI_BORDER);
+                g.text(a.name + (inUse ? "  [IN USE]" : ""), cx + 28, ry + 7, inUse ? (isMsa ? 0xFF6EE7B7 : accent) : ClientState.UI_TEXT, false);
+                g.text((isMsa ? "MICROSOFT MSA" : "OFFLINE ALT") + (a.uuid != null && a.uuid.length() >= 8 ? (" \u2022 " + a.uuid.substring(0, 8)) : ""), cx + 28, ry + 19, isMsa ? 0xFF34D399 : ClientState.UI_TEXT_DIM, false);
+            }
             if (drawBtn(g, "apin_" + a.id, cx + 6, ry + 8, 16, 18, 4, a.pinned ? "*" : ".", 0x00000000, a.pinned ? accent : ClientState.UI_TEXT_DIM, false, mx, my, click)) { a.pinned = !a.pinned; cfg.save(); return true; }
-            if (drawBtn(g, "atag_" + a.id, cx + rw - 172, ry + 8, 42, 18, 4, a.tag.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.cycleAccountTag(a); return true; }
-            if (drawBtn(g, "aup_" + a.id, cx + rw - 126, ry + 8, 16, 18, 4, "^", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.moveAccount(a.id, -1); return true; }
-            if (drawBtn(g, "adn_" + a.id, cx + rw - 108, ry + 8, 16, 18, 4, "v", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.moveAccount(a.id, 1); return true; }
-            if (drawBtn(g, "ause_" + a.id, cx + rw - 88, ry + 8, 46, 18, 4, inUse ? "Active" : "Use", inUse ? accent : 0xFF1E293B, inUse ? accentFg : ClientState.UI_TEXT, inUse, mx, my, click)) { cfg.activeAccountId = a.id; cfg.save(); accStatusMsg = g.switchAccount(a.name, a.uuid) ? ("Switched session to " + a.name) : ("Selected " + a.name + " (next launch)"); return true; }
-            if (drawBtn(g, "adel_" + a.id, cx + rw - 38, ry + 8, 30, 18, 4, "Del", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) { cfg.removeAccount(a.id); return true; }
+            int rightEdge = cx + rw - 8;
+            if (drawBtn(g, "adel_" + a.id, rightEdge - 28, ry + 8, 28, 18, 4, "Del", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) { cfg.removeAccount(a.id); return true; }
+            if (drawBtn(g, "ause_" + a.id, rightEdge - 74, ry + 8, 42, 18, 4, inUse ? "Active" : "Use", inUse ? accent : 0xFF1E293B, inUse ? accentFg : ClientState.UI_TEXT, inUse, mx, my, click)) {
+                cfg.activeAccountId = a.id; cfg.save();
+                accStatusMsg = g.switchAccount(a.name, a.uuid, a.accessToken, a.type) ? ("Switched live session to " + a.name + (isMsa ? " (MSA)" : "")) : ("Selected " + a.name);
+                return true;
+            }
+            int xShift = rightEdge - 78;
+            if (isMsa) {
+                if (drawBtn(g, "aref_" + a.id, xShift - 42, ry + 8, 38, 18, 4, "Refr", 0xFF162C25, 0xFF6EE7B7, false, mx, my, click)) {
+                    MicrosoftAuth.refreshOrVerifyAsync(a, uiHostBridge); return true;
+                }
+                xShift -= 44;
+            }
+            if (drawBtn(g, "adn_" + a.id, xShift - 18, ry + 8, 16, 18, 4, "v", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.moveAccount(a.id, 1); return true; }
+            if (drawBtn(g, "aup_" + a.id, xShift - 36, ry + 8, 16, 18, 4, "^", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.moveAccount(a.id, -1); return true; }
+            if (drawBtn(g, "atag_" + a.id, xShift - 80, ry + 8, 40, 18, 4, a.tag.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { cfg.cycleAccountTag(a); return true; }
         }
         if (!click && maxScrollPx > 0) drawScrollbar(g, cx + cw - 4, listY, listH, totalH, curScroll, accent);
         return false;
+    }
+
+    private boolean renderHomescreenPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+        ClientConfig cfg = ClientConfig.get();
+        if (cfg.titleWidgets.isEmpty()) cfg.resetTitleLayout();
+
+        // Top controls bar
+        boolean customOn = cfg.getBool("ui_custom_title", true);
+        if (!click) {
+            g.drawGlassCard(cx, cy, cw, 34, menuRad, 0xFF14141B, ClientState.UI_BORDER);
+            g.text("Custom Homescreen (20 Widgets)", cx + 10, cy + 7, ClientState.UI_TEXT, false);
+            g.text("Locked on Homescreen - edit background, size, colors & layout here", cx + 10, cy + 19, ClientState.UI_TEXT_DIM, false);
+        }
+        if (drawSwitch(g, "hs_enable", cx + cw - 48, cy + 8, 38, 18, customOn, accent, accentFg, mx, my, click)) {
+            cfg.setOption("ui_custom_title", Boolean.valueOf(!customOn)); return true;
+        }
+        if (drawBtn(g, "hs_vis_edit", cx + cw - 144, cy + 8, 90, 18, 5, "Drag Layout", accent, accentFg, true, mx, my, click)) {
+            if (hostActions != null) hostActions.openTitleEditor(); return true;
+        }
+
+        // Background Dropdown + Dim Slider row
+        int ddY = cy + 40, ddW = Math.min(250, cw / 2);
+        String curBgId = cfg.getString("title_bg_style", "waves");
+        String curBgLabel = "1. Obsidian Waves";
+        for (int i = 0; i < SharedTitleScreen.BG_PRESETS.length; i++) {
+            if (SharedTitleScreen.BG_PRESETS[i][0].equalsIgnoreCase(curBgId)) { curBgLabel = SharedTitleScreen.BG_PRESETS[i][1]; break; }
+        }
+
+        // Handle open 2-column dropdown clicks FIRST
+        int menuX = cx, menuY = ddY + 24, menuW = Math.min(cw, Math.max(ddW, 336)), colsBg = 2;
+        int rowsBg = (SharedTitleScreen.BG_PRESETS.length + 1) / colsBg, itemH = 20, menuH = rowsBg * itemH + 8;
+        int colBgW = (menuW - 10) / colsBg;
+        if (bgDropdownOpen && click) {
+            if (mx >= menuX && mx <= menuX + menuW && my >= menuY && my <= menuY + menuH) {
+                int colIdx = (mx >= menuX + 5 + colBgW) ? 1 : 0;
+                int rowIdx = (my - (menuY + 4)) / itemH;
+                int idx = rowIdx * colsBg + colIdx;
+                if (idx >= 0 && idx < SharedTitleScreen.BG_PRESETS.length) {
+                    g.playClickSound();
+                    cfg.setOption("title_bg_style", SharedTitleScreen.BG_PRESETS[idx][0]);
+                    bgDropdownOpen = false;
+                    return true;
+                }
+            }
+            bgDropdownOpen = false;
+            return true;
+        }
+
+        if (drawBtn(g, "hs_bg_dd", cx, ddY, ddW, 22, 3, "BG: " + trimToWidth(g, curBgLabel, ddW - 34) + (bgDropdownOpen ? "  ^" : "  v"), 0xFF161620, ClientState.UI_TEXT, false, mx, my, click)) {
+            bgDropdownOpen = !bgDropdownOpen; return true;
+        }
+        // Dim slider inline to the right of dropdown
+        int dimX = cx + ddW + 8, dimW = cw - ddW - 78;
+        double dimVal = cfg.getDouble("title_bg_dim", 0.35), dimPct = Math.max(0.0, Math.min(1.0, dimVal / 0.85));
+        if (!click) {
+            g.drawGlassCard(dimX, ddY, dimW, 22, 5, 0xFF14141B, ClientState.UI_BORDER);
+            g.text("Dim " + Math.round(dimVal * 100) + "%", dimX + 6, ddY + 7, ClientState.UI_TEXT_MUTED, false);
+            int trX = dimX + 54, trW = Math.max(24, dimW - 62);
+            g.drawRoundedRect(trX, ddY + 9, trW, 4, 2, ClientState.UI_BORDER);
+            int fw = (int) Math.round(trW * dimPct);
+            if (fw > 2) g.drawRoundedRect(trX, ddY + 9, fw, 4, 2, accent);
+            g.drawCircleFilled(trX + fw, ddY + 11, 3, ClientState.UI_TEXT);
+        } else {
+            int trX = dimX + 54, trW = Math.max(24, dimW - 62);
+            if (mx >= trX - 4 && mx <= trX + trW + 4 && my >= ddY && my <= ddY + 22) {
+                activeSliderId = "title_bg_dim"; sliderX = trX; sliderW = trW; sliderMin = 0.0; sliderMax = 0.85; sliderStep = 0.05;
+                applySliderValue("title_bg_dim", mx); return true;
+            }
+        }
+        if (drawBtn(g, "hs_rst_all", cx + cw - 64, ddY, 64, 22, 5, "Reset 20", 0xFF2B181E, ClientState.UI_TEXT, false, mx, my, click)) {
+            cfg.resetTitleLayout(); cfg.save(); return true;
+        }
+
+        // 20 Widgets List
+        List<ClientConfig.TitleWidget> list = new ArrayList<ClientConfig.TitleWidget>(cfg.titleWidgets.values());
+        int listY = cy + 68, listH = ch - 68, rowH = 34, gap = 5, rw = cw - 10;
+        int totalH = Math.max(0, list.size() * (rowH + gap) - gap);
+        maxScrollPx = Math.max(0, totalH - listH); if (targetScrollPx > maxScrollPx) targetScrollPx = maxScrollPx;
+        int curScroll = Math.round(scrollPx);
+
+        for (int i = 0; i < list.size(); i++) {
+            ClientConfig.TitleWidget tw = list.get(i);
+            int ry = listY + i * (rowH + gap) - curScroll;
+            if (ry < listY || ry + rowH > listY + listH) continue;
+            if (!click) {
+                g.drawGlassCard(cx, ry, rw, rowH, Math.max(3, menuRad / 2), 0xFF14141B, tw.enabled ? accent : 0);
+                g.text((i + 1) + ". " + tw.label, cx + 10, ry + 7, ClientState.UI_TEXT, false);
+                String meta = String.format("Size %.2fx \u2022 Op %d%% \u2022 Rad %dpx", Double.valueOf(tw.scale), Integer.valueOf((int) Math.round(tw.opacity * 100.0)), Integer.valueOf(tw.borderRadius));
+                g.text(meta, cx + 10, ry + 19, ClientState.UI_TEXT_DIM, false);
+            }
+            if (drawBtn(g, "tw_edit_" + tw.id, cx + rw - 102, ry + 8, 52, 18, 4, "Edit", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+                editingTitleWidgetId = tw.id; titleTextFocused = false; resetScroll(); return true;
+            }
+            if (drawSwitch(g, "tw_tog_" + tw.id, cx + rw - 44, ry + 8, 36, 18, tw.enabled, accent, accentFg, mx, my, click)) {
+                tw.enabled = !tw.enabled; cfg.save(); return true;
+            }
+        }
+        if (!click && maxScrollPx > 0) drawScrollbar(g, cx + cw - 4, listY, listH, totalH, curScroll, accent);
+
+        // Render open 2-column Background Dropdown ON TOP of widget list
+        if (!click && bgDropdownOpen) {
+            g.drawGlassCard(menuX, menuY, menuW, menuH, 3, 0xF5101016, accent);
+            for (int i = 0; i < SharedTitleScreen.BG_PRESETS.length; i++) {
+                String id = SharedTitleScreen.BG_PRESETS[i][0], lbl = SharedTitleScreen.BG_PRESETS[i][1];
+                int c0 = i % colsBg, r0 = i / colsBg;
+                int ix = menuX + 4 + c0 * (colBgW + 2), iy = menuY + 4 + r0 * itemH;
+                boolean sel = id.equalsIgnoreCase(curBgId);
+                boolean hov = mx >= ix && mx <= ix + colBgW && my >= iy && my <= iy + itemH;
+                if (sel || hov) g.drawRoundedRect(ix, iy, colBgW, itemH - 2, 3, sel ? ClientState.withAlpha(accent, 48) : 0x22FFFFFF);
+                g.text(trimToWidth(g, lbl, colBgW - 10), ix + 6, iy + 5, sel ? accent : (i >= 5 ? 0xFF6EE7B7 : ClientState.UI_TEXT), false);
+            }
+        }
+        return false;
+    }
+    private boolean renderTitleWidgetSettingsPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+        final ClientConfig cfg = ClientConfig.get();
+        final ClientConfig.TitleWidget tw = cfg.titleWidgets.get(editingTitleWidgetId);
+        if (tw == null) { editingTitleWidgetId = null; titleTextFocused = false; return false; }
+
+        if (drawBtn(g, "tws_back", cx, cy, 56, 20, Math.max(2, menuRad / 2), "< Back", 0xFF191922, ClientState.UI_TEXT, false, mx, my, click)) {
+            editingTitleWidgetId = null; titleTextFocused = false; resetScroll(); return true;
+        }
+        if (!click) g.text("Widget: " + tw.label, cx + 64, cy + 6, ClientState.UI_TEXT, false);
+        if (drawBtn(g, "tws_rst", cx + cw - 110, cy, 56, 20, Math.max(2, menuRad / 2), "Reset", 0xFF191922, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+            cfg.resetTitleWidget(tw.id); titleTextFocused = false; return true;
+        }
+        if (drawSwitch(g, "tws_tog", cx + cw - 46, cy + 1, 46, 18, tw.enabled, accent, accentFg, mx, my, click)) {
+            tw.enabled = !tw.enabled; cfg.save(); return true;
+        }
+
+        List<SettingRow> rows = new ArrayList<SettingRow>();
+        if ("custom_note".equals(tw.id) || "logo".equals(tw.id) || "quick_play".equals(tw.id)) {
+            rows.add(new SettingRow() {
+                @Override public int height() { return 36; }
+                @Override public boolean renderOrHandle(UiBridge.UiDraw g2, int x, int y, int w, int mx2, int my2, boolean ck, int ac, int afg, int mr) {
+                    if (!ck) {
+                        g2.drawGlassCard(x, y, w, 36, mr, 0xFF14141B, titleTextFocused ? ac : ClientState.UI_BORDER);
+                        g2.text("Custom Text", x + 12, y + 8, ClientState.UI_TEXT, false);
+                        g2.text("Click box to edit label", x + 12, y + 20, ClientState.UI_TEXT_DIM, false);
+                        int bx = x + w - 190;
+                        g2.drawGlassCard(bx, y + 7, 178, 22, 5, ClientState.UI_INPUT, titleTextFocused ? ac : ClientState.UI_BORDER_HOV);
+                        String curTxt = tw.customText == null ? "" : tw.customText;
+                        g2.text(trimToWidth(g2, (titleTextFocused ? titleTextBuf + "_" : (curTxt.isEmpty() ? "(Default)" : curTxt)), 166), bx + 7, y + 14, curTxt.isEmpty() && !titleTextFocused ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
+                    } else if (mx2 >= x + w - 190 && mx2 <= x + w - 12 && my2 >= y + 7 && my2 <= y + 29) {
+                        g2.playClickSound(); titleTextFocused = true; titleTextBuf = tw.customText == null ? "" : tw.customText; return true;
+                    } else titleTextFocused = false;
+                    return false;
+                }
+            });
+        }
+        rows.add(sliderRow("Size (Scale)", "Resize widget from 0.50x to 2.00x", "tw_scale:" + tw.id, 0.50, 2.00, 0.05, false));
+        rows.add(sliderRow("X Position", "Horizontal position on homescreen", "tw_x:" + tw.id, 0.02, 0.98, 0.005, false));
+        rows.add(sliderRow("Y Position", "Vertical position on homescreen", "tw_y:" + tw.id, 0.03, 0.97, 0.005, false));
+        rows.add(sliderRow("Corner Radius", "Individual corner roundness (0-28px)", "tw_rad:" + tw.id, 0, 28, 1, true));
+        rows.add(sliderRow("Background Opacity", "Card backdrop alpha (0%-100%)", "tw_opac:" + tw.id, 0.0, 1.0, 0.05, false));
+        rows.add(sliderRow("Text Opacity", "Text alpha (10%-100%)", "tw_topac:" + tw.id, 0.1, 1.0, 0.05, false));
+        rows.add(colorRow("Background Color", "tw_bg:" + tw.id));
+        rows.add(colorRow("Text / Accent Color", "tw_txt:" + tw.id));
+        rows.add(twBoolRow("Border Outline", "Draw border around this widget", tw.id, "showBorder"));
+        rows.add(sliderRow("Border Thickness", "Border stroke width (1-3px)", "tw_bw:" + tw.id, 1, 3, 1, true));
+        rows.add(colorRow("Border Color", "tw_brd:" + tw.id));
+        rows.add(twBoolRow("Chroma RGB", "Animated rainbow wave on text & border", tw.id, "chroma"));
+        rows.add(twBoolRow("Text Shadow", "Drop shadow behind widget text", tw.id, "shadow"));
+
+        return renderScrollableRows(g, rows, cx, cy + 26, cw - 10, ch - 26, cw, mx, my, click, accent, accentFg, menuRad);
+    }
+
+    private SettingRow twBoolRow(final String label, final String desc, final String twId, final String field) {
+        return new SettingRow() {
+            @Override public int height() { return 36; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(twId); if (tw == null) return false;
+                boolean val = "showBorder".equals(field) ? tw.showBorder : ("chroma".equals(field) ? tw.chroma : tw.shadow);
+                if (!click) { g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (drawSwitch(g, "twb_" + twId + "_" + field, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) {
+                    if ("showBorder".equals(field)) tw.showBorder = !tw.showBorder; else if ("chroma".equals(field)) tw.chroma = !tw.chroma; else tw.shadow = !tw.shadow;
+                    ClientConfig.get().save(); return true;
+                }
+                return false;
+            }
+        };
     }
 
     private boolean drawSideItem(UiBridge.UiDraw g, String id, int x, int y, int w, int h, int rad, String label, boolean sel, int accent, int mx, int my, boolean click) {
@@ -443,7 +908,7 @@ public class SharedModMenu {
             for (int i = 0; i < list.size(); i++) {
                 ModEntry m = list.get(i); int ry = cy + i * (rowH + gap) - curScroll; if (ry < cy || ry + rowH > cy + ch) continue;
                 boolean en = isModEnabled(m.id);
-                if (!click) { if (mx >= cx && mx <= cx + rw && my >= ry && my <= ry + rowH) hoveredTooltip = m.desc; g.drawGlassCard(cx, ry, rw, rowH, Math.max(2, menuRad / 2), ClientState.UI_CARD, en ? accent : ClientState.UI_BORDER); g.text(m.name + "  [" + m.category.toUpperCase() + "]", cx + 10, ry + 7, ClientState.UI_TEXT, false); g.text(trimToWidth(g, m.desc, rw - 150), cx + 10, ry + 19, ClientState.UI_TEXT_MUTED, false); }
+                if (!click) { if (mx >= cx && mx <= cx + rw && my >= ry && my <= ry + rowH) hoveredTooltip = m.desc; g.drawGlassCard(cx, ry, rw, rowH, Math.max(2, menuRad / 2), ClientState.UI_CARD, en ? accent : 0); g.text(m.name + "  [" + m.category.toUpperCase() + "]", cx + 10, ry + 7, ClientState.UI_TEXT, false); g.text(trimToWidth(g, m.desc, rw - 150), cx + 10, ry + 19, ClientState.UI_TEXT_MUTED, false); }
                 if (drawBtn(g, "pcfg_" + m.id, cx + rw - 118, ry + 8, 58, 18, Math.max(2, menuRad / 2), "Config", ClientState.UI_INPUT, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { editingModId = m.id; resetScroll(); return true; }
                 if (drawSwitch(g, "ptog_" + m.id, cx + rw - 54, ry + 8, 44, 18, en, accent, accentFg, mx, my, click)) { toggleMod(m.id); return true; }
             }
@@ -462,7 +927,7 @@ public class SharedModMenu {
             ClientConfig.HudModule hm = ClientConfig.get().hudModules.get(m.id); boolean fav = hm != null && hm.favorite;
             if (!click) {
                 if (hov) hoveredTooltip = m.name + " - " + m.desc;
-                g.drawGlassCard(bx, topVis, cardW, botVis - topVis, menuRad, ClientState.lerpColor(0xFF131319, 0xFF191922, animHover("card_" + m.id, hov)), enabled ? accent : ClientState.UI_BORDER);
+                g.drawGlassCard(bx, topVis, cardW, botVis - topVis, menuRad, ClientState.lerpColor(0xFF131319, 0xFF191922, animHover("card_" + m.id, hov)), enabled ? accent : 0);
                 if (by + 8 >= cy && by + 18 <= cy + ch) { g.drawCircleFilled(bx + 9, by + 13, 3, enabled ? accent : ClientState.UI_TEXT_DIM); g.text(m.category.toUpperCase(), bx + 16, by + 9, ClientState.UI_TEXT_DIM, false); }
                 if (by + 22 >= cy && by + 32 <= cy + ch) g.text(trimToWidth(g, m.name, cardW - 14), bx + 8, by + 22, ClientState.UI_TEXT, false);
                 if (by + 35 >= cy && by + 68 <= cy + ch) { List<String> w = wrapText(g, m.desc, cardW - 16, 3); for (int l = 0; l < w.size(); l++) g.text(w.get(l), bx + 8, by + 36 + l * 10, ClientState.UI_TEXT_MUTED, false); }
@@ -507,9 +972,14 @@ public class SharedModMenu {
         else if ("hit_color".equals(editingModId)) buildHitColorRows(rows);
         else if ("hitboxes".equals(editingModId)) buildHitboxRows(rows);
         else if ("block_break".equals(editingModId)) buildBlockBreakRows(rows);
+        else if ("block_outline".equals(editingModId)) buildBlockOutlineRows(rows);
+        else if ("world_env".equals(editingModId)) buildWorldEnvRows(rows);
+        else if ("particles".equals(editingModId)) buildParticlesRows(rows);
+        else if ("chat_mod".equals(editingModId)) buildChatModRows(rows);
         else if (isHud) buildHudInspectorRows(rows, cfg.hudModules.get(editingModId));
         return renderScrollableRows(g, rows, cx, listTop, cw - 10, (cy + ch) - listTop, cw, mx, my, click, accent, accentFg, menuRad);
     }
+
     private void buildHudInspectorRows(List<SettingRow> rows, ClientConfig.HudModule m) {
         if ("waypoints".equals(m.id) && "geom".equals(inspectorTab)) {
             rows.add(accordionRow("wp_mgr", "WAYPOINTS MANAGER"));
@@ -519,13 +989,48 @@ public class SharedModMenu {
                     ClientConfig.Waypoint w = ClientConfig.get().waypoints.get(i);
                     if (ClientState.isWaypointInWorld(w, ClientState.getCurrentWorldKey())) rows.add(waypointRow(w));
                 }
+                rows.add(sliderRow("Global Waypoint Size", "Multiplier for all waypoints (0.40x-2.50x)", "wp_scale", 0.40, 2.50, 0.05, false));
                 rows.add(cycleRow("Waypoint Style", "Lunar Card, Block Highlighter, Dot, or Tall Beacon", "wp_style", WP_STYLES));
                 rows.add(boolRow("Auto Death Waypoint", "Automatically mark where you died", "wp_auto_death", true));
+                rows.add(boolRow("Auto-Clear Death WP (6m)", "Remove death marker when you walk back within 6m", "wp_auto_clear_death", false));
                 rows.add(boolRow("World Markers", "Show floating markers / block highlights in world", "wp_world_markers", true));
                 rows.add(boolRow("Vertical Beacon Beams", "Draw translucent beam above marker", "wp_beam_beacon", true));
                 rows.add(boolRow("Show Distance (m)", "Display meter distance inside tag", "wp_show_dist", true));
                 rows.add(boolRow("Overworld <-> Nether Sync", "Auto-convert 8:1 coordinates", "wp_nether_sync", true));
                 rows.add(boolRow("Offscreen Edge Pointers", "Show directional arrow when off-screen", "wp_offscreen_arrows", true));
+            }
+        }
+        if ("minimap".equals(m.id) && "geom".equals(inspectorTab)) {
+            rows.add(accordionRow("mm_cfg", "TERRAIN MINIMAP, WORLDMAP & SEED"));
+            if (!foldedAccordions.contains("mm_cfg")) {
+                rows.add(actionRow("Open Interactive Worldmap", "Pan, zoom, structures & right-click waypoints (M)", "open_worldmap"));
+                rows.add(sliderRow("Minimap Size", "Resize minimap from Small (60px) to Big (180px)", "minimap_size", 60, 180, 4, true));
+                rows.add(sliderRow("Minimap Zoom", "Terrain zoom level (0.50x - 3.00x)", "minimap_zoom", 0.50, 3.00, 0.10, false));
+                rows.add(cycleRow("Minimap Shape", "Circle or Rounded Square", "minimap_shape", MINIMAP_SHAPES));
+                rows.add(boolRow("Show Structures", "Display villages, temples, monuments, bastions, etc.", "minimap_structures", true));
+                rows.add(boolRow("Hide Looted Structures", "Hide structures marked as Looted on Worldmap", "minimap_hide_looted", false));
+                rows.add(boolRow("Worldmap Chunk Grid", "Show 16x16 chunk borders on Worldmap", "worldmap_chunk_grid", false));
+                rows.add(boolRow("Minimap Coordinates", "Show XYZ pill at bottom of minimap", "minimap_coords", true));
+                rows.add(boolRow("Slime Chunk Overlay", "Highlight slime chunks on Worldmap (needs seed)", "minimap_slime", false));
+                rows.add(seedInputRow());
+                rows.add(actionRow("Clear Map Cache", "Wipe saved terrain tiles for this world/dimension", "clear_map_cache"));
+            }
+            rows.add(accordionRow("mm_filters", "STRUCTURE FILTERS (SHOW / HIDE)"));
+            if (!foldedAccordions.contains("mm_filters")) {
+                rows.add(actionRow("Enable All Structures", "Turn ON all 12 structure types", "struct_all_on"));
+                rows.add(actionRow("Disable All Structures", "Turn OFF all 12 (then enable only what you want)", "struct_all_off"));
+                rows.add(boolRow("Ancient Cities (Sculk)", "Deep Dark Ancient Cities", "struct_ancient_city", true));
+                rows.add(boolRow("Villages (Bell)", "Overworld Villages", "struct_village", true));
+                rows.add(boolRow("Trial Chambers (Copper)", "Overworld Trial Chambers", "struct_trial_chamber", true));
+                rows.add(boolRow("Ocean Monuments (Prismarine)", "Deep Ocean Monuments", "struct_monument", true));
+                rows.add(boolRow("Pillager Outposts (Crossbow)", "Overworld Pillager Outposts", "struct_outpost", true));
+                rows.add(boolRow("Woodland Mansions (Dark Oak)", "Dark Forest Mansions", "struct_mansion", true));
+                rows.add(boolRow("Desert / Jungle Temples", "Surface Temples & Huts", "struct_temple", true));
+                rows.add(boolRow("Ruined Portals (Crying Obs.)", "Overworld Ruined Portals", "struct_portal", true));
+                rows.add(boolRow("Strongholds / Dungeons", "End Portal & Spawner markers", "struct_stronghold", true));
+                rows.add(boolRow("Nether Fortresses (Bricks)", "Nether Fortresses & Blaze Spawners", "struct_fortress", true));
+                rows.add(boolRow("Bastion Remnants (Gilded)", "Nether Bastion Remnants", "struct_bastion", true));
+                rows.add(boolRow("End Cities (Purpur)", "Outer End Cities", "struct_end_city", true));
             }
         }
         if ("geom".equals(inspectorTab)) {
@@ -562,8 +1067,14 @@ public class SharedModMenu {
                 rows.add(sliderRow("Chroma Angle", "Wave direction in degrees", "mod_cang:" + m.id, 0, 360, 15, true));
             }
         } else if ("text".equals(inspectorTab)) {
+            if ("ping".equals(m.id)) {
+                rows.add(boolRow("Small Ping Above Hotbar", "Show compact numerical Tab ping centered above hotbar", "ping_above_hotbar", false));
+                rows.add(boolRow("Number Only (e.g. 24ms)", "Hide 'Ping:' label on ping readout", "ping_number_only", false));
+                rows.add(boolRow("Tab List Numeric Ping", "Show exact ms ping for all players on Tab", "tab_numeric_ping", true));
+                rows.add(boolRow("Tab Ping 'ms' Suffix", "Display '24ms' vs '24' on Tab list", "tab_ping_suffix", true));
+            }
             if ("scoreboard".equals(m.id)) {
-                rows.add(boolRow("Replace Vanilla Scoreboard", "Completely hide default vanilla sidebar so only Aetheria Scoreboard is shown", "sb_hide_vanilla", true));
+                rows.add(boolRow("Replace Vanilla Scoreboard", "Hide default vanilla sidebar so only Aetheria Scoreboard is shown", "sb_hide_vanilla", true));
                 rows.add(boolRow("Hide Red Score Numbers", "Hide right-side numeric scores", "sb_hide_numbers", false));
             }
             if ("saturation".equals(m.id)) { rows.add(cycleRow("Saturation Style", "AppleSkin / Bar / Text", "saturation_style", SAT_STYLES)); rows.add(boolRow("AppleSkin Glint", "Pulse golden outlines", "saturation_glint", true)); }
@@ -576,10 +1087,12 @@ public class SharedModMenu {
                 rows.add(boolRow("Show Status Icons", "Render effect icons", "potions_show_icon", true));
                 rows.add(boolRow("Blink Low Duration", "Flash under 10s left", "potions_blink", true));
             }
-            if ("armor".equals(m.id)) { rows.add(boolRow("Horizontal Layout", "Side-by-side armor", "armor_horizontal", false)); rows.add(boolRow("Show Durability Text", "Show % or uses", "armor_show_text", true)); rows.add(boolRow("Percentage Mode", "Durability % vs uses", "armor_percent", true)); rows.add(boolRow("Text-Only Mode", "Text instead of icons", "armor_text_mode", false)); }
+            if ("armor".equals(m.id)) { rows.add(boolRow("Horizontal Layout", "Side-by-side armor", "armor_horizontal", false)); rows.add(boolRow("Show Durability Text", "Show % or uses", "armor_show_text", true)); rows.add(boolRow("Percentage Mode", "Durability % vs uses", "armor_percent", true)); rows.add(boolRow("Text-Only Mode", "Text instead of icons", "armor_text_mode", false));
+                rows.add(boolRow("Low Armor Alert (<15%)", "Flash red warning on low durability armor", "armor_low_alert", true)); }
             if ("togglesprint".equals(m.id)) { rows.add(boolRow("Hide HUD Badge", "Keep active without box", "togglesprint_hide_hud", false)); rows.add(boolRow("ToggleSneak", "Tap Sneak to lock crouch", "pvp_togglesneak", false)); }
             if ("pearl_cd".equals(m.id)) rows.add(boolRow("Auto-Hide When Ready", "Hide when ready", "pearl_auto_hide", true));
             if ("shield_cd".equals(m.id)) rows.add(boolRow("Auto-Hide When Ready", "Hide when shield is ready", "shield_auto_hide", true));
+            if ("target_hud".equals(m.id)) rows.add(boolRow("Sticky Target (3.5s)", "Keep last attacked target visible for 3.5 seconds", "target_sticky", true));
             if ("kill_counter".equals(m.id)) rows.add(actionRow("Reset K/D Stats", "Zero session kills & deaths", "kd_reset"));
             if ("fps".equals(m.id)) { rows.add(boolRow("Show 'FPS' Label", "Display 'FPS' suffix", "fps_show_label", true)); rows.add(boolRow("Show 1% Low & Min", "Detailed FPS stats", "fps_detailed", false)); }
             if ("coords".equals(m.id)) { rows.add(boolRow("Show Facing", "Include direction", "coords_facing", true)); rows.add(boolRow("Nether 8:1 Coords", "Auto-convert X/Z", "coords_nether", true)); rows.add(boolRow("Compact Line", "Single-line XYZ", "coords_compact", false)); }
@@ -603,12 +1116,12 @@ public class SharedModMenu {
 
     private boolean renderUiEnginePage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         List<SettingRow> rows = new ArrayList<SettingRow>();
-        rows.add(accordionRow("ui_theme", "THEMES, FONT & TITLE SCREEN"));
+        rows.add(accordionRow("ui_theme", "THEMES, FONT & HOMESCREEN"));
         if (!foldedAccordions.contains("ui_theme")) {
             rows.add(cycleRow("Menu Layout Mode", "OneClient, Topbar, Sidebar, Grid, or Palette", "ui_menu_layout", MENU_LAYOUTS));
             rows.add(boolRow("Clean Sans-Serif Font", "Smooth crisp non-Minecrafty font", "ui_clean_font", true));
-            rows.add(boolRow("Custom Title Screen", "10 movable widgets + account manager", "ui_custom_title", true));
-            rows.add(actionRow("Customize Title Screen", "Drag & toggle all 10 Title Screen widgets", "title_editor"));
+            rows.add(boolRow("Custom Homescreen", "20 customizable widgets + 10 HQ backgrounds", "ui_custom_title", true));
+            rows.add(actionRow("Homescreen Settings", "10-BG dropdown + 20-widget customizer", "homescreen_cfg"));
             rows.add(accentRow("Accent Color"));
             rows.add(colorRow("Custom Accent HEX", "opt:ui_accent_custom"));
             rows.add(sliderRow("Global Corner Rounding", "INDIV = per-HUD | 0-24 = force all", "global_hud_rounding", -1, 24, 1, true));
@@ -634,6 +1147,7 @@ public class SharedModMenu {
         if (!foldedAccordions.contains("ui_keys")) {
             rows.add(keybindRow("Menu Keybind", "Click and press ANY key", "ctl_menu_key", "RSHIFT"));
             rows.add(keybindRow("Waypoints Menu Keybind", "Open dedicated Waypoints manager", "ctl_waypoints_key", "B"));
+            rows.add(keybindRow("Worldmap Keybind", "Open full-screen interactive Worldmap", "ctl_worldmap_key", "M"));
             rows.add(keybindRow("Fullbright Toggle Key", "Quick-toggle Fullbright in-game", "ctl_fullbright_key", "F7"));
             rows.add(keybindRow("Profile Cycle Keybind", "Click and press ANY key", "ctl_profile_key", "F6"));
             rows.add(keybindRow("Zoom Keybind", "Click and press ANY key", "cam_zoom_key", "C"));
@@ -646,6 +1160,9 @@ public class SharedModMenu {
 
     private boolean renderProfilesPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         List<SettingRow> rows = new ArrayList<SettingRow>();
+        rows.add(boolRow("Auto-Profile Per World", "Remember active profile separately for each server/world", "profile_auto_world", true));
+        rows.add(actionRow("Export Profile Code", "Copy HUD layout + theme code to clipboard", "prof_export"));
+        rows.add(actionRow("Import Profile Code", "Apply AETH1:... layout code from clipboard", "prof_import"));
         rows.add(profileRow("PvP", "FPS, Ping, CPS, Keystrokes, Target HUD, Combo, Reach, Potions, Armor & Scoreboard"));
         rows.add(profileRow("Survival", "Coords + Nether, Biome, Light Level, Day/Weather, Waypoints, Scoreboard & WAILA"));
         rows.add(profileRow("SMP", "Coords, Ping, TPS, Server IP, Players, Waypoints, Death Tracker, Totems & Scoreboard"));
@@ -653,7 +1170,6 @@ public class SharedModMenu {
         rows.add(profileRow("Cinematic", "Zero clutter - hides HUDs except active Zoom badge"));
         return renderScrollableRows(g, rows, cx, cy, cw - 10, ch, cw, mx, my, click, accent, accentFg, menuRad);
     }
-
     private boolean renderScrollableRows(UiBridge.UiDraw g, List<SettingRow> rows, int cx, int listY, int rw, int listH, int cw, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         int totalH = 0; for (int i = 0; i < rows.size(); i++) totalH += rows.get(i).height() + 6;
         maxScrollPx = Math.max(0, totalH - listH); if (targetScrollPx > maxScrollPx) targetScrollPx = maxScrollPx;
@@ -708,9 +1224,40 @@ public class SharedModMenu {
     private void buildHitColorRows(List<SettingRow> rows) { rows.add(boolRow("Enable Hit Colorizer", "Replace vanilla red damage flash", "pvp_hit_color", false)); rows.add(boolRow("Chroma RGB Hit Flash", "Cycle rainbow colors on damage", "pvp_hit_color_chroma", false)); rows.add(sliderRow("Tint Intensity", "Blend strength (10% - 100%)", "pvp_hit_color_alpha", 0.10, 1.00, 0.05, false)); rows.add(colorRow("Hit Flash Color", "opt:pvp_hit_color_hex")); }
     private void buildHitboxRows(List<SettingRow> rows) {
         rows.add(hitboxPreviewRow()); rows.add(accordionRow("hb_style", "STYLE & COLOR"));
-        if (!foldedAccordions.contains("hb_style")) { rows.add(boolRow("Enable Custom Hitboxes", "Render customized 3D entity hitboxes", "hb_enabled", false)); rows.add(boolRow("Chroma RGB Hitboxes", "Rainbow animated hitbox outlines", "hb_chroma", false)); rows.add(colorRow("Hitbox Color", "opt:hb_color")); rows.add(sliderRow("Line Width", "Stroke thickness (1.0 - 4.0)", "hb_line_width", 1.0, 4.0, 0.5, false)); rows.add(sliderRow("Fill Opacity", "Translucent inner box fill (0% - 50%)", "hb_fill_alpha", 0.0, 0.50, 0.02, false)); }
+        if (!foldedAccordions.contains("hb_style")) { rows.add(boolRow("Enable Custom Hitboxes", "Render customized 3D entity hitboxes", "hb_enabled", false)); rows.add(boolRow("Only When F3+B Active", "Show custom hitboxes only when vanilla F3+B is on", "hb_only_f3b", false)); rows.add(boolRow("Chroma RGB Hitboxes", "Rainbow animated hitbox outlines", "hb_chroma", false)); rows.add(colorRow("Hitbox Color", "opt:hb_color")); rows.add(sliderRow("Line Width", "Stroke thickness (1.0 - 4.0)", "hb_line_width", 1.0, 4.0, 0.5, false)); rows.add(sliderRow("Fill Opacity", "Translucent inner box fill (0% - 50%)", "hb_fill_alpha", 0.0, 0.50, 0.02, false)); }
         rows.add(accordionRow("hb_targets", "TARGETS & LINES"));
         if (!foldedAccordions.contains("hb_targets")) { rows.add(boolRow("Show Eye-Height Line", "Red eye-level bounding ring", "hb_eye_line", true)); rows.add(boolRow("Show Look Vector", "Blue facing sightline", "hb_look_vec", true)); rows.add(boolRow("Players", "Show on other players", "hb_players", true)); rows.add(boolRow("Mobs / Living", "Show on mobs & animals", "hb_mobs", true)); rows.add(boolRow("Projectiles", "Show on arrows, pearls & fireballs", "hb_projectiles", true)); rows.add(boolRow("Dropped Items", "Show on item drops", "hb_items", false)); rows.add(boolRow("Hide Self (3rd Person)", "Hide your own hitbox", "hb_hide_self", true)); }
+    }
+    private void buildBlockOutlineRows(List<SettingRow> rows) {
+        rows.add(boolRow("Enable Block Outline", "Custom wireframe & translucent fill on targeted block", "bo_enabled", false));
+        rows.add(boolRow("Hide Vanilla Wireframe", "Disable default black outline when enabled", "bo_hide_vanilla", true));
+        rows.add(boolRow("Chroma RGB Outline", "Animated rainbow block outline", "bo_chroma", false));
+        rows.add(colorRow("Outline Color", "opt:bo_color"));
+        rows.add(sliderRow("Fill Opacity", "Inner face tint alpha (0% - 50%)", "bo_fill_alpha", 0.0, 0.50, 0.02, false));
+        rows.add(sliderRow("Line Width", "Wireframe thickness (1.0 - 4.0)", "bo_line_width", 1.0, 4.0, 0.5, false));
+    }
+    private void buildWorldEnvRows(List<SettingRow> rows) {
+        rows.add(cycleRow("Client Sky Time", "Override sky time locally (Day, Noon, Sunset, Night, Midnight)", "vis_time_mode", TIME_MODES));
+        rows.add(cycleRow("Client Weather", "Override rain/thunder locally", "vis_weather_mode", WEATHER_MODES));
+        rows.add(boolRow("No World Fog", "Remove atmospheric & render distance fog", "vis_no_fog", false));
+        rows.add(boolRow("Clear Lava & Water Fog", "See clearly underwater and in lava", "vis_clear_lava_water", false));
+        rows.add(boolRow("No Pumpkin Overlay", "Hide carved pumpkin head blur", "vis_no_pumpkin", false));
+        rows.add(boolRow("No Spyglass Overlay", "Hide dark spyglass frame", "vis_no_spyglass", false));
+        rows.add(boolRow("No Portal Overlay", "Hide purple Nether portal swirl", "vis_no_portal_overlay", false));
+        rows.add(boolRow("No Vignette", "Remove dark screen edge vignette", "vis_no_vignette", false));
+    }
+    private void buildParticlesRows(List<SettingRow> rows) {
+        rows.add(sliderRow("Crit Particle Multiplier", "Multiply melee hit crit particles (1x - 5x)", "part_crit_mult", 1, 5, 1, true));
+        rows.add(boolRow("Hide Rain Particles", "Remove rain splash particles for clean FPS", "part_hide_rain", false));
+        rows.add(boolRow("Hide Portal Particles", "Remove portal particle clutter", "part_hide_portal", false));
+        rows.add(boolRow("Hide Block Dust", "Remove block-breaking & falling dust particles", "part_hide_dust", false));
+    }
+    private void buildChatModRows(List<SettingRow> rows) {
+        rows.add(boolRow("Chat Coordinate Picker", "Show '+ WP from Chat' button to assign X/Y/Z from chat numbers", "chat_coord_picker", true));
+        rows.add(boolRow("Compact Duplicate Chat", "Collapse repeated chat lines into [x2], [x3]", "chat_compact", true));
+        rows.add(boolRow("Chat Timestamps", "Prepend [HH:mm] to incoming messages", "chat_timestamps", false));
+        rows.add(boolRow("Highlight Mentions", "Highlight messages containing your username", "chat_mention_highlight", true));
+        rows.add(boolRow("Mention Ping Sound", "Play subtle audio chime when mentioned", "chat_mention_sound", true));
     }
     private void buildBlockBreakRows(List<SettingRow> rows) { rows.add(blockBreakPreviewRow()); rows.add(boolRow("Enable Block Break FX", "Render custom 3D animation while mining", "bb_enabled", false)); rows.add(cycleRow("Animation Style (5x)", "Shrink, Expand, Rise, Slide Down, or Pulse", "bb_style", BB_STYLES)); rows.add(boolRow("Progress Color Gradient", "Shift Green -> Yellow -> Red as block breaks", "bb_progress_color", true)); rows.add(colorRow("Static Accent Color", "opt:bb_color")); rows.add(sliderRow("Fill Opacity", "Inner block highlight alpha (0% - 60%)", "bb_fill_alpha", 0.0, 0.60, 0.05, false)); rows.add(sliderRow("Outline Width", "Wireframe thickness (1.0 - 4.0)", "bb_line_width", 1.0, 4.0, 0.5, false)); rows.add(boolRow("Hide Vanilla Cracks", "Disable default crack texture when enabled", "bb_hide_vanilla", false)); }
 
@@ -720,7 +1267,7 @@ public class SharedModMenu {
             @Override public int height() { return 22; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 boolean folded = foldedAccordions.contains(key), hov = mx >= x && mx <= x + w && my >= y && my <= y + 22;
-                if (!click) { g.drawGlassCard(x, y, w, 22, 6, hov ? 0xFF1A1B24 : 0xFF121218, ClientState.UI_BORDER); g.text((folded ? "> " : "v ") + title, x + 10, y + 7, accent, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 22, 3, hov ? 0xFF1A1B24 : 0xFF121218); g.text((folded ? "> " : "v ") + title, x + 10, y + 7, accent, false); }
                 else if (hov) { g.playClickSound(); if (folded) foldedAccordions.remove(key); else foldedAccordions.add(key); return true; }
                 return false;
             }
@@ -813,21 +1360,28 @@ public class SharedModMenu {
             }
         };
     }
+
     private SettingRow waypointRow(final ClientConfig.Waypoint wp) {
         return new SettingRow() {
             @Override public int height() { return 38; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 int col = ClientState.parseHexColor(wp.color, 0xFF22D3EE);
-                if (!click) { g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, wp.enabled ? col : ClientState.UI_BORDER); g.text(wp.x + ", " + wp.y + ", " + wp.z + " • " + wp.dimension.replace("minecraft:", "") + " • " + (wp.worldId == null ? "global" : wp.worldId), x + 30, y + 22, ClientState.UI_TEXT_DIM, false); }
+                String st = (wp.style == null || wp.style.isEmpty() || "global".equalsIgnoreCase(wp.style)) ? "" : (" [" + wp.style.toUpperCase() + "]");
+                if (!click) {
+                    g.drawGlassCard(x, y, w, 38, menuRad, 0xFF14141B, wp.enabled ? col : ClientState.UI_BORDER);
+                    g.text(wp.x + ", " + wp.y + ", " + wp.z + " \u2022 " + wp.dimension.replace("minecraft:", "") + st, x + 30, y + 22, ClientState.UI_TEXT_DIM, false);
+                }
                 if (mx >= x + 6 && mx <= x + 24 && my >= y + 9 && my <= y + 29) { hoveredTooltip = "Cycle Waypoint Color"; if (click) { g.playClickSound(); ClientConfig.get().cycleWaypointColor(wp); return true; } }
                 if (!click) g.drawCircleFilled(x + 15, y + 19, 6, col);
-                if (drawBtn(g, "wpn_" + wp.id, x + 28, y + 5, 92, 15, 4, wp.name, 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { int idx = 0; for (int i = 0; i < WP_NAME_PRESETS.length; i++) if (WP_NAME_PRESETS[i].equalsIgnoreCase(wp.name)) idx = (i + 1) % WP_NAME_PRESETS.length; wp.name = WP_NAME_PRESETS[idx]; ClientConfig.get().save(); return true; }
+                if (drawBtn(g, "wpn_" + wp.id, x + 28, y + 5, 88, 15, 4, wp.name, 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { int idx = 0; for (int i = 0; i < WP_NAME_PRESETS.length; i++) if (WP_NAME_PRESETS[i].equalsIgnoreCase(wp.name)) idx = (i + 1) % WP_NAME_PRESETS.length; wp.name = WP_NAME_PRESETS[idx]; ClientConfig.get().save(); return true; }
+                if (drawBtn(g, "wpcfg_" + wp.id, x + w - 122, y + 10, 34, 18, 4, "Cfg", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) { editingWaypointId = wp.id; editingWpField = ""; wpEditBuf = ""; resetScroll(); return true; }
                 if (drawSwitch(g, "wpt_" + wp.id, x + w - 82, y + 10, 38, 18, wp.enabled, accent, accentFg, mx, my, click)) { wp.enabled = !wp.enabled; ClientConfig.get().save(); return true; }
                 if (drawBtn(g, "wpd_" + wp.id, x + w - 38, y + 10, 28, 18, 4, "Del", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) { ClientConfig.get().removeWaypoint(wp.id); return true; }
                 return false;
             }
         };
     }
+
     private SettingRow keybindRow(final String label, final String desc, final String optId, final String def) {
         return new SettingRow() {
             @Override public int height() { return 36; }
@@ -835,7 +1389,7 @@ public class SharedModMenu {
                 boolean listening = optId.equals(listeningKeyOptId); String cur = ClientConfig.get().getString(optId, def).toUpperCase();
                 if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, listening ? accent : ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 int bw = listening ? 104 : 84;
-                if (drawBtn(g, "kb_" + optId, x + w - bw - 10, y + 8, bw, 20, Math.max(2, menuRad / 2), listening ? "> PRESS KEY <" : cur, listening ? accent : 0xFF1E1E28, listening ? accentFg : ClientState.UI_TEXT, listening, mx, my, click)) { listeningKeyOptId = listening ? null : optId; searchFocused = false; accountInputFocused = false; waypointInputFocused = false; return true; }
+                if (drawBtn(g, "kb_" + optId, x + w - bw - 10, y + 8, bw, 20, Math.max(2, menuRad / 2), listening ? "> PRESS KEY <" : cur, listening ? accent : 0xFF1E1E28, listening ? accentFg : ClientState.UI_TEXT, listening, mx, my, click)) { listeningKeyOptId = listening ? null : optId; searchFocused = false; accountInputFocused = false; msaInputFocused = false; waypointInputFocused = false; return true; }
                 return false;
             }
         };
@@ -856,7 +1410,7 @@ public class SharedModMenu {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 boolean val = ClientConfig.get().getBool(optId, def);
-                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawSwitch(g, "opt_" + optId, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) { ClientConfig.get().setOption(optId, Boolean.valueOf(!val)); return true; }
                 return false;
             }
@@ -868,7 +1422,7 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 ClientConfig.HudModule m = ClientConfig.get().hudModules.get(modId); if (m == null) return false;
                 boolean val = "bg".equals(field) ? m.bg : "border".equals(field) ? m.border : "chroma".equals(field) ? m.chroma : "hideInF1".equals(field) ? m.hideInF1 : "hideInChat".equals(field) ? m.hideInChat : "hideInInventory".equals(field) ? m.hideInInventory : "hideInF3".equals(field) ? m.hideInF3 : m.shadow;
-                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawSwitch(g, "mb_" + modId + "_" + field, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) {
                     if ("bg".equals(field)) m.bg = !m.bg; else if ("border".equals(field)) m.border = !m.border; else if ("chroma".equals(field)) m.chroma = !m.chroma;
                     else if ("hideInF1".equals(field)) m.hideInF1 = !m.hideInF1; else if ("hideInChat".equals(field)) m.hideInChat = !m.hideInChat;
@@ -885,7 +1439,7 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 ClientConfig.HudModule m = ClientConfig.get().hudModules.get(modId); if (m == null) return false;
                 String cur = "anchor".equals(field) ? m.anchor : "borderStyle".equals(field) ? m.borderStyle : "bracketStyle".equals(field) ? m.bracketStyle : "displayMode".equals(field) ? m.displayMode : m.fontWeight;
-                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawBtn(g, "mc_" + modId + "_" + field, x + w - 102, y + 8, 92, 20, Math.max(2, menuRad / 2), cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
                     int next = 0; for (int i = 0; i < vals.length; i++) if (vals[i].equalsIgnoreCase(cur)) next = (i + 1) % vals.length;
                     if ("anchor".equals(field)) m.anchor = vals[next]; else if ("borderStyle".equals(field)) m.borderStyle = vals[next]; else if ("bracketStyle".equals(field)) m.bracketStyle = vals[next]; else if ("displayMode".equals(field)) m.displayMode = vals[next]; else m.fontWeight = vals[next];
@@ -900,7 +1454,7 @@ public class SharedModMenu {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 String cur = ClientConfig.get().getString(optId, values[0]);
-                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawBtn(g, "cyc_" + optId, x + w - 94, y + 8, 84, 20, Math.max(2, menuRad / 2), cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
                     int next = 0; for (int i = 0; i < values.length; i++) if (values[i].equalsIgnoreCase(cur)) next = (i + 1) % values.length; ClientConfig.get().setOption(optId, values[next]); return true;
                 }
@@ -916,8 +1470,12 @@ public class SharedModMenu {
                 int trackX = x + 12, trackY = y + 31, trackW = w - 24;
                 if (!click) {
                     if (mx >= x && mx <= x + w && my >= y && my <= y + 44) hoveredTooltip = desc;
-                    g.drawGlassCard(x, y, w, 44, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
-                    String valStr = (("global_hud_rounding".equals(sliderKey) || "global_hud_opacity".equals(sliderKey)) && val < 0.0) ? "INDIV" : (isInt ? String.valueOf(Math.round(val)) : ((sliderKey.contains("opacity") || sliderKey.contains("alpha") || sliderKey.contains("topac") || sliderKey.contains("mod_x:") || sliderKey.contains("mod_y:") || "pvp_hurtcam_factor".equals(sliderKey)) ? (Math.round(val * 100) + "%") : String.format("%.2f", Double.valueOf(val))));
+                    g.drawRoundedRect(x, y, w, 44, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
+                    boolean isPct = sliderKey.contains("opacity") || sliderKey.contains("alpha") || sliderKey.contains("topac") || sliderKey.contains("opac")
+                        || sliderKey.contains("mod_x:") || sliderKey.contains("mod_y:") || sliderKey.contains("tw_x:") || sliderKey.contains("tw_y:")
+                        || "pvp_hurtcam_factor".equals(sliderKey) || "title_bg_dim".equals(sliderKey);
+                    String valStr = (("global_hud_rounding".equals(sliderKey) || "global_hud_opacity".equals(sliderKey)) && val < 0.0) ? "INDIV"
+                        : (isInt ? String.valueOf(Math.round(val)) : (isPct ? (Math.round(val * 100) + "%") : String.format("%.2f", Double.valueOf(val))));
                     g.text(valStr, x + w - g.textWidth(valStr) - 12, y + 8, accent, false); g.text(desc, x + 12, y + 18, ClientState.UI_TEXT_DIM, false);
                     g.drawRoundedRect(trackX, trackY, trackW, 4, 2, ClientState.UI_BORDER); int fillW = (int) Math.round(trackW * pct); if (fillW > 2) g.drawRoundedRect(trackX, trackY, fillW, 4, 2, accent);
                     g.drawCircleFilled(trackX + fillW, trackY + 2, 4, ClientState.UI_TEXT);
@@ -931,7 +1489,17 @@ public class SharedModMenu {
             @Override public int height() { return 60; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 int curArgb = readColorTarget(target); String hex = ClientState.toHexColor(curArgb);
-                if (!click) { g.drawGlassCard(x, y, w, 60, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label + "  " + hex.toUpperCase(), x + 12, y + 7, ClientState.UI_TEXT, false); g.drawCircleFilled(x + w - 16, y + 11, 5, curArgb); }
+                if (!click) { g.drawRoundedRect(x, y, w, 60, menuRad, 0xFF14141B); g.text(label + "  " + hex.toUpperCase(), x + 12, y + 7, ClientState.UI_TEXT, false); g.drawCircleFilled(x + w - 16, y + 11, 5, curArgb); }
+                if (drawBtn(g, "cpst_" + target, x + w - 66, y + 5, 40, 14, 3, "Paste", 0xFF1E1E28, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                    String clip = g.clipboardText();
+                    if (clip != null) {
+                        String cHex = clip.trim().replace("#", "");
+                        if (cHex.length() == 6) {
+                            try { Integer.parseInt(cHex, 16); writeColorTarget(target, "#" + cHex.toLowerCase()); } catch (Exception ignored) {}
+                        }
+                    }
+                    return true;
+                }
                 int sx = x + 14, sy = y + 26;
                 for (int i = 0; i < SWATCHES.length; i++) {
                     int swCol = ClientState.parseHexColor(SWATCHES[i], 0xFFFFFFFF); boolean sel = SWATCHES[i].equalsIgnoreCase(hex);
@@ -948,8 +1516,7 @@ public class SharedModMenu {
                 return false;
             }
         };
-    }
-    private SettingRow xhairPreviewRow() {
+    }    private SettingRow xhairPreviewRow() {
         return new SettingRow() {
             @Override public int height() { return 62; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
@@ -1002,12 +1569,46 @@ public class SharedModMenu {
         };
     }
     private String normalizePixelGrid(String raw, int n) { int len = n * n; char[] out = new char[len]; Arrays.fill(out, '0'); if (raw != null) { int copy = Math.min(len, raw.length()); for (int i = 0; i < copy; i++) if (raw.charAt(i) == '1') out[i] = '1'; } return new String(out); }
+    private SettingRow seedInputRow() {
+        return new SettingRow() {
+            @Override public int height() { return 48; }
+            @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
+                ClientConfig cfg = ClientConfig.get();
+                String curSeed = seedInputFocused ? seedInput : cfg.getWorldSeed(ClientState.getCurrentWorldKey());
+                if (!click) {
+                    g.drawGlassCard(x, y, w, 48, menuRad, 0xFF14141B, seedInputFocused ? accent : ClientState.UI_BORDER);
+                    g.text("World Seed (" + ClientState.getActiveSeedMode() + ")", x + 12, y + 6, ClientState.UI_TEXT, false);
+                }
+                int iy = y + 20, inW = w - 122;
+                boolean inHov = mx >= x + 12 && mx <= x + 12 + inW && my >= iy && my <= iy + 20;
+                if (!click) {
+                    g.drawGlassCard(x + 12, iy, inW, 20, 5, ClientState.UI_INPUT, seedInputFocused ? accent : (inHov ? ClientState.UI_BORDER_HOV : ClientState.UI_BORDER));
+                    String disp = curSeed.isEmpty() ? (seedInputFocused ? "_" : "Optional: type seed (blank = scanned / auto SP)...") : (curSeed + (seedInputFocused ? "_" : ""));
+                    g.text(trimToWidth(g, disp, inW - 12), x + 18, iy + 6, curSeed.isEmpty() && !seedInputFocused ? ClientState.UI_TEXT_DIM : ClientState.UI_TEXT, false);
+                } else if (inHov) {
+                    g.playClickSound(); seedInputFocused = true; seedInput = cfg.getWorldSeed(ClientState.getCurrentWorldKey()); return true;
+                } else if (mx < x || mx > x + w || my < y || my > y + 48) {
+                    seedInputFocused = false;
+                }
+                if (drawBtn(g, "seed_paste", x + 16 + inW, iy, 46, 20, 4, "Paste", 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
+                    String clip = g.clipboardText();
+                    if (clip != null) { seedInput = clip.trim(); cfg.setWorldSeed(ClientState.getCurrentWorldKey(), seedInput); }
+                    return true;
+                }
+                if (drawBtn(g, "seed_clr", x + 66 + inW, iy, 44, 20, 4, "Clear", 0xFF3B1A1E, 0xFFFFFFFF, false, mx, my, click)) {
+                    seedInput = ""; seedInputFocused = false; cfg.setWorldSeed(ClientState.getCurrentWorldKey(), ""); return true;
+                }
+                return false;
+            }
+        };
+    }
+
     private SettingRow accentRow(final String label) {
         return new SettingRow() {
             @Override public int height() { return 46; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 String cur = ClientConfig.get().getString("ui_accent", "white");
-                if (!click) { g.drawGlassCard(x, y, w, 46, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 7, ClientState.UI_TEXT, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 46, menuRad, 0xFF14141B); g.text(label, x + 12, y + 7, ClientState.UI_TEXT, false); }
                 int bx = x + 18, by = y + 28;
                 int[] cols = {0xFFFFFFFF, 0xFFFF3333, 0xFF22D3EE, 0xFF10B981, 0xFFA855F7, 0xFFF59E0B, 0xFF84CC16, ClientState.parseHexColor(ClientConfig.get().getString("ui_accent_custom", "#ff3333"), 0xFFFF3333)};
                 for (int i = 0; i < ACCENTS.length; i++) {
@@ -1024,11 +1625,17 @@ public class SharedModMenu {
         return new SettingRow() {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
-                boolean prim = "wp_add".equals(actId) || "title_editor".equals(actId);
-                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, Math.max(2, menuRad / 2), "wp_add".equals(actId) ? "Add" : ("title_editor".equals(actId) ? "Edit" : "Run"), prim ? accent : 0xFF3B1A1E, prim ? accentFg : ClientState.UI_TEXT, prim, mx, my, click)) {
+                if (!click) { g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                boolean prim = "wp_add".equals(actId) || "homescreen_cfg".equals(actId) || "open_worldmap".equals(actId) || "struct_all_on".equals(actId);
+                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, Math.max(2, menuRad / 2), "wp_add".equals(actId) ? "Add" : (("homescreen_cfg".equals(actId) || "open_worldmap".equals(actId)) ? "Open" : ("struct_all_on".equals(actId) ? "All ON" : ("struct_all_off".equals(actId) ? "All OFF" : ("clear_map_cache".equals(actId) ? "Clear" : ("prof_export".equals(actId) ? "Copy" : ("prof_import".equals(actId) ? "Paste" : "Run")))))), prim ? accent : 0xFF3B1A1E, prim ? accentFg : ClientState.UI_TEXT, prim, mx, my, click)) {
                     if ("wp_add".equals(actId)) ClientConfig.get().addWaypointAt("WP #" + (ClientConfig.get().waypoints.size() + 1), ClientState.getPlayerX(), ClientState.getPlayerY(), ClientState.getPlayerZ(), ClientState.getPlayerDim(), ClientState.getCurrentWorldKey());
-                    else if ("title_editor".equals(actId)) { if (hostActions != null) hostActions.openTitleEditor(); }
+                    else if ("homescreen_cfg".equals(actId)) { activeMenu = "title_screen"; clearSubEdits(); resetScroll(); }
+                    else if ("open_worldmap".equals(actId)) { if (hostActions != null) hostActions.openWorldMap(); }
+                    else if ("struct_all_on".equals(actId)) ClientConfig.get().setAllStructureFilters(true);
+                    else if ("struct_all_off".equals(actId)) ClientConfig.get().setAllStructureFilters(false);
+                    else if ("clear_map_cache".equals(actId)) ClientState.markMapCacheDirty();
+                    else if ("prof_export".equals(actId)) { if (uiHostBridge != null) uiHostBridge.setClipboardText(ClientConfig.get().exportProfileCode()); }
+                    else if ("prof_import".equals(actId)) { if (uiHostBridge != null) ClientConfig.get().importProfileCode(uiHostBridge.clipboardText()); }
                     else if ("kd_reset".equals(actId)) ClientState.resetKd();
                     else if ("reset_layout".equals(actId)) ClientConfig.get().resetLayout();
                     else if ("reset_all".equals(actId)) ClientConfig.get().resetAll();
@@ -1044,6 +1651,18 @@ public class SharedModMenu {
 
     private double readSliderValue(String key) {
         ClientConfig cfg = ClientConfig.get();
+        if ("title_bg_dim".equals(key)) return cfg.getDouble("title_bg_dim", 0.35);
+        if (key.startsWith("wp_rad:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(7)); return wp != null ? wp.borderRadius : 6; }
+        if (key.startsWith("tw_")) {
+            ClientConfig.TitleWidget tw = cfg.titleWidgets.get(key.substring(key.indexOf(':') + 1)); if (tw == null) return 0;
+            if (key.startsWith("tw_scale:")) return tw.scale; if (key.startsWith("tw_x:")) return tw.x; if (key.startsWith("tw_y:")) return tw.y;
+            if (key.startsWith("tw_rad:")) return tw.borderRadius; if (key.startsWith("tw_opac:")) return tw.opacity;
+            if (key.startsWith("tw_topac:")) return tw.textOpacity; if (key.startsWith("tw_bw:")) return tw.borderWidth;
+        }
+        if ("wp_scale".equals(key)) return cfg.getDouble("wp_scale", 1.0);
+        if (key.startsWith("wp_scale:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(9)); return wp != null ? wp.scale : 1.0; }
+        if ("minimap_size".equals(key)) return cfg.getDouble("minimap_size", 96.0);
+        if ("minimap_zoom".equals(key)) return cfg.getDouble("minimap_zoom", 1.0);
         if ("global_hud_rounding".equals(key)) return cfg.getDouble("global_hud_rounding", -1.0);
         if ("global_hud_opacity".equals(key)) return cfg.getDouble("global_hud_opacity", -1.0);
         if ("ui_menu_rounding".equals(key)) return cfg.getDouble("ui_menu_rounding", 10.0);
@@ -1067,6 +1686,9 @@ public class SharedModMenu {
         if ("hb_fill_alpha".equals(key)) return cfg.getDouble("hb_fill_alpha", 0.12);
         if ("bb_line_width".equals(key)) return cfg.getDouble("bb_line_width", 2.5);
         if ("bb_fill_alpha".equals(key)) return cfg.getDouble("bb_fill_alpha", 0.30);
+        if ("bo_line_width".equals(key)) return cfg.getDouble("bo_line_width", 2.0);
+        if ("bo_fill_alpha".equals(key)) return cfg.getDouble("bo_fill_alpha", 0.12);
+        if ("part_crit_mult".equals(key)) return cfg.getDouble("part_crit_mult", 1);
         if ("pvp_small_totem_scale".equals(key)) return cfg.getDouble("pvp_small_totem_scale", 0.60);
         if ("pvp_small_totem_y".equals(key)) return cfg.getDouble("pvp_small_totem_y", -0.12);
         if (key.startsWith("vm_")) return cfg.getDouble(key, key.endsWith("_scale") ? 1.0 : 0.0);
@@ -1086,7 +1708,22 @@ public class SharedModMenu {
         double pct = Math.max(0.0, Math.min(1.0, (mx - sliderX) / (double) Math.max(1, sliderW)));
         double snapped = Math.max(sliderMin, Math.min(sliderMax, Math.round((sliderMin + pct * (sliderMax - sliderMin)) / sliderStep) * sliderStep));
         ClientConfig cfg = ClientConfig.get();
-        if ("global_hud_rounding".equals(key)) cfg.setOption("global_hud_rounding", Integer.valueOf(snapped < 0 ? -1 : (int) Math.round(snapped)));
+        if ("title_bg_dim".equals(key)) cfg.setOption("title_bg_dim", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if (key.startsWith("wp_rad:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(7)); if (wp != null) { wp.borderRadius = (int) Math.round(snapped); cfg.save(); } }
+        else if (key.startsWith("tw_")) {
+            ClientConfig.TitleWidget tw = cfg.titleWidgets.get(key.substring(key.indexOf(':') + 1));
+            if (tw != null) {
+                int iv = (int) Math.round(snapped);
+                if (key.startsWith("tw_scale:")) tw.scale = snapped; else if (key.startsWith("tw_x:")) tw.x = snapped; else if (key.startsWith("tw_y:")) tw.y = snapped;
+                else if (key.startsWith("tw_rad:")) tw.borderRadius = iv; else if (key.startsWith("tw_opac:")) tw.opacity = snapped;
+                else if (key.startsWith("tw_topac:")) tw.textOpacity = snapped; else if (key.startsWith("tw_bw:")) tw.borderWidth = iv;
+                cfg.save();
+            }
+        } else if ("wp_scale".equals(key)) cfg.setOption("wp_scale", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if (key.startsWith("wp_scale:")) { ClientConfig.Waypoint wp = findWaypoint(key.substring(9)); if (wp != null) { wp.scale = Math.round(snapped * 100.0) / 100.0; cfg.save(); } }
+        else if ("minimap_size".equals(key)) cfg.setOption("minimap_size", Integer.valueOf((int) Math.round(snapped)));
+        else if ("minimap_zoom".equals(key)) cfg.setOption("minimap_zoom", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
+        else if ("global_hud_rounding".equals(key)) cfg.setOption("global_hud_rounding", Integer.valueOf(snapped < 0 ? -1 : (int) Math.round(snapped)));
         else if ("global_hud_opacity".equals(key)) cfg.setOption("global_hud_opacity", Double.valueOf(snapped < 0 ? -1.0 : Math.round(snapped * 100.0) / 100.0));
         else if ("ui_menu_rounding".equals(key)) cfg.setOption("ui_menu_rounding", Integer.valueOf((int) Math.round(snapped)));
         else if ("ui_card_width".equals(key)) cfg.setOption("ui_card_width", Integer.valueOf((int) Math.round(snapped)));
@@ -1098,6 +1735,8 @@ public class SharedModMenu {
         else if ("xhair_thick".equals(key)) cfg.setOption("pvp_xhair_thick", Integer.valueOf((int) Math.round(snapped)));
         else if ("xhair_range".equals(key)) cfg.setOption("pvp_xhair_target_range", Integer.valueOf((int) Math.round(snapped)));
         else if ("zoom_fac".equals(key)) cfg.setOption("cam_zoom_fac", Integer.valueOf((int) Math.round(snapped)));
+        else if ("part_crit_mult".equals(key)) cfg.setOption("part_crit_mult", Integer.valueOf((int) Math.round(snapped)));
+        else if ("bo_line_width".equals(key) || "bo_fill_alpha".equals(key)) cfg.setOption(key, Double.valueOf(Math.round(snapped * 100.0) / 100.0));
         else if ("fire_offset".equals(key)) cfg.setOption("pvp_low_fire_offset", Double.valueOf(Math.round(snapped * 100.0) / 100.0));
         else if ("cam_fov_factor".equals(key) || "pvp_hurtcam_factor".equals(key) || key.startsWith("pvp_low_shield_") || "pvp_hit_color_alpha".equals(key) || key.startsWith("hb_") || key.startsWith("bb_") || key.startsWith("vm_") || key.startsWith("pvp_small_totem_")) {
             cfg.setOption(key, Double.valueOf(Math.round(snapped * 100.0) / 100.0));
@@ -1120,6 +1759,10 @@ public class SharedModMenu {
     }
 
     private int readColorTarget(String target) {
+        if (target.startsWith("wp:")) { ClientConfig.Waypoint wp = findWaypoint(target.substring(3)); return wp != null ? ClientState.parseHexColor(wp.color, 0xFF22D3EE) : 0xFF22D3EE; }
+        if (target.startsWith("tw_bg:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(6)); return tw != null ? ClientState.parseHexColor(tw.bgColor, 0xFF121219) : 0xFF121219; }
+        if (target.startsWith("tw_txt:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(7)); return tw != null ? ClientState.parseHexColor(tw.textColor, 0xFFF4F4F5) : 0xFFF4F4F5; }
+        if (target.startsWith("tw_brd:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(7)); return tw != null ? ClientState.parseHexColor(tw.borderColor, 0xFF27272A) : 0xFF27272A; }
         if (target.startsWith("opt:")) return ClientState.parseHexColor(ClientConfig.get().getString(target.substring(4), "#ffffff"), 0xFFFFFFFF);
         if (target.startsWith("mod_bg:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(7)); return m != null ? ClientState.parseHexColor(m.bgColor, 0xFF09090B) : 0xFF09090B; }
         if (target.startsWith("mod_brd2:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(9)); return m != null ? ClientState.parseHexColor(m.borderColor2, 0xFFFFFFFF) : 0xFFFFFFFF; }
@@ -1129,7 +1772,11 @@ public class SharedModMenu {
     }
 
     private void writeColorTarget(String target, String hex) {
-        if (target.startsWith("opt:")) ClientConfig.get().setOption(target.substring(4), hex);
+        if (target.startsWith("wp:")) { ClientConfig.Waypoint wp = findWaypoint(target.substring(3)); if (wp != null) { wp.color = hex; ClientConfig.get().save(); } }
+        else if (target.startsWith("tw_bg:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(6)); if (tw != null) { tw.bgColor = hex; ClientConfig.get().save(); } }
+        else if (target.startsWith("tw_txt:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(7)); if (tw != null) { tw.textColor = hex; tw.chroma = false; ClientConfig.get().save(); } }
+        else if (target.startsWith("tw_brd:")) { ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(target.substring(7)); if (tw != null) { tw.borderColor = hex; ClientConfig.get().save(); } }
+        else if (target.startsWith("opt:")) ClientConfig.get().setOption(target.substring(4), hex);
         else if (target.startsWith("mod_bg:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(7)); if (m != null) { m.bgColor = hex; ClientConfig.get().save(); } }
         else if (target.startsWith("mod_brd2:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(9)); if (m != null) { m.borderColor2 = hex; ClientConfig.get().save(); } }
         else if (target.startsWith("mod_brd:")) { ClientConfig.HudModule m = ClientConfig.get().hudModules.get(target.substring(8)); if (m != null) { m.borderColor = hex; ClientConfig.get().save(); } }
@@ -1150,6 +1797,10 @@ public class SharedModMenu {
         if ("hit_color".equals(id)) return cfg.getBool("pvp_hit_color", false);
         if ("hitboxes".equals(id)) return cfg.getBool("hb_enabled", false);
         if ("block_break".equals(id)) return cfg.getBool("bb_enabled", false);
+        if ("block_outline".equals(id)) return cfg.getBool("bo_enabled", false);
+        if ("world_env".equals(id)) return !"vanilla".equalsIgnoreCase(cfg.getString("vis_time_mode", "vanilla")) || !"vanilla".equalsIgnoreCase(cfg.getString("vis_weather_mode", "vanilla")) || cfg.getBool("vis_no_fog", false) || cfg.getBool("vis_clear_lava_water", false) || cfg.getBool("vis_no_pumpkin", false) || cfg.getBool("vis_no_spyglass", false) || cfg.getBool("vis_no_portal_overlay", false) || cfg.getBool("vis_no_vignette", false);
+        if ("particles".equals(id)) return cfg.getDouble("part_crit_mult", 1.0) > 1.1 || cfg.getBool("part_hide_rain", false) || cfg.getBool("part_hide_portal", false) || cfg.getBool("part_hide_dust", false);
+        if ("chat_mod".equals(id)) return cfg.getBool("chat_coord_picker", true) || cfg.getBool("chat_compact", true) || cfg.getBool("chat_timestamps", false) || cfg.getBool("chat_mention_highlight", true);
         ClientConfig.HudModule m = cfg.hudModules.get(id); return m != null && m.enabled;
     }
 
@@ -1167,11 +1818,15 @@ public class SharedModMenu {
         else if ("hit_color".equals(id)) cfg.setOption("pvp_hit_color", Boolean.valueOf(!cfg.getBool("pvp_hit_color", false)));
         else if ("hitboxes".equals(id)) cfg.setOption("hb_enabled", Boolean.valueOf(!cfg.getBool("hb_enabled", false)));
         else if ("block_break".equals(id)) cfg.setOption("bb_enabled", Boolean.valueOf(!cfg.getBool("bb_enabled", false)));
+        else if ("block_outline".equals(id)) cfg.setOption("bo_enabled", Boolean.valueOf(!cfg.getBool("bo_enabled", false)));
+        else if ("world_env".equals(id)) cfg.setOption("vis_no_fog", Boolean.valueOf(!cfg.getBool("vis_no_fog", false)));
+        else if ("particles".equals(id)) cfg.setOption("part_crit_mult", Integer.valueOf(cfg.getDouble("part_crit_mult", 1.0) > 1.1 ? 1 : 2));
+        else if ("chat_mod".equals(id)) cfg.setOption("chat_coord_picker", Boolean.valueOf(!cfg.getBool("chat_coord_picker", true)));
         else { ClientConfig.HudModule m = cfg.hudModules.get(id); if (m != null) cfg.toggleModule(m); }
     }
 
     private String getModTitle(String id) { for (ModEntry m : ALL_MODS) if (m.id.equals(id)) return m.name; return "Module Settings"; }
-    private String getMenuTitle(String id) { return "favorites".equals(id) ? "Favorites" : "waypoints".equals(id) ? "Waypoints" : "system".equals(id) ? "System & Perf" : "pvp".equals(id) ? "PvP & Combat" : "world".equals(id) ? "World & Survival" : "server".equals(id) ? "Server & Minigames" : "visuals".equals(id) ? "Visuals & HUD" : "utility".equals(id) ? "Core Utilities" : "All Mods"; }
+    private String getMenuTitle(String id) { return "favorites".equals(id) ? "Favorites" : "title_screen".equals(id) ? "Homescreen" : "waypoints".equals(id) ? "Waypoints" : "system".equals(id) ? "System & Perf" : "pvp".equals(id) ? "PvP & Combat" : "world".equals(id) ? "World & Survival" : "server".equals(id) ? "Server & Minigames" : "visuals".equals(id) ? "Visuals & HUD" : "utility".equals(id) ? "Core Utilities" : "All Mods"; }
     private String trimToWidth(UiBridge.UiDraw g, String s, int maxW) { if (g.textWidth(s) <= maxW) return s; while (s.length() > 3 && g.textWidth(s + "..") > maxW) s = s.substring(0, s.length() - 1); return s + ".."; }
     private List<String> wrapText(UiBridge.UiDraw g, String text, int maxW, int maxLines) {
         List<String> lines = new ArrayList<String>(); String[] words = text.split(" "); StringBuilder cur = new StringBuilder();
@@ -1189,7 +1844,7 @@ public class SharedModMenu {
     }
     private boolean drawBtn(UiBridge.UiDraw g, String id, int x, int y, int w, int h, int rad, String txt, int bg, int fg, boolean solidAccent, int mx, int my, boolean click) {
         boolean hov = mx >= x && mx <= x + w && my >= y && my <= y + h;
-        if (!click) { g.drawGlassCard(x, y, w, h, rad, ClientState.lerpColor(bg, ClientState.brightenArgb(bg, solidAccent ? -20 : 18), animHover(id, hov)), solidAccent ? bg : ClientState.UI_BORDER); g.text(txt, x + (w - g.textWidth(txt)) / 2, y + (h - 7) / 2, fg, false); }
+        if (!click) { g.drawRoundedRect(x, y, w, h, rad, ClientState.lerpColor(bg, ClientState.brightenArgb(bg, solidAccent ? -20 : 18), animHover(id, hov))); g.text(txt, x + (w - g.textWidth(txt)) / 2, y + (h - 7) / 2, fg, false); }
         if (hov && click) { g.playClickSound(); return true; } return false;
     }
     private boolean drawSwitch(UiBridge.UiDraw g, String id, int x, int y, int w, int h, boolean on, int accent, int accentFg, int mx, int my, boolean click) {

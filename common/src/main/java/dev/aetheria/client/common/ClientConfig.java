@@ -21,21 +21,27 @@ public class ClientConfig {
     public final Map<String, JsonElement> options = new LinkedHashMap<String, JsonElement>();
     public final List<Waypoint> waypoints = new ArrayList<Waypoint>();
     public final List<AccountEntry> accounts = new ArrayList<AccountEntry>();
+    public final Set<String> lootedStructures = new LinkedHashSet<String>();
+    public final Set<String> visitedStructures = new LinkedHashSet<String>();
+    public final Map<String, String> worldSeeds = new LinkedHashMap<String, String>();
+    public final Map<String, String> worldProfiles = new LinkedHashMap<String, String>();
 
     public static class Waypoint {
-        public String id, name, dimension = "minecraft:overworld", worldId = "global", color = "#22d3ee";
-        public int x, y, z;
+        public String id, name, dimension = "minecraft:overworld", worldId = "global", color = "#22d3ee", style = "global";
+        public int x, y, z, borderRadius = 3;
+        public double scale = 1.0;
         public boolean enabled = true;
     }
     public static class AccountEntry {
-        public String id, name, type = "offline", tag = "Alt", uuid = "";
+        public String id, name, type = "offline", tag = "Alt", uuid = "", accessToken = "", refreshToken = "";
+        public long expiresAt = 0L;
         public boolean pinned = false;
     }
     public static class TitleWidget {
-        public String id, label, desc = "";
-        public boolean enabled = true;
-        public double x, y, scale = 1.0, opacity = 0.88;
-        public int borderRadius = 8;
+        public String id, label, desc = "", bgColor = "#121219", textColor = "#f4f4f5", borderColor = "#27272a", customText = "";
+        public boolean enabled = true, showBorder = false, chroma = false, shadow = false;
+        public double x, y, scale = 1.0, opacity = 0.88, textOpacity = 1.0;
+        public int borderRadius = 3, borderWidth = 1;
     }
     public static class HudModule {
         public String id, label, category = "system", optId, desc = "", anchor = "top-left";
@@ -43,7 +49,7 @@ public class ClientConfig {
         public String borderStyle = "solid", fontFamily = "default", fontWeight = "normal", prefix = "", suffix = "", bracketStyle = "none", displayMode = "icon_text", customText = "Aetheria Client", dropShadowColor = "#000000";
         public boolean enabled, favorite = false, bg = true, border = false, chroma = false, shadow = true, hideInF1 = true, hideInChat = false, hideInInventory = false, hideInF3 = true;
         public double x, y, scale = 1.0, opacity = 0.35, textOpacity = 1.0, chromaSpeed = 1.0, chromaSat = 0.85, chromaAngle = 45.0;
-        public int width = 0, height = 0, borderRadius = 8, borderWidth = 1, paddingX = 6, paddingY = 4, margin = 0, blurRadius = 8, letterSpacing = 0, dropShadowX = 0, dropShadowY = 2, dropShadowBlur = 0;
+        public int width = 0, height = 0, borderRadius = 3, borderWidth = 1, paddingX = 6, paddingY = 4, margin = 0, blurRadius = 8, letterSpacing = 0, dropShadowX = 0, dropShadowY = 2, dropShadowBlur = 0;
     }
 
     public static ClientConfig get() { return INSTANCE; }
@@ -56,21 +62,52 @@ public class ClientConfig {
         try { if (Files.exists(configPath) && Files.getLastModifiedTime(configPath).toMillis() > lastFileMtimeMs) load(); } catch (IOException ignored) {}
     }
 
-    private void addTitle(String id, String label, String desc, boolean en, double x, double y) {
-        TitleWidget tw = new TitleWidget(); tw.id = id; tw.label = label; tw.desc = desc; tw.enabled = en; tw.x = x; tw.y = y; titleWidgets.put(id, tw);
+    private TitleWidget addTitle(String id, String label, String desc, boolean en, double x, double y) {
+        TitleWidget tw = new TitleWidget();
+        tw.id = id; tw.label = label; tw.desc = desc; tw.enabled = en; tw.x = x; tw.y = y;
+        titleWidgets.put(id, tw);
+        return tw;
     }
+
     public void resetTitleLayout() {
         titleWidgets.clear();
-        addTitle("logo", "Aetheria Banner", "Client title & active profile badge", true, 0.50, 0.18);
-        addTitle("quick_play", "Play Button", "Quick launch into recent world/menu", true, 0.50, 0.33);
-        addTitle("singleplayer", "Singleplayer", "Local worlds & saves button", true, 0.50, 0.42);
-        addTitle("multiplayer", "Servers / Multiplayer", "Server browser & quick-join", true, 0.50, 0.50);
-        addTitle("realms", "Realms Button", "Minecraft Realms screen", true, 0.50, 0.58);
-        addTitle("options", "Options / Settings", "Game video, audio & keybinds", true, 0.41, 0.67);
-        addTitle("client_menu", "Aetheria Menu", "Open Aetheria Client settings", true, 0.59, 0.67);
-        addTitle("quit", "Quit / ESC Button", "Exit Minecraft to desktop", true, 0.50, 0.76);
-        addTitle("account", "Account Widget", "Switch, add & erase alt accounts", true, 0.02, 0.04);
-        addTitle("background", "Background Widget", "Switch animated title wallpaper", true, 0.98, 0.04);
+        addTitle("logo", "Aetheria Banner", "Client title & active profile badge", true, 0.50, 0.17);
+        TitleWidget qp = addTitle("quick_play", "Play Button", "Quick launch into worlds menu", true, 0.50, 0.32);
+        qp.bgColor = "#ffffff"; qp.textColor = "#09090b"; qp.borderColor = "#ffffff";
+        addTitle("singleplayer", "Singleplayer", "Local worlds & saves button", true, 0.50, 0.41);
+        addTitle("multiplayer", "Multiplayer", "Server browser & quick-join", true, 0.50, 0.49);
+        addTitle("realms", "Realms Button", "Minecraft Realms screen", true, 0.50, 0.57);
+        addTitle("options", "Options / Settings", "Game video, audio & keybinds", true, 0.41, 0.66);
+        addTitle("client_menu", "Aetheria Menu", "Open Aetheria Client settings", true, 0.59, 0.66);
+        addTitle("quit", "Quit / ESC Button", "Exit Minecraft to desktop", true, 0.50, 0.75);
+        addTitle("account", "Account Card", "Active account & quick switcher", true, 0.11, 0.06);
+        addTitle("clock", "Real-World Clock", "Live local time & date", false, 0.89, 0.06);
+        addTitle("fps_badge", "FPS & RAM Badge", "Live frame rate & heap usage", false, 0.89, 0.14);
+        addTitle("profile_pill", "Profile Badge", "Active HUD profile indicator", false, 0.11, 0.14);
+        addTitle("version_badge", "Version Badge", "Aetheria & Minecraft version", false, 0.89, 0.94);
+        addTitle("last_server", "Server Card", "Shows last/current server shortcut", false, 0.14, 0.86);
+        addTitle("session_timer", "Session Uptime", "Client uptime duration", false, 0.89, 0.22);
+        addTitle("mod_count", "Active Mods", "Count of enabled HUD modules", false, 0.11, 0.22);
+        addTitle("waypoint_count", "Waypoints Count", "Saved waypoints summary", false, 0.11, 0.30);
+        addTitle("skin_card", "Player Badge", "Active player name & status", false, 0.89, 0.84);
+        addTitle("system_info", "System Specs", "CPU cores & JVM memory", false, 0.14, 0.94);
+        TitleWidget note = addTitle("custom_note", "Custom Banner Text", "Editable welcome/MOTD text", false, 0.50, 0.86);
+        note.customText = "Welcome to Aetheria Client";
+    }
+
+    public void resetTitleWidget(String id) {
+        TitleWidget old = titleWidgets.get(id);
+        Map<String, TitleWidget> snap = new LinkedHashMap<String, TitleWidget>(titleWidgets);
+        resetTitleLayout();
+        TitleWidget fresh = titleWidgets.get(id);
+        titleWidgets.clear();
+        titleWidgets.putAll(snap);
+        if (fresh != null) {
+            if (old != null) fresh.enabled = old.enabled;
+            titleWidgets.put(id, fresh);
+        }
+        if (getBool("profile_auto_world", true) && ClientState.getCurrentWorldKey() != null && !"global".equals(ClientState.getCurrentWorldKey())) { worldProfiles.put(ClientState.getCurrentWorldKey(), activeProfile); }
+        save();
     }
 
     private void initDefaults() {
@@ -125,7 +162,7 @@ public class ClientConfig {
         add("day_count", "Day & Time", "world", "hud_day_count", false, 0.985, 0.425, "top-right", "World day count & time");
         add("moon_phase", "Moon Phase", "world", "hud_moon", false, 0.985, 0.475, "top-right", "Current moon phase");
         add("weather", "Weather", "world", "hud_weather", false, 0.985, 0.525, "top-right", "Clear / Rain / Thunder");
-        add("minimap", "Radar Minimap", "world", "hud_minimap", false, 0.985, 0.620, "mid-right", "Live entity & waypoint radar");
+        add("minimap", "Terrain Minimap", "world", "hud_minimap", false, 0.985, 0.620, "mid-right", "High-quality terrain, waypoints & structures minimap");
         add("waypoints", "Waypoints", "world", "hud_waypoints", false, 0.720, 0.025, "top-left", "Per-world Lunar/Dot/Block/Beacon waypoints");
         add("spawn_dist", "Spawn Distance", "world", "hud_spawn_dist", false, 0.720, 0.075, "top-left", "Distance to spawn");
         add("death_loc", "Death Tracker", "world", "hud_death_loc", false, 0.720, 0.125, "top-left", "Last death coordinates");
@@ -154,9 +191,9 @@ public class ClientConfig {
 
         setDefaultOpt("global_hud_rounding", Integer.valueOf(-1)); setDefaultOpt("global_hud_opacity", Double.valueOf(-1.0));
         setDefaultOpt("ui_menu_layout", "oneclient"); setDefaultOpt("ui_clean_font", Boolean.TRUE);
-        setDefaultOpt("ui_custom_title", Boolean.TRUE); setDefaultOpt("title_bg_style", "waves"); setDefaultOpt("title_bg_dim", Double.valueOf(0.55));
+        setDefaultOpt("ui_custom_title", Boolean.TRUE); setDefaultOpt("title_bg_style", "waves"); setDefaultOpt("title_bg_dim", Double.valueOf(0.35));
         setDefaultOpt("ui_switch_style", "pill"); setDefaultOpt("ui_card_width", Integer.valueOf(138));
-        setDefaultOpt("ui_menu_rounding", Integer.valueOf(10)); setDefaultOpt("ui_menu_opacity", Double.valueOf(0.92));
+        setDefaultOpt("ui_menu_rounding", Integer.valueOf(3)); setDefaultOpt("ui_menu_opacity", Double.valueOf(0.92));
         setDefaultOpt("ui_accent", "white"); setDefaultOpt("ui_accent_custom", "#ff3333");
         setDefaultOpt("ui_animations", Boolean.TRUE); setDefaultOpt("ui_anim_speed", Double.valueOf(1.0)); setDefaultOpt("ui_anim_curve", "smooth");
         setDefaultOpt("ui_click_sound", Boolean.TRUE); setDefaultOpt("ui_tooltips", Boolean.TRUE);
@@ -187,11 +224,32 @@ public class ClientConfig {
         setDefaultOpt("armor_text_mode", Boolean.FALSE); setDefaultOpt("pearl_auto_hide", Boolean.TRUE); setDefaultOpt("shield_auto_hide", Boolean.TRUE);
         setDefaultOpt("wp_style", "lunar"); setDefaultOpt("wp_auto_death", Boolean.TRUE); setDefaultOpt("wp_world_markers", Boolean.TRUE); setDefaultOpt("wp_beam_beacon", Boolean.TRUE);
         setDefaultOpt("wp_show_dist", Boolean.TRUE); setDefaultOpt("wp_nether_sync", Boolean.TRUE); setDefaultOpt("wp_offscreen_arrows", Boolean.TRUE);
+        setDefaultOpt("wp_scale", Double.valueOf(1.0));
+        setDefaultOpt("ping_above_hotbar", Boolean.FALSE); setDefaultOpt("ping_number_only", Boolean.FALSE);
+        setDefaultOpt("minimap_size", Integer.valueOf(96)); setDefaultOpt("minimap_zoom", Double.valueOf(1.0));
+        setDefaultOpt("minimap_shape", "circle"); setDefaultOpt("minimap_structures", Boolean.TRUE);
+        setDefaultOpt("minimap_seed", ""); setDefaultOpt("minimap_hide_looted", Boolean.FALSE);
+        setDefaultOpt("worldmap_chunk_grid", Boolean.FALSE); setDefaultOpt("minimap_coords", Boolean.TRUE);
+        setDefaultOpt("tab_numeric_ping", Boolean.TRUE); setDefaultOpt("tab_ping_suffix", Boolean.TRUE);
+        setDefaultOpt("target_sticky", Boolean.TRUE); setDefaultOpt("armor_low_alert", Boolean.TRUE);
+        setDefaultOpt("bo_enabled", Boolean.FALSE); setDefaultOpt("bo_hide_vanilla", Boolean.TRUE); setDefaultOpt("bo_chroma", Boolean.FALSE);
+        setDefaultOpt("bo_color", "#22d3ee"); setDefaultOpt("bo_fill_alpha", Double.valueOf(0.12)); setDefaultOpt("bo_line_width", Double.valueOf(2.0));
+        setDefaultOpt("vis_time_mode", "vanilla"); setDefaultOpt("vis_weather_mode", "vanilla");
+        setDefaultOpt("vis_no_fog", Boolean.FALSE); setDefaultOpt("vis_clear_lava_water", Boolean.FALSE);
+        setDefaultOpt("vis_no_pumpkin", Boolean.FALSE); setDefaultOpt("vis_no_spyglass", Boolean.FALSE); setDefaultOpt("vis_no_portal_overlay", Boolean.FALSE); setDefaultOpt("vis_no_vignette", Boolean.FALSE);
+        setDefaultOpt("part_crit_mult", Integer.valueOf(1)); setDefaultOpt("part_hide_rain", Boolean.FALSE); setDefaultOpt("part_hide_portal", Boolean.FALSE); setDefaultOpt("part_hide_dust", Boolean.FALSE);
+        setDefaultOpt("chat_compact", Boolean.TRUE); setDefaultOpt("chat_timestamps", Boolean.FALSE);
+        setDefaultOpt("chat_mention_highlight", Boolean.TRUE); setDefaultOpt("chat_mention_sound", Boolean.TRUE); setDefaultOpt("chat_coord_picker", Boolean.TRUE);
+        setDefaultOpt("wp_auto_clear_death", Boolean.FALSE); setDefaultOpt("minimap_slime", Boolean.FALSE); setDefaultOpt("profile_auto_world", Boolean.TRUE);
+        setDefaultOpt("struct_village", Boolean.TRUE); setDefaultOpt("struct_monument", Boolean.TRUE); setDefaultOpt("struct_outpost", Boolean.TRUE);
+        setDefaultOpt("struct_mansion", Boolean.TRUE); setDefaultOpt("struct_trial_chamber", Boolean.TRUE); setDefaultOpt("struct_ancient_city", Boolean.TRUE);
+        setDefaultOpt("struct_portal", Boolean.TRUE); setDefaultOpt("struct_temple", Boolean.TRUE); setDefaultOpt("struct_fortress", Boolean.TRUE);
+        setDefaultOpt("struct_bastion", Boolean.TRUE); setDefaultOpt("struct_stronghold", Boolean.TRUE); setDefaultOpt("struct_end_city", Boolean.TRUE);
         setDefaultOpt("cam_zoom", Boolean.TRUE); setDefaultOpt("cam_zoom_fac", Integer.valueOf(4)); setDefaultOpt("cam_zoom_ease", Boolean.TRUE); setDefaultOpt("cam_zoom_slow", Boolean.TRUE);
         setDefaultOpt("cam_zoom_scroll", Boolean.TRUE); setDefaultOpt("cam_zoom_reset_scroll", Boolean.TRUE); setDefaultOpt("cam_zoom_key", "C");
         setDefaultOpt("util_fullbright", Boolean.FALSE); setDefaultOpt("util_fullbright_level", Double.valueOf(12.0));
         setDefaultOpt("util_freelook", Boolean.TRUE); setDefaultOpt("util_freelook_key", "LALT");
-        setDefaultOpt("ctl_menu_key", "RSHIFT"); setDefaultOpt("ctl_waypoints_key", "B"); setDefaultOpt("ctl_fullbright_key", "F7"); setDefaultOpt("ctl_profile_key", "F6");
+        setDefaultOpt("ctl_menu_key", "RSHIFT"); setDefaultOpt("ctl_waypoints_key", "B"); setDefaultOpt("ctl_fullbright_key", "F7"); setDefaultOpt("ctl_profile_key", "F6"); setDefaultOpt("ctl_worldmap_key", "M");
         setDefaultOpt("pvp_togglesprint", Boolean.TRUE); setDefaultOpt("pvp_togglesneak", Boolean.FALSE);
         setDefaultOpt("fps_show_label", Boolean.TRUE); setDefaultOpt("fps_detailed", Boolean.FALSE);
         setDefaultOpt("coords_facing", Boolean.TRUE); setDefaultOpt("coords_compact", Boolean.FALSE); setDefaultOpt("coords_nether", Boolean.TRUE);
@@ -203,15 +261,128 @@ public class ClientConfig {
     private void add(String id, String label, String cat, String optId, boolean en, double x, double y, String anc, String desc) {
         HudModule m = new HudModule(); m.id = id; m.label = label; m.category = cat; m.optId = optId; m.enabled = en; m.x = x; m.y = y; m.anchor = anc; m.desc = desc; hudModules.put(id, m);
     }
-    public synchronized void addAccount(String name, String type, String tag) {
-        if (name == null || name.trim().isEmpty()) return;
-        String clean = name.trim();
-        for (AccountEntry a : accounts) if (clean.equalsIgnoreCase(a.name)) { activeAccountId = a.id; save(); return; }
-        AccountEntry a = new AccountEntry(); a.id = "acc_" + System.currentTimeMillis() + "_" + accounts.size(); a.name = clean;
-        a.type = (type == null || type.isEmpty()) ? "offline" : type; a.tag = (tag == null || tag.isEmpty()) ? "Alt" : tag;
-        a.uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8)).toString();
-        accounts.add(a); activeAccountId = a.id; save();
+
+    public synchronized String getWorldProfile(String worldKey) {
+        return (worldKey != null && !worldKey.isEmpty()) ? worldProfiles.get(worldKey) : null;
     }
+    public synchronized void setWorldProfile(String worldKey, String prof) {
+        if (worldKey != null && !worldKey.isEmpty() && prof != null && !prof.isEmpty()) { worldProfiles.put(worldKey, prof); save(); }
+    }
+    public synchronized String exportProfileCode() {
+        JsonObject root = new JsonObject();
+        root.addProperty("profile", activeProfile);
+        JsonObject mods = new JsonObject();
+        for (Map.Entry<String, HudModule> e : hudModules.entrySet()) {
+            HudModule m = e.getValue();
+            JsonObject o = new JsonObject();
+            o.addProperty("en", Boolean.valueOf(m.enabled));
+            o.addProperty("x", Double.valueOf(Math.round(m.x * 1000.0) / 1000.0));
+            o.addProperty("y", Double.valueOf(Math.round(m.y * 1000.0) / 1000.0));
+            o.addProperty("sc", Double.valueOf(Math.round(m.scale * 100.0) / 100.0));
+            o.addProperty("op", Double.valueOf(Math.round(m.opacity * 100.0) / 100.0));
+            o.addProperty("rad", Integer.valueOf(m.borderRadius));
+            o.addProperty("bg", Boolean.valueOf(m.bg)); o.addProperty("brd", Boolean.valueOf(m.border));
+            o.addProperty("col", m.color); o.addProperty("bgc", m.bgColor); o.addProperty("anc", m.anchor);
+            mods.add(e.getKey(), o);
+        }
+        root.add("mods", mods);
+        root.addProperty("accent", getString("ui_accent", "white"));
+        root.addProperty("accentCustom", getString("ui_accent_custom", "#ff3333"));
+        return "AETH1:" + Base64.getEncoder().encodeToString(GSON.toJson(root).getBytes(StandardCharsets.UTF_8));
+    }
+    public synchronized boolean importProfileCode(String code) {
+        if (code == null) return false;
+        String t = code.trim();
+        if (t.startsWith("AETH1:")) t = t.substring(6);
+        try {
+            String json = new String(Base64.getDecoder().decode(t), StandardCharsets.UTF_8);
+            JsonObject root = new JsonParser().parse(json).getAsJsonObject();
+            if (root.has("profile")) activeProfile = root.get("profile").getAsString();
+            if (root.has("accent")) options.put("ui_accent", new JsonPrimitive(root.get("accent").getAsString()));
+            if (root.has("accentCustom")) options.put("ui_accent_custom", new JsonPrimitive(root.get("accentCustom").getAsString()));
+            if (root.has("mods") && root.get("mods").isJsonObject()) {
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("mods").entrySet()) {
+                    HudModule m = hudModules.get(e.getKey());
+                    if (m == null || !e.getValue().isJsonObject()) continue;
+                    JsonObject o = e.getValue().getAsJsonObject();
+                    if (o.has("en")) setModuleEnabledSilent(m, o.get("en").getAsBoolean());
+                    if (o.has("x")) m.x = o.get("x").getAsDouble();
+                    if (o.has("y")) m.y = o.get("y").getAsDouble();
+                    if (o.has("sc")) m.scale = Math.max(0.25, Math.min(4.0, o.get("sc").getAsDouble()));
+                    if (o.has("op")) m.opacity = Math.max(0.0, Math.min(1.0, o.get("op").getAsDouble()));
+                    if (o.has("rad")) m.borderRadius = Math.max(0, Math.min(30, o.get("rad").getAsInt()));
+                    if (o.has("bg")) m.bg = o.get("bg").getAsBoolean();
+                    if (o.has("brd")) m.border = o.get("brd").getAsBoolean();
+                    if (o.has("col")) m.color = o.get("col").getAsString();
+                    if (o.has("bgc")) m.bgColor = o.get("bgc").getAsString();
+                    if (o.has("anc")) m.anchor = o.get("anc").getAsString();
+                }
+            }
+            if (getBool("profile_auto_world", true) && ClientState.getCurrentWorldKey() != null && !"global".equals(ClientState.getCurrentWorldKey())) { worldProfiles.put(ClientState.getCurrentWorldKey(), activeProfile); }
+        save();
+            return true;
+        } catch (Exception ignored) { return false; }
+    }
+    public synchronized String getWorldSeed(String worldKey) {
+        if (worldKey != null && !worldKey.isEmpty()) {
+            String s = worldSeeds.get(worldKey);
+            if (s != null && !s.trim().isEmpty()) return s.trim();
+        }
+        return getString("minimap_seed", "").trim();
+    }
+    public synchronized void setWorldSeed(String worldKey, String seed) {
+        String clean = seed == null ? "" : seed.trim();
+        if (worldKey != null && !worldKey.isEmpty()) {
+            if (clean.isEmpty()) worldSeeds.remove(worldKey);
+            else worldSeeds.put(worldKey, clean);
+        }
+        options.put("minimap_seed", new JsonPrimitive(clean));
+        ClientState.markSeedDirty();
+        if (getBool("profile_auto_world", true) && ClientState.getCurrentWorldKey() != null && !"global".equals(ClientState.getCurrentWorldKey())) { worldProfiles.put(ClientState.getCurrentWorldKey(), activeProfile); }
+        save();
+    }
+    public synchronized boolean isStructureLooted(String key) { return key != null && lootedStructures.contains(key); }
+    public synchronized boolean isStructureVisited(String key) { return key != null && visitedStructures.contains(key); }
+    public synchronized void toggleStructureLooted(String key) {
+        if (key == null || key.isEmpty()) return;
+        if (!lootedStructures.remove(key)) lootedStructures.add(key);
+        if (getBool("profile_auto_world", true) && ClientState.getCurrentWorldKey() != null && !"global".equals(ClientState.getCurrentWorldKey())) { worldProfiles.put(ClientState.getCurrentWorldKey(), activeProfile); }
+        save();
+    }
+    public synchronized void markStructureVisited(String key) {
+        if (key != null && !key.isEmpty() && visitedStructures.add(key)) save();
+    }
+    public synchronized void setAllStructureFilters(boolean en) {
+        String[] keys = {"struct_village","struct_monument","struct_outpost","struct_mansion","struct_trial_chamber","struct_ancient_city","struct_portal","struct_temple","struct_fortress","struct_bastion","struct_stronghold","struct_end_city"};
+        for (int i = 0; i < keys.length; i++) options.put(keys[i], new JsonPrimitive(Boolean.valueOf(en)));
+        if (getBool("profile_auto_world", true) && ClientState.getCurrentWorldKey() != null && !"global".equals(ClientState.getCurrentWorldKey())) { worldProfiles.put(ClientState.getCurrentWorldKey(), activeProfile); }
+        save();
+    }
+
+    public synchronized void addAccount(String name, String type, String tag) { addOrUpdateAccount(name, type, tag, "", "", "", 0L); }
+    public synchronized AccountEntry addOrUpdateAccount(String name, String type, String tag, String uuid, String accessToken, String refreshToken, long expiresAt) {
+        if (name == null || name.trim().isEmpty()) return null;
+        String clean = name.trim();
+        String normType = (type == null || type.isEmpty()) ? "offline" : type;
+        for (AccountEntry a : accounts) {
+            if (clean.equalsIgnoreCase(a.name) && normType.equalsIgnoreCase(a.type)) {
+                if (uuid != null && !uuid.isEmpty()) a.uuid = uuid;
+                if (accessToken != null && !accessToken.isEmpty()) a.accessToken = accessToken;
+                if (refreshToken != null && !refreshToken.isEmpty()) a.refreshToken = refreshToken;
+                if (expiresAt > 0L) a.expiresAt = expiresAt;
+                activeAccountId = a.id; save(); return a;
+            }
+        }
+        AccountEntry a = new AccountEntry();
+        a.id = "acc_" + System.currentTimeMillis() + "_" + accounts.size();
+        a.name = clean; a.type = normType; a.tag = (tag == null || tag.isEmpty()) ? ("msa".equalsIgnoreCase(normType) ? "Main" : "Alt") : tag;
+        a.uuid = (uuid != null && !uuid.isEmpty()) ? uuid : UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8)).toString();
+        a.accessToken = accessToken == null ? "" : accessToken;
+        a.refreshToken = refreshToken == null ? "" : refreshToken;
+        a.expiresAt = expiresAt;
+        accounts.add(a); activeAccountId = a.id; save(); return a;
+    }
+
     public synchronized void removeAccount(String id) {
         for (int i = accounts.size() - 1; i >= 0; i--) if (id.equals(accounts.get(i).id)) accounts.remove(i);
         if (id.equals(activeAccountId)) activeAccountId = accounts.isEmpty() ? "" : accounts.get(0).id; save();
@@ -231,7 +402,7 @@ public class ClientConfig {
         w.name = (name == null || name.trim().isEmpty()) ? ("WP #" + (waypoints.size() + 1)) : name.trim();
         w.x = x; w.y = y; w.z = z; w.dimension = (dim == null || dim.isEmpty()) ? "minecraft:overworld" : dim;
         w.worldId = (worldId == null || worldId.isEmpty()) ? "global" : worldId;
-        w.color = WP_COLORS[waypoints.size() % WP_COLORS.length]; w.enabled = true; waypoints.add(w); save();
+        w.color = WP_COLORS[waypoints.size() % WP_COLORS.length]; w.style = "global"; w.borderRadius = 3; w.scale = 1.0; w.enabled = true; waypoints.add(w); save();
     }
     public synchronized void removeWaypoint(String id) { for (int i = waypoints.size() - 1; i >= 0; i--) if (id.equals(waypoints.get(i).id)) waypoints.remove(i); save(); }
     public synchronized void cycleWaypointColor(Waypoint w) {
@@ -245,6 +416,7 @@ public class ClientConfig {
         else if ("SMP".equalsIgnoreCase(name)) enableOnly(new String[]{"fps","coords","ping","server_tps","server_ip","player_count","waypoints","death_loc","totem_count","armor","potions","session","hotbar","scoreboard"});
         else if ("Minimal".equalsIgnoreCase(name)) enableOnly(new String[]{"fps","coords","ping","hotbar"});
         else if ("Cinematic".equalsIgnoreCase(name)) enableOnly(new String[]{"zoom_indicator"});
+        if (getBool("profile_auto_world", true) && ClientState.getCurrentWorldKey() != null && !"global".equals(ClientState.getCurrentWorldKey())) { worldProfiles.put(ClientState.getCurrentWorldKey(), activeProfile); }
         save();
     }
     public void cycleProfilePreset() {
@@ -279,8 +451,18 @@ public class ClientConfig {
                     tw.id = e.getKey();
                     if (o.has("label")) tw.label = o.get("label").getAsString(); if (o.has("desc")) tw.desc = o.get("desc").getAsString();
                     if (o.has("enabled")) tw.enabled = o.get("enabled").getAsBoolean(); if (o.has("x")) tw.x = o.get("x").getAsDouble();
-                    if (o.has("y")) tw.y = o.get("y").getAsDouble(); if (o.has("scale")) tw.scale = o.get("scale").getAsDouble();
-                    if (o.has("opacity")) tw.opacity = o.get("opacity").getAsDouble(); if (o.has("borderRadius")) tw.borderRadius = o.get("borderRadius").getAsInt();
+                    if (o.has("y")) tw.y = o.get("y").getAsDouble(); if (o.has("scale")) tw.scale = Math.max(0.4, Math.min(2.2, o.get("scale").getAsDouble()));
+                    if (o.has("opacity")) tw.opacity = Math.max(0.0, Math.min(1.0, o.get("opacity").getAsDouble()));
+                    if (o.has("textOpacity")) tw.textOpacity = Math.max(0.1, Math.min(1.0, o.get("textOpacity").getAsDouble()));
+                    if (o.has("borderRadius")) tw.borderRadius = Math.max(0, Math.min(28, o.get("borderRadius").getAsInt()));
+                    if (o.has("borderWidth")) tw.borderWidth = Math.max(0, Math.min(3, o.get("borderWidth").getAsInt()));
+                    if (o.has("showBorder")) tw.showBorder = o.get("showBorder").getAsBoolean();
+                    if (o.has("chroma")) tw.chroma = o.get("chroma").getAsBoolean();
+                    if (o.has("shadow")) tw.shadow = o.get("shadow").getAsBoolean();
+                    if (o.has("bgColor")) tw.bgColor = o.get("bgColor").getAsString();
+                    if (o.has("textColor")) tw.textColor = o.get("textColor").getAsString();
+                    if (o.has("borderColor")) tw.borderColor = o.get("borderColor").getAsString();
+                    if (o.has("customText")) tw.customText = o.get("customText").getAsString();
                     titleWidgets.put(e.getKey(), tw);
                 }
             }
@@ -292,6 +474,9 @@ public class ClientConfig {
                     a.id = o.has("id") ? o.get("id").getAsString() : ("acc_" + accounts.size()); a.name = o.has("name") ? o.get("name").getAsString() : "Player";
                     a.type = o.has("type") ? o.get("type").getAsString() : "offline"; a.tag = o.has("tag") ? o.get("tag").getAsString() : "Alt";
                     a.uuid = o.has("uuid") ? o.get("uuid").getAsString() : ""; a.pinned = o.has("pinned") && o.get("pinned").getAsBoolean();
+                    a.accessToken = o.has("accessToken") ? o.get("accessToken").getAsString() : "";
+                    a.refreshToken = o.has("refreshToken") ? o.get("refreshToken").getAsString() : "";
+                    a.expiresAt = o.has("expiresAt") ? o.get("expiresAt").getAsLong() : 0L;
                     accounts.add(a);
                 }
             }
@@ -304,9 +489,33 @@ public class ClientConfig {
                     w.x = o.has("x") ? o.get("x").getAsInt() : 0; w.y = o.has("y") ? o.get("y").getAsInt() : 64; w.z = o.has("z") ? o.get("z").getAsInt() : 0;
                     w.dimension = o.has("dimension") ? o.get("dimension").getAsString() : "minecraft:overworld";
                     w.worldId = o.has("worldId") ? o.get("worldId").getAsString() : "global";
-                    w.color = o.has("color") ? o.get("color").getAsString() : "#22d3ee"; w.enabled = !o.has("enabled") || o.get("enabled").getAsBoolean();
+                    w.color = o.has("color") ? o.get("color").getAsString() : "#22d3ee";
+                    w.style = o.has("style") ? o.get("style").getAsString() : "global";
+                    w.borderRadius = o.has("borderRadius") ? Math.max(0, Math.min(20, o.get("borderRadius").getAsInt())) : 3;
+                    w.scale = o.has("scale") ? Math.max(0.4, Math.min(2.5, o.get("scale").getAsDouble())) : 1.0;
+                    w.enabled = !o.has("enabled") || o.get("enabled").getAsBoolean();
                     waypoints.add(w);
                 }
+            }
+            if (root.has("lootedStructures") && root.get("lootedStructures").isJsonArray()) {
+                lootedStructures.clear();
+                for (JsonElement el : root.getAsJsonArray("lootedStructures")) if (el.isJsonPrimitive()) lootedStructures.add(el.getAsString());
+            }
+            worldProfiles.clear();
+            if (root.has("worldProfiles") && root.get("worldProfiles").isJsonObject()) {
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("worldProfiles").entrySet()) {
+                    if (e.getValue().isJsonPrimitive()) worldProfiles.put(e.getKey(), e.getValue().getAsString());
+                }
+            }
+            worldSeeds.clear(); worldProfiles.clear();
+            if (root.has("worldSeeds") && root.get("worldSeeds").isJsonObject()) {
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("worldSeeds").entrySet()) {
+                    if (e.getValue().isJsonPrimitive()) worldSeeds.put(e.getKey(), e.getValue().getAsString());
+                }
+            }
+            if (root.has("visitedStructures") && root.get("visitedStructures").isJsonArray()) {
+                visitedStructures.clear();
+                for (JsonElement el : root.getAsJsonArray("visitedStructures")) if (el.isJsonPrimitive()) visitedStructures.add(el.getAsString());
             }
             if (root.has("hudModules") && root.get("hudModules").isJsonObject()) {
                 for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("hudModules").entrySet()) {
@@ -357,8 +566,17 @@ public class ClientConfig {
             TitleWidget tw = e.getValue(); JsonObject o = new JsonObject();
             o.addProperty("label", tw.label); o.addProperty("desc", tw.desc); o.addProperty("enabled", Boolean.valueOf(tw.enabled));
             o.addProperty("x", Double.valueOf(Math.round(tw.x * 1000.0) / 1000.0)); o.addProperty("y", Double.valueOf(Math.round(tw.y * 1000.0) / 1000.0));
-            o.addProperty("scale", Double.valueOf(Math.round(tw.scale * 100.0) / 100.0)); o.addProperty("opacity", Double.valueOf(Math.round(tw.opacity * 100.0) / 100.0));
-            o.addProperty("borderRadius", Integer.valueOf(tw.borderRadius)); twObj.add(e.getKey(), o);
+            o.addProperty("scale", Double.valueOf(Math.round(tw.scale * 100.0) / 100.0));
+            o.addProperty("opacity", Double.valueOf(Math.round(tw.opacity * 100.0) / 100.0));
+            o.addProperty("textOpacity", Double.valueOf(Math.round(tw.textOpacity * 100.0) / 100.0));
+            o.addProperty("borderRadius", Integer.valueOf(tw.borderRadius));
+            o.addProperty("borderWidth", Integer.valueOf(tw.borderWidth));
+            o.addProperty("showBorder", Boolean.valueOf(tw.showBorder));
+            o.addProperty("chroma", Boolean.valueOf(tw.chroma));
+            o.addProperty("shadow", Boolean.valueOf(tw.shadow));
+            o.addProperty("bgColor", tw.bgColor); o.addProperty("textColor", tw.textColor);
+            o.addProperty("borderColor", tw.borderColor); o.addProperty("customText", tw.customText);
+            twObj.add(e.getKey(), o);
         }
         root.add("titleWidgets", twObj);
 
@@ -391,7 +609,11 @@ public class ClientConfig {
         JsonArray accArr = new JsonArray();
         for (AccountEntry a : accounts) {
             JsonObject ao = new JsonObject(); ao.addProperty("id", a.id); ao.addProperty("name", a.name); ao.addProperty("type", a.type);
-            ao.addProperty("tag", a.tag); ao.addProperty("uuid", a.uuid); ao.addProperty("pinned", Boolean.valueOf(a.pinned)); accArr.add(ao);
+            ao.addProperty("tag", a.tag); ao.addProperty("uuid", a.uuid); ao.addProperty("pinned", Boolean.valueOf(a.pinned));
+            if (a.accessToken != null && !a.accessToken.isEmpty()) ao.addProperty("accessToken", a.accessToken);
+            if (a.refreshToken != null && !a.refreshToken.isEmpty()) ao.addProperty("refreshToken", a.refreshToken);
+            if (a.expiresAt > 0L) ao.addProperty("expiresAt", Long.valueOf(a.expiresAt));
+            accArr.add(ao);
         }
         root.add("accounts", accArr);
 
@@ -400,9 +622,27 @@ public class ClientConfig {
             JsonObject wo = new JsonObject(); wo.addProperty("id", w.id); wo.addProperty("name", w.name);
             wo.addProperty("x", Integer.valueOf(w.x)); wo.addProperty("y", Integer.valueOf(w.y)); wo.addProperty("z", Integer.valueOf(w.z));
             wo.addProperty("dimension", w.dimension); wo.addProperty("worldId", w.worldId == null ? "global" : w.worldId);
-            wo.addProperty("color", w.color); wo.addProperty("enabled", Boolean.valueOf(w.enabled)); wpArr.add(wo);
+            wo.addProperty("color", w.color); wo.addProperty("style", w.style == null ? "global" : w.style);
+            wo.addProperty("borderRadius", Integer.valueOf(w.borderRadius)); wo.addProperty("scale", Double.valueOf(Math.round(w.scale * 100.0) / 100.0));
+            wo.addProperty("enabled", Boolean.valueOf(w.enabled)); wpArr.add(wo);
         }
         root.add("waypoints", wpArr);
+
+        JsonArray lootArr = new JsonArray();
+        for (String s : lootedStructures) lootArr.add(new JsonPrimitive(s));
+        root.add("lootedStructures", lootArr);
+
+        JsonArray visArr = new JsonArray();
+        for (String s : visitedStructures) visArr.add(new JsonPrimitive(s));
+        root.add("visitedStructures", visArr);
+
+        JsonObject wsObj = new JsonObject();
+        for (Map.Entry<String, String> e : worldSeeds.entrySet()) wsObj.addProperty(e.getKey(), e.getValue());
+        root.add("worldSeeds", wsObj);
+
+        JsonObject wpObj = new JsonObject();
+        for (Map.Entry<String, String> e : worldProfiles.entrySet()) wpObj.addProperty(e.getKey(), e.getValue());
+        root.add("worldProfiles", wpObj);
 
         JsonObject opts = new JsonObject();
         for (Map.Entry<String, JsonElement> e : options.entrySet()) opts.add(e.getKey(), e.getValue());
@@ -421,10 +661,11 @@ public class ClientConfig {
     public void setOption(String id, Object val) {
         options.put(id, GSON.toJsonTree(val));
         for (HudModule m : hudModules.values()) if (id.equals(m.optId) && val instanceof Boolean) m.enabled = ((Boolean) val).booleanValue();
+        if (getBool("profile_auto_world", true) && ClientState.getCurrentWorldKey() != null && !"global".equals(ClientState.getCurrentWorldKey())) { worldProfiles.put(ClientState.getCurrentWorldKey(), activeProfile); }
         save();
     }
     public void toggleModule(HudModule m) { m.enabled = !m.enabled; if (m.optId != null) options.put(m.optId, new JsonPrimitive(Boolean.valueOf(m.enabled))); save(); }
     public double getZoomFactor() { return Math.max(1.5, getDouble("cam_zoom_fac", 4.0)); }
     public void resetLayout() { Map<String, JsonElement> kept = new LinkedHashMap<String, JsonElement>(options); initDefaults(); options.putAll(kept); save(); }
-    public void resetAll() { options.clear(); waypoints.clear(); resetTitleLayout(); initDefaults(); save(); }
+    public void resetAll() { options.clear(); waypoints.clear(); lootedStructures.clear(); visitedStructures.clear(); worldSeeds.clear(); worldProfiles.clear(); resetTitleLayout(); initDefaults(); save(); }
 }

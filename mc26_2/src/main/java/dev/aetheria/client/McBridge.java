@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.aetheria.client.common.*;
 import dev.aetheria.client.gui.HudEditorScreen;
 import dev.aetheria.client.mixin.MinecraftAccessor;
+import net.minecraft.SharedConstants;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
@@ -24,6 +25,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.*;
 import net.minecraft.world.scores.*;
 
@@ -38,7 +40,9 @@ public final class McBridge {
     private static final Identifier RING_TEX_2 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_2_512");
     private static final Identifier RING_TEX_3 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_3_512");
     private static boolean texturesInit = false, debugChecked = false;
-    private static Method debugMethod = null;
+    private static Method debugMethod = null, hitboxEnabledMethod = null;
+    private static Object hitboxEntryObj = null;
+    private static boolean hitboxChecked = false;
     private static Object debugTarget = null;
 
     private McBridge() {}
@@ -95,6 +99,29 @@ public final class McBridge {
         return false;
     }
 
+    private static boolean checkEntityHitboxesEnabled(Minecraft mc) {
+        if (!hitboxChecked && mc != null) {
+            hitboxChecked = true;
+            try {
+                if (debugTarget == null) checkDebugOverlayVisible(mc);
+                if (debugTarget != null) {
+                    Class<?> cls = Class.forName("net.minecraft.client.gui.components.debug.DebugScreenEntries");
+                    hitboxEntryObj = cls.getField("ENTITY_HITBOXES").get(null);
+                    for (Method m : debugTarget.getClass().getMethods()) {
+                        if ("isCurrentlyEnabled".equals(m.getName()) && m.getParameterCount() == 1) {
+                            hitboxEnabledMethod = m;
+                            break;
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
+        }
+        if (debugTarget != null && hitboxEnabledMethod != null && hitboxEntryObj != null) {
+            try { return Boolean.TRUE.equals(hitboxEnabledMethod.invoke(debugTarget, hitboxEntryObj)); } catch (Throwable ignored) {}
+        }
+        return false;
+    }
+
     public static void emitWorldGizmos(Minecraft mc) {
         if (mc.player == null || mc.level == null) return;
         ClientConfig cfg = ClientConfig.get();
@@ -111,7 +138,7 @@ public final class McBridge {
             }
         }
 
-        if (cfg.getBool("hb_enabled", false)) {
+        if (cfg.getBool("hb_enabled", false) && (!cfg.getBool("hb_only_f3b", false) || checkEntityHitboxesEnabled(mc))) {
             int col = cfg.getBool("hb_chroma", false)
                 ? ClientState.getChromaColor(1.5, 0.85, 45.0, 0.5, 0.5)
                 : ClientState.parseHexColor(cfg.getString("hb_color", "#22d3ee"), 0xFF22D3EE);
@@ -195,19 +222,99 @@ public final class McBridge {
             @Override public boolean supportsItemIcons() { return true; }
             @Override public String currentUsername() { return mc.getUser() != null ? mc.getUser().getName() : "Player"; }
             @Override public String currentUuid() { return mc.getUser() != null && mc.getUser().getProfileId() != null ? mc.getUser().getProfileId().toString() : ""; }
+            @Override public String currentAccountType() {
+                try {
+                    User u = mc.getUser();
+                    if (u != null) {
+                        for (String m : new String[]{"getType", "type"}) {
+                            try {
+                                Object val = u.getClass().getMethod(m).invoke(u);
+                                if (val != null && "MSA".equalsIgnoreCase(String.valueOf(val))) return "msa";
+                            } catch (Throwable ignored) {}
+                        }
+                        for (String m : new String[]{"getAccessToken", "accessToken"}) {
+                            try {
+                                Object tok = u.getClass().getMethod(m).invoke(u);
+                                if (tok instanceof String && ((String) tok).length() > 16) return "msa";
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                } catch (Throwable ignored) {}
+                return "offline";
+            }
+            @Override public int liveFps() { return mc.getFps(); }
+            @Override public String mcVersion() {
+                try {
+                    Object v = SharedConstants.getCurrentVersion();
+                    for (String m : new String[]{"name", "getName", "id"}) {
+                        try {
+                            Object r = v.getClass().getMethod(m).invoke(v);
+                            if (r != null && !String.valueOf(r).isEmpty()) return String.valueOf(r);
+                        } catch (Throwable ignored) {}
+                    }
+                } catch (Throwable ignored) {}
+                return "26.2";
+            }
+            @Override public void drawMinimapTerrain(int x, int y, int size, boolean circle, double zoom) { MapEngine.drawMinimap(g, mc, x, y, size, circle, zoom); }
+                        @Override public boolean supportsStructureIcons() { return true; }
+            @Override public void drawStructureIcon(String type, int x, int y, float scale, boolean dimmed) {
+                if (g == null) return;
+                ItemStack st;
+                if ("ancient_city".equals(type)) st = new ItemStack(Items.SCULK);
+                else if ("village".equals(type)) st = new ItemStack(Items.BELL);
+                else if ("monument".equals(type)) st = new ItemStack(Items.PRISMARINE_BRICKS);
+                else if ("fortress".equals(type)) st = new ItemStack(Items.NETHER_BRICKS);
+                else if ("bastion".equals(type)) st = new ItemStack(Items.GILDED_BLACKSTONE);
+                else if ("stronghold".equals(type)) st = new ItemStack(Items.END_PORTAL_FRAME);
+                else if ("mansion".equals(type)) st = new ItemStack(Items.DARK_OAK_LOG);
+                else if ("trial_chamber".equals(type)) st = new ItemStack(Items.TRIAL_KEY);
+                else if ("outpost".equals(type)) st = new ItemStack(Items.CROSSBOW);
+                else if ("portal".equals(type)) st = new ItemStack(Items.CRYING_OBSIDIAN);
+                else if ("temple".equals(type)) st = new ItemStack(Items.CHISELED_SANDSTONE);
+                else if ("end_city".equals(type)) st = new ItemStack(Items.PURPUR_BLOCK);
+                else st = new ItemStack(Items.COMPASS);
+                g.pose().pushMatrix();
+                g.pose().translate(x, y);
+                g.pose().scale(scale, scale);
+                g.item(st, 0, 0);
+                g.pose().popMatrix();
+                if (dimmed) {
+                    int sz = Math.max(6, Math.round(16.0F * scale));
+                    g.fill(x, y, x + sz, y + sz, 0x9909090B);
+                }
+            }
+            @Override public void drawWorldMapTiles(int x, int y, int w, int h, double centerX, double centerZ, double blocksPerPx) { MapEngine.drawWorldMap(g, mc, x, y, w, h, centerX, centerZ, blocksPerPx); }
+            @Override public String clipboardText() { try { return mc.keyboardHandler.getClipboard(); } catch (Throwable t) { return ""; } }
+            @Override public String lastServerIp() { return mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"; }
+            @Override public void openUrl(String url) {
+                try {
+                    String os = System.getProperty("os.name", "").toLowerCase();
+                    if (os.contains("win")) new ProcessBuilder("cmd", "/c", "start", "", url).start();
+                    else if (os.contains("mac")) new ProcessBuilder("open", url).start();
+                    else new ProcessBuilder("xdg-open", url).start();
+                } catch (Throwable ignored) {}
+            }
             @Override public boolean switchAccount(String username, String uuidStr) {
+                return switchAccount(username, uuidStr, "", "offline");
+            }
+            @Override public boolean switchAccount(String username, String uuidStr, String accessToken, String accountType) {
                 try {
                     if (username == null || username.trim().isEmpty()) return false;
                     String clean = username.trim();
-                    UUID id = (uuidStr != null && !uuidStr.isEmpty()) ? UUID.fromString(uuidStr) : UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8));
+                    boolean isMsa = "msa".equalsIgnoreCase(accountType) && accessToken != null && !accessToken.isEmpty();
+                    String fmtUuid = MicrosoftAuth.formatUuid(uuidStr);
+                    UUID id = (!fmtUuid.isEmpty()) ? UUID.fromString(fmtUuid) : UUID.nameUUIDFromBytes(("OfflinePlayer:" + clean).getBytes(StandardCharsets.UTF_8));
+                    String tok = isMsa ? accessToken : "0";
                     for (Constructor<?> c : User.class.getConstructors()) {
                         Class<?>[] pt = c.getParameterTypes();
                         if (pt.length == 6 && pt[0] == String.class && pt[1] == UUID.class && pt[2] == String.class) {
-                            ((MinecraftAccessor) (Object) mc).aetheria$setUser((User) c.newInstance(clean, id, "0", Optional.empty(), Optional.empty(), pt[5].isEnum() ? pt[5].getEnumConstants()[0] : null));
+                            Object uType = resolveUserType(pt[5], isMsa);
+                            ((MinecraftAccessor) (Object) mc).aetheria$setUser((User) c.newInstance(clean, id, tok, Optional.empty(), Optional.empty(), uType));
                             return true;
                         }
                         if (pt.length == 5 && pt[0] == String.class && pt[1] == UUID.class && pt[2] == String.class) {
-                            ((MinecraftAccessor) (Object) mc).aetheria$setUser((User) c.newInstance(clean, id, "0", Optional.empty(), pt[4].isEnum() ? pt[4].getEnumConstants()[0] : null));
+                            Object uType = resolveUserType(pt[4], isMsa);
+                            ((MinecraftAccessor) (Object) mc).aetheria$setUser((User) c.newInstance(clean, id, tok, Optional.empty(), uType));
                             return true;
                         }
                     }
@@ -290,6 +397,8 @@ public final class McBridge {
                 if (mc.getConnection() == null || mc.player == null) return 0;
                 PlayerInfo pi = mc.getConnection().getPlayerInfo(mc.player.getUUID());
                 if (pi == null && mc.getUser() != null) pi = mc.getConnection().getPlayerInfo(mc.getUser().getProfileId());
+                if (pi == null) pi = mc.getConnection().getPlayerInfo(mc.player.getName().getString());
+                if (pi == null && mc.getUser() != null) pi = mc.getConnection().getPlayerInfo(mc.getUser().getName());
                 return pi != null ? pi.getLatency() : 0;
             }
             @Override public boolean isSprinting() { return mc.player.isSprinting(); }
@@ -412,6 +521,14 @@ public final class McBridge {
             @Override public boolean isInventoryOpen() { return mc.gui.screen() != null && !isChatOpen(); }
             @Override public boolean isF3Open() { return checkDebugOverlayVisible(mc); }
         };
+    }
+
+        private static Object resolveUserType(Class<?> enumCls, boolean isMsa) {
+        if (!enumCls.isEnum()) return null;
+        Object[] vals = enumCls.getEnumConstants();
+        String want = isMsa ? "MSA" : "LEGACY";
+        for (Object v : vals) if (want.equalsIgnoreCase(String.valueOf(v)) || (v instanceof Enum<?> e && want.equalsIgnoreCase(e.name()))) return v;
+        return vals.length > 0 ? vals[0] : null;
     }
 
     private static String toRoman(int n) {

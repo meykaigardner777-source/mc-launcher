@@ -14,6 +14,18 @@ public final class UiBridge {
         default String currentUsername() { return "Player"; }
         default String currentUuid() { return ""; }
         default boolean switchAccount(String username, String uuid) { return false; }
+        default boolean switchAccount(String username, String uuid, String accessToken, String accountType) { return switchAccount(username, uuid); }
+        default String currentAccountType() { return "offline"; }
+        default int liveFps() { return 0; }
+        default String mcVersion() { return "26.2"; }
+        default String lastServerIp() { return "Singleplayer"; }
+        default void openUrl(String url) {}
+        default String clipboardText() { return ""; }
+        default void setClipboardText(String txt) {}
+        default void drawMinimapTerrain(int x, int y, int size, boolean circle, double zoom) {}
+        default void drawWorldMapTiles(int x, int y, int w, int h, double centerX, double centerZ, double blocksPerPx) {}
+        default boolean supportsStructureIcons() { return false; }
+        default void drawStructureIcon(String type, int x, int y, float scale, boolean dimmed) {}
         default void drawEntity(int x, int y, int size, float mouseX, float mouseY) {}
         default void drawPaperdoll(int x1, int y1, int x2, int y2, int size, float mouseX, float mouseY) {
             pushTransform(x1, y1, 1.0F); drawEntity((x2 - x1) / 2, Math.max(12, y2 - y1 - 8), size, mouseX, mouseY); popTransform();
@@ -130,6 +142,8 @@ public final class UiBridge {
         default int renderedEntities() { return 0; } default int totalEntities() { return 0; }
         default String lookingAtBlock() { return "Air"; } default String lookingAtEntity() { return "None"; }
         default String targetName() { return ""; } default float targetHealth() { return 0.0F; } default float targetMaxHealth() { return 20.0F; } default double targetDistance() { return 0.0; }
+        default float targetAbsorption() { return 0.0F; }
+        default String biomeAt(int wx, int wz) { return ""; }
         default int countItem(String keyword) { return 0; } default int freeSlots() { return 36; } default int usedSlots() { return 0; }
         default String offhandDurability() { return "Off: --"; } default int armorReductionPct() { return 0; } default int armorEpf() { return 0; }
         default float attackCooldownPct() { return 1.0F; } default boolean isBlockingOrCooling() { return false; }

@@ -39,6 +39,7 @@ public final class SharedHudRenderer {
             renderWaypointsInWorld(g, d, cfg, sw, sh);
             renderCrosshair(g, d, sw, sh);
             renderAppleSkinHungerOverlay(g, d, cfg, sw, sh);
+            renderPingAboveHotbar(g, d, cfg, sw, sh);
         }
 
         boolean globalShadow = cfg.getBool("hud_shadow", true);
@@ -56,7 +57,7 @@ public final class SharedHudRenderer {
 
     private static void renderWaypointsInWorld(UiBridge.UiDraw g, UiBridge.HudData d, ClientConfig cfg, int sw, int sh) {
         if (!d.hasWorld() || !cfg.getBool("wp_world_markers", true) || cfg.waypoints.isEmpty()) return;
-        String style = cfg.getString("wp_style", "lunar").toLowerCase();
+        String globalStyle = cfg.getString("wp_style", "lunar").toLowerCase();
         boolean netherSync = cfg.getBool("wp_nether_sync", true), showDist = cfg.getBool("wp_show_dist", true);
         boolean beam = cfg.getBool("wp_beam_beacon", true), offscreen = cfg.getBool("wp_offscreen_arrows", true);
 
@@ -70,6 +71,8 @@ public final class SharedHudRenderer {
 
         for (int i = 0; i < cfg.waypoints.size(); i++) {
             ClientConfig.Waypoint wp = cfg.waypoints.get(i);
+            String style = (wp.style != null && !wp.style.isEmpty() && !"global".equalsIgnoreCase(wp.style)) ? wp.style.toLowerCase() : globalStyle;
+            int wpRad = Math.max(0, Math.min(20, wp.borderRadius));
             double[] pos = ClientState.resolveWaypointCoords(wp, curDim, netherSync);
             if (pos == null) continue;
             double dx = (pos[0] + 0.5) - camX, dy = (pos[1] + 1.1) - camY, dz = (pos[2] + 0.5) - camZ;
@@ -82,7 +85,7 @@ public final class SharedHudRenderer {
             if (camFwd > 0.35) {
                 double sx = (sw * 0.5) + (camRight / (camFwd * tanHalf)) * halfH, sy = (sh * 0.5) - (camUp / (camFwd * tanHalf)) * halfH;
                 if (sx >= -30 && sx <= sw + 30 && sy >= -30 && sy <= sh + 30) {
-                    g.pushTransform((float) sx, (float) sy, 1.0F);
+                    float wpScale = (float) Math.max(0.4, Math.min(2.5, wp.scale * cfg.getDouble("wp_scale", 1.0))); g.pushTransform((float) sx, (float) sy, wpScale);
                     try {
                         if ("beacon".equals(style) || (beam && "lunar".equals(style))) {
                             int beamH = "beacon".equals(style) ? 140 : Math.max(22, Math.min(95, (int) Math.round(800.0 / Math.max(8.0, dist))));
@@ -92,16 +95,16 @@ public final class SharedHudRenderer {
                         if ("dot".equals(style)) {
                             g.drawCircleFilled(0, 0, 5, ClientState.withAlpha(col, 70)); g.drawCircleFilled(0, 0, 3, col);
                             String txt = distStr.isEmpty() ? label : (label + " " + distStr); int tw = g.textWidth(txt) + 10;
-                            g.drawGlassCard(-tw / 2, -18, tw, 13, 6, 0xA809090B, ClientState.withAlpha(col, 160));
+                            g.drawGlassCard(-tw / 2, -18, tw, 13, Math.min(wpRad, 6), 0xA809090B, ClientState.withAlpha(col, 160));
                             g.text(txt, -tw / 2 + 5, -15, 0xFFF4F4F5, true);
                         } else if ("block".equals(style)) {
                             String txt = distStr.isEmpty() ? label : (label + " [" + distStr + "]"); int tw = g.textWidth(txt) + 12;
-                            g.drawGlassCard(-tw / 2, -22, tw, 14, 5, 0xB809090B, col); g.text(txt, -tw / 2 + 6, -19, 0xFFF4F4F5, true);
+                            g.drawGlassCard(-tw / 2, -22, tw, 14, wpRad, 0xB809090B, col); g.text(txt, -tw / 2 + 6, -19, 0xFFF4F4F5, true);
                         } else {
                             String full = distStr.isEmpty() ? label : (label + "  " + distStr);
                             int dw = distStr.isEmpty() ? 0 : g.textWidth(distStr), pw = 18 + g.textWidth(full) + 8;
-                            g.drawGlassCard(-pw / 2, -9, pw, 17, 6, 2, "solid", 0xD009090B, col, col);
-                            g.drawRoundedRect(-pw / 2 + 3, -6, 11, 11, 3, col); g.fill(-pw / 2 + 7, -2, -pw / 2 + 10, 1, 0xFF09090B);
+                            g.drawGlassCard(-pw / 2, -9, pw, 17, wpRad, 2, "solid", 0xD009090B, col, col);
+                            g.drawRoundedRect(-pw / 2 + 3, -6, 11, 11, Math.min(wpRad, 5), col); g.fill(-pw / 2 + 7, -2, -pw / 2 + 10, 1, 0xFF09090B);
                             g.text(label, -pw / 2 + 18, -4, 0xFFF4F4F5, true);
                             if (!distStr.isEmpty()) g.text(distStr, pw / 2 - dw - 6, -4, col, false);
                         }
@@ -195,7 +198,7 @@ public final class SharedHudRenderer {
         } else if ("ping".equals(m.id)) { w = textWidthSpaced(g, getFormattedLines(d, m)[0], m.letterSpacing) + 10 + px * 2; h = 7 + py * 2; }
         else if ("frametime_graph".equals(m.id) || "ping_graph".equals(m.id) || "cps_graph".equals(m.id)) { w = 110; h = 42; }
         else if ("mouse_visualizer".equals(m.id)) { w = 54; h = 54; }
-        else if ("minimap".equals(m.id)) { w = 66; h = 66; }
+        else if ("minimap".equals(m.id)) { int msz = Math.max(60, Math.min(180, (int) Math.round(ClientConfig.get().getDouble("minimap_size", 96.0)))); w = msz; h = msz; }
         else if ("paperdoll".equals(m.id)) { w = 56; h = 76; }
         else if ("ram_usage".equals(m.id) || "attack_charge".equals(m.id) || ("saturation".equals(m.id) && "bar".equalsIgnoreCase(ClientConfig.get().getString("saturation_style", "appleskin")))) {
             String[] lines = getFormattedLines(d, m); int maxW = 70; for (String ln : lines) maxW = Math.max(maxW, textWidthSpaced(g, ln, m.letterSpacing));
@@ -354,24 +357,136 @@ public final class SharedHudRenderer {
         g.drawCircleFilled(cx + Math.round(ClientState.getMouseVelX() * (r - 3)), cy + Math.round(ClientState.getMouseVelY() * (r - 3)), 3, textCol);
     }
 
-    private static void renderMinimap(UiBridge.UiDraw g, UiBridge.HudData d, int w, int h, int textCol) {
-        int cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2 - 6;
-        g.drawCircle(cx, cy, r, 1, 0x44FFFFFF); g.drawCircle(cx, cy, Math.max(4, r / 2), 1, 0x22FFFFFF);
-        double rad = Math.toRadians(-d.yaw() - 90.0);
-        g.text("N", cx + (int) Math.round(Math.cos(rad) * (r - 2)) - 2, cy + (int) Math.round(Math.sin(rad) * (r - 2)) - 4, 0xFFEF4444, false);
-        int[] radar = d.nearbyEntityRadar();
-        if (radar != null) for (int i = 0; i + 1 < radar.length; i += 2) g.drawCircleFilled(cx + Math.max(-r + 3, Math.min(r - 3, radar[i])), cy + Math.max(-r + 3, Math.min(r - 3, radar[i + 1])), 2, 0xFF22D3EE);
-        ClientConfig cfg = ClientConfig.get(); double yRad = Math.toRadians(d.yaw()), cosY = Math.cos(yRad), sinY = Math.sin(yRad); boolean sync = cfg.getBool("wp_nether_sync", true);
-        for (int i = 0; i < cfg.waypoints.size(); i++) {
-            double[] pos = ClientState.resolveWaypointCoords(cfg.waypoints.get(i), d.dimensionId(), sync); if (pos == null) continue;
-            double dx = pos[0] - d.posX(), dz = pos[2] - d.posZ();
-            int rx = (int) Math.round(-(dx * cosY + dz * sinY) * 0.55), rz = (int) Math.round((-dx * sinY + dz * cosY) * 0.55);
-            double len = Math.hypot(rx, rz); if (len > r - 3) { rx = (int) Math.round(rx * (r - 3) / len); rz = (int) Math.round(rz * (r - 3) / len); }
-            g.drawCircleFilled(cx + rx, cy + rz, 2, ClientState.parseHexColor(cfg.waypoints.get(i).color, 0xFF22D3EE));
+    private static void renderPingAboveHotbar(UiBridge.UiDraw g, UiBridge.HudData d, ClientConfig cfg, int sw, int sh) {
+        if (!d.hasWorld() || !cfg.getBool("ping_above_hotbar", false)) return;
+        int ms = d.pingMs();
+        String txt = ms + "ms";
+        int col = ms <= 0 ? 0xFF10B981 : (ms < 80 ? 0xFF10B981 : (ms < 160 ? 0xFFF59E0B : 0xFFEF4444));
+        int tw = g.textWidth(txt);
+        ClientConfig.HudModule hb = cfg.hudModules.get("hotbar");
+        boolean customHb = hb != null && hb.enabled && (Math.abs(hb.x - 0.5) > 0.002 || Math.abs(hb.y - 1.0) > 0.002 || Math.abs(hb.scale - 1.0) > 0.01);
+        if (customHb) {
+            int[] b = getModulePixelBounds(g, d, hb, sw, sh);
+            g.pushTransform(b[0], b[1], (float) Math.max(0.25, Math.min(4.0, hb.scale)));
+            try { g.text(txt, 91 - tw / 2, d.showSurvivalBars() ? -29 : -11, col, true); }
+            finally { g.popTransform(); }
+        } else {
+            int y = d.showSurvivalBars() ? (sh - 51) : (sh - 33);
+            g.text(txt, (sw - tw) / 2, y, col, true);
         }
-        g.drawCircleFilled(cx, cy, 2, textCol);
     }
 
+    public static int structureColor(String type) {
+        if ("village".equals(type)) return 0xFFFACC15;
+        if ("monument".equals(type)) return 0xFF22D3EE;
+        if ("fortress".equals(type)) return 0xFFEF4444;
+        if ("bastion".equals(type)) return 0xFFF97316;
+        if ("stronghold".equals(type)) return 0xFF10B981;
+        if ("mansion".equals(type)) return 0xFFA855F7;
+        if ("ancient_city".equals(type)) return 0xFF06B6D4;
+        if ("trial_chamber".equals(type)) return 0xFFEA580C;
+        if ("end_city".equals(type)) return 0xFFD946EF;
+        return 0xFFF4F4F5;
+    }
+
+    public static String structureTag(String type) {
+        if ("village".equals(type)) return "V";
+        if ("monument".equals(type)) return "M";
+        if ("fortress".equals(type)) return "F";
+        if ("bastion".equals(type)) return "B";
+        if ("stronghold".equals(type)) return "S";
+        if ("mansion".equals(type)) return "W";
+        if ("ancient_city".equals(type)) return "A";
+        if ("trial_chamber".equals(type)) return "T";
+        if ("end_city".equals(type)) return "E";
+        if ("outpost".equals(type)) return "O";
+        return "+";
+    }
+
+    private static void renderMinimap(UiBridge.UiDraw g, UiBridge.HudData d, int w, int h, int textCol) {
+        ClientConfig cfg = ClientConfig.get();
+        int pad = 4, mapSz = Math.max(48, Math.min(w, h) - pad * 2);
+        int mx0 = (w - mapSz) / 2, my0 = (h - mapSz) / 2, cx = w / 2, cy = h / 2, r = mapSz / 2;
+        boolean circle = !"square".equalsIgnoreCase(cfg.getString("minimap_shape", "circle"));
+        double zoom = Math.max(0.5, Math.min(3.0, cfg.getDouble("minimap_zoom", 1.0)));
+
+        g.drawMinimapTerrain(mx0, my0, mapSz, circle, zoom);
+        if (circle) {
+            g.drawCircle(cx, cy, r, 2, 0xCC18181E);
+            g.drawCircle(cx, cy, r - 1, 1, ClientState.withAlpha(textCol, 130));
+        } else {
+            g.drawRoundedOutline(mx0, my0, mapSz, mapSz, 8, 2, "solid", ClientState.withAlpha(textCol, 130), 0xCC18181E);
+        }
+
+        double pxPerBlock = (mapSz / (128.0 / zoom));
+        double yRad = Math.toRadians(d.yaw()), cosY = Math.cos(yRad), sinY = Math.sin(yRad);
+
+        if (cfg.getBool("minimap_structures", true)) {
+            List<ClientState.StructurePin> structs = ClientState.getVisibleStructures(d.dimensionId(), d.worldKey());
+            for (int i = 0; i < structs.size(); i++) {
+                ClientState.StructurePin sp = structs.get(i);
+                double dx = sp.x - d.posX(), dz = sp.z - d.posZ();
+                int rx = (int) Math.round(-(dx * cosY + dz * sinY) * pxPerBlock);
+                int rz = (int) Math.round((dx * sinY - dz * cosY) * pxPerBlock);
+                if (circle) {
+                    double len = Math.hypot(rx, rz);
+                    if (len > r - 6) { rx = (int) Math.round(rx * (r - 6) / len); rz = (int) Math.round(rz * (r - 6) / len); }
+                } else {
+                    rx = Math.max(-r + 6, Math.min(r - 6, rx)); rz = Math.max(-r + 6, Math.min(r - 6, rz));
+                }
+                String sKey = ClientState.structureKey(sp, d.worldKey());
+                boolean looted = cfg.isStructureLooted(sKey);
+                int sc = structureColor(sp.type);
+                if (g.supportsStructureIcons()) {
+                    g.drawCircleFilled(cx + rx, cy + rz, 6, 0xD809090B);
+                    g.drawCircle(cx + rx, cy + rz, 6, 1, looted ? 0x8852525B : ClientState.withAlpha(sc, 160));
+                    g.drawStructureIcon(sp.type, cx + rx - 4, cy + rz - 4, 0.50F, looted);
+                    if (looted) g.drawCircleFilled(cx + rx + 4, cy + rz - 4, 2, 0xFF10B981);
+                } else {
+                    g.drawCircleFilled(cx + rx, cy + rz, 4, 0xD809090B);
+                    g.drawCircleFilled(cx + rx, cy + rz, 3, looted ? 0xFF52525B : sc);
+                }
+            }
+        }
+
+        boolean sync = cfg.getBool("wp_nether_sync", true);
+        for (int i = 0; i < cfg.waypoints.size(); i++) {
+            double[] pos = ClientState.resolveWaypointCoords(cfg.waypoints.get(i), d.dimensionId(), sync);
+            if (pos == null) continue;
+            double dx = pos[0] - d.posX(), dz = pos[2] - d.posZ();
+            int rx = (int) Math.round(-(dx * cosY + dz * sinY) * pxPerBlock);
+            int rz = (int) Math.round((dx * sinY - dz * cosY) * pxPerBlock);
+            if (circle) {
+                double len = Math.hypot(rx, rz);
+                if (len > r - 5) { rx = (int) Math.round(rx * (r - 5) / len); rz = (int) Math.round(rz * (r - 5) / len); }
+            } else {
+                rx = Math.max(-r + 5, Math.min(r - 5, rx)); rz = Math.max(-r + 5, Math.min(r - 5, rz));
+            }
+            int wc = ClientState.parseHexColor(cfg.waypoints.get(i).color, 0xFF22D3EE);
+            g.drawCircleFilled(cx + rx, cy + rz, 4, 0xDD09090B);
+            g.drawCircleFilled(cx + rx, cy + rz, 3, wc);
+        }
+
+        int nx = cx + (int) Math.round(sinY * (r - 2));
+        int ny = cy + (int) Math.round(cosY * (r - 2));
+        g.drawCircleFilled(nx, ny, 5, 0xE609090B);
+        g.drawCircle(nx, ny, 5, 1, 0x88EF4444);
+        g.text("N", nx - 2, ny - 4, 0xFFEF4444, false);
+
+        g.drawLine(cx - 3, cy + 2, cx, cy - 4, 1, 0xFF09090B);
+        g.drawLine(cx + 3, cy + 2, cx, cy - 4, 1, 0xFF09090B);
+        g.drawCircleFilled(cx, cy, 3, 0xEE09090B);
+        g.drawCircleFilled(cx, cy, 2, 0xFFFFFFFF);
+        g.fill(cx, cy - 5, cx + 1, cy - 2, textCol);
+
+        if (cfg.getBool("minimap_coords", true)) {
+            String cTxt = d.x() + " " + d.y() + " " + d.z();
+            int cw = g.textWidth(cTxt) + 8;
+            int cyPill = my0 + mapSz - 11;
+            g.drawRoundedRect(cx - cw / 2, cyPill, cw, 11, 5, 0xCC09090B);
+            g.text(cTxt, cx - cw / 2 + 4, cyPill + 2, 0xFFF4F4F5, false);
+        }
+    }
     private static void renderTargetHud(UiBridge.UiDraw g, UiBridge.HudData d, int px, int py, int boxW, int boxH, int textCol, boolean shadow, boolean editorPreview) {
         String name = (d.targetName() != null && !d.targetName().isEmpty()) ? d.targetName() : (editorPreview ? "Player" : "");
         float hp = (d.targetName() != null && !d.targetName().isEmpty()) ? d.targetHealth() : 16.0F, maxHp = Math.max(1.0F, (d.targetName() != null && !d.targetName().isEmpty()) ? d.targetMaxHealth() : 20.0F);
@@ -449,7 +564,7 @@ public final class SharedHudRenderer {
         else if ("ram_usage".equals(id)) { refreshSysStringsIfNeeded(throttle); raw = new String[]{cachedRamStr}; }
         else if ("cpu_load".equals(id)) { refreshSysStringsIfNeeded(throttle); raw = new String[]{cachedCpuStr}; }
         else if ("gc_monitor".equals(id)) { refreshSysStringsIfNeeded(throttle); raw = new String[]{cachedGcStr}; }
-        else if ("ping".equals(id)) raw = new String[]{(d.isSingleplayer() && d.pingMs() == 0) ? "Ping: Local" : ("Ping: " + d.pingMs() + "ms")};
+        else if ("ping".equals(id)) { int pms = d.pingMs(); raw = new String[]{cfg.getBool("ping_number_only", false) ? (pms + "ms") : ((d.isSingleplayer() && pms == 0) ? "Ping: Local" : ("Ping: " + pms + "ms"))}; }
         else if ("server_tps".equals(id)) raw = new String[]{String.format("TPS: %.1f (%.0fms)", Double.valueOf(ClientState.getEstimatedTps()), Double.valueOf(ClientState.getEstimatedTickMs()))};
         else if ("packet_counter".equals(id)) raw = new String[]{"Tick: " + (d.worldTime() % 1000L) + " | " + String.format("%.1f", Double.valueOf(ClientState.getEstimatedTps())) + "/s"};
         else if ("session".equals(id)) raw = new String[]{"Session: " + formatDuration((System.currentTimeMillis() - ClientState.START_TIME_MS) / 1000L)};

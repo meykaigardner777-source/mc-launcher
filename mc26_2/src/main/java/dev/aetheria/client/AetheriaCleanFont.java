@@ -66,8 +66,8 @@ public final class AetheriaCleanFont {
             int baseLine = 6 + fm.getAscent();
             cellTopPad = 6;
 
-            for (int c = 32; c <= 127; c++) {
-                char ch = (c == 127) ? '\u00b0' : (char) c;
+            for (int c = 32; c <= 128; c++) {
+                char ch = (c == 127) ? '\u00b0' : (c == 128 ? '\u2022' : (char) c);
                 int idx = c - 32, col = idx % COLS, row = idx / COLS;
                 int adv4 = Math.max(4, fm.charWidth(ch));
                 int adv1 = Math.max(1, Math.round(adv4 / 4.0F));
@@ -92,28 +92,20 @@ public final class AetheriaCleanFont {
     private static int glyphIndex(char ch) {
         if (ch >= 32 && ch <= 126) return ch - 32;
         if (ch == '\u00b0') return 95;
+        if (ch == '\u2022') return 96;
         return -1;
-    }
-
-    private static boolean canRenderAll(String s) {
-        for (int i = 0; i < s.length(); i++) {
-            char ch = s.charAt(i);
-            if (ch == '\u00a7' && i + 1 < s.length()) { i++; continue; }
-            if (glyphIndex(ch) < 0) return false;
-        }
-        return true;
     }
 
     public static int width(Minecraft mc, String txt) {
         if (txt == null || txt.isEmpty()) return 0;
         ensureInit(mc);
-        if (failed || !canRenderAll(txt)) return mc.font.width(txt);
+        if (failed) return mc.font.width(txt);
         int w = 0;
         for (int i = 0; i < txt.length(); i++) {
             char ch = txt.charAt(i);
             if (ch == '\u00a7' && i + 1 < txt.length()) { i++; continue; }
             int idx = glyphIndex(ch);
-            w += (idx >= 0) ? ADV_W[idx] : 4;
+            w += (idx >= 0) ? ADV_W[idx] : mc.font.width(String.valueOf(ch));
         }
         return w;
     }
@@ -121,7 +113,7 @@ public final class AetheriaCleanFont {
     public static void draw(GuiGraphicsExtractor g, Minecraft mc, String txt, int x, int y, int argb, boolean shadow) {
         if (g == null || txt == null || txt.isEmpty() || ((argb >>> 24) & 0xFF) == 0) return;
         ensureInit(mc);
-        if (failed || !canRenderAll(txt)) { g.text(mc.font, txt, x, y, argb, shadow); return; }
+        if (failed) { g.text(mc.font, txt, x, y, argb, shadow); return; }
         int alpha = (argb >>> 24) & 0xFF, curCol = argb;
         int shCol = ((Math.max(0, alpha / 3) & 0xFF) << 24);
         int cx = x, dy = y - 2;
@@ -135,7 +127,12 @@ public final class AetheriaCleanFont {
                 continue;
             }
             int idx = glyphIndex(ch);
-            if (idx < 0) continue;
+            if (idx < 0) {
+                String chStr = String.valueOf(ch);
+                g.text(mc.font, chStr, cx, y, curCol, shadow);
+                cx += mc.font.width(chStr);
+                continue;
+            }
             float u = (idx % COLS) * CELL, v = (idx / COLS) * CELL + cellTopPad;
             int dw = DRAW_W[idx], uW = dw * 4;
             if (ch != ' ') {

@@ -3,6 +3,7 @@ package dev.aetheria.client.common;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.util.*;
+import java.util.regex.*;
 
 public final class ClientState {
     public static final long START_TIME_MS = System.currentTimeMillis();
@@ -15,6 +16,71 @@ public final class ClientState {
     private static long lastZoomFrameNs = 0L, lastHitTimeMs = 0L;
     private static int comboCount = 0, swingsTotal = 0, swingsLanded = 0, killCount = 0, deathCount = 0;
     private static double lastReachBlocks = 0.0;
+    private static volatile String stickyTargetName = "";
+    private static volatile float stickyTargetHp = 0.0F, stickyTargetMaxHp = 20.0F, stickyTargetAbs = 0.0F;
+    private static volatile double stickyTargetDist = 0.0;
+    private static volatile long stickyTargetUntilMs = 0L;
+    private static volatile boolean activeSeedFlag = false;
+
+    public static void setActiveSeedFlag(boolean active) { activeSeedFlag = active; }
+    public static boolean hasActiveSeed() { return activeSeedFlag; }
+
+    public static void updateStickyTarget(String name, float hp, float maxHp, float abs, double dist) {
+        if (name == null || name.isEmpty() || hp <= 0.0F) return;
+        stickyTargetName = name; stickyTargetHp = hp; stickyTargetMaxHp = Math.max(1.0F, maxHp);
+        stickyTargetAbs = Math.max(0.0F, abs); stickyTargetDist = dist;
+        stickyTargetUntilMs = System.currentTimeMillis() + 3500L;
+    }
+    public static boolean hasStickyTarget() { return System.currentTimeMillis() <= stickyTargetUntilMs && !stickyTargetName.isEmpty() && stickyTargetHp > 0.0F; }
+    public static String getStickyTargetName() { return stickyTargetName; }
+    public static float getStickyTargetHp() { return stickyTargetHp; }
+    public static float getStickyTargetMaxHp() { return stickyTargetMaxHp; }
+    public static float getStickyTargetAbs() { return stickyTargetAbs; }
+    public static double getStickyTargetDist() { return stickyTargetDist; }
+
+    public static class ChatCoordEntry {
+        public final String preview;
+        public final int[] numbers;
+        public final long timeMs;
+        public ChatCoordEntry(String preview, int[] numbers) {
+            this.preview = preview;
+            this.numbers = numbers;
+            this.timeMs = System.currentTimeMillis();
+        }
+    }
+    private static final List<ChatCoordEntry> CHAT_COORD_ENTRIES = new ArrayList<ChatCoordEntry>();
+    private static final Pattern NUM_PATTERN = Pattern.compile("(?<![\\w.])(-?\\d{1,7})(?![\\w.])");
+    private static volatile long lastMentionPingMs = 0L;
+
+    public static synchronized boolean processIncomingChat(String rawText, String selfName) {
+        if (rawText == null || rawText.isEmpty()) return false;
+        String clean = rawText.replaceAll("\\u00a7.", "").trim();
+        if (clean.isEmpty()) return false;
+        String forNums = clean.replaceFirst("^\\[\\d{1,2}:\\d{2}(:\\d{2})?\\]\\s*", "");
+        Matcher m = NUM_PATTERN.matcher(forNums);
+        List<Integer> found = new ArrayList<Integer>();
+        while (m.find() && found.size() < 8) {
+            try { found.add(Integer.valueOf(Integer.parseInt(m.group(1)))); } catch (Exception ignored) {}
+        }
+        if (found.size() >= 2) {
+            int[] arr = new int[found.size()];
+            for (int i = 0; i < found.size(); i++) arr[i] = found.get(i).intValue();
+            String shortTxt = forNums.length() > 44 ? (forNums.substring(0, 42) + "..") : forNums;
+            CHAT_COORD_ENTRIES.add(0, new ChatCoordEntry(shortTxt, arr));
+            if (CHAT_COORD_ENTRIES.size() > 15) CHAT_COORD_ENTRIES.remove(CHAT_COORD_ENTRIES.size() - 1);
+        }
+        if (selfName != null && !selfName.isEmpty() && clean.toLowerCase().contains(selfName.toLowerCase())) {
+            String shortM = clean.length() > 48 ? (clean.substring(0, 46) + "..") : clean;
+            CHAT_MENTIONS.addFirst(shortM);
+            while (CHAT_MENTIONS.size() > 5) CHAT_MENTIONS.removeLast();
+            long now = System.currentTimeMillis();
+            if (now - lastMentionPingMs > 600L) { lastMentionPingMs = now; return true; }
+        }
+        return false;
+    }
+    public static synchronized List<ChatCoordEntry> getChatCoordEntries() {
+        return new ArrayList<ChatCoordEntry>(CHAT_COORD_ENTRIES);
+    }
 
     private static volatile int playerX = 0, playerY = 64, playerZ = 0;
     private static volatile String playerDim = "minecraft:overworld", currentWorldKey = "global";
@@ -61,6 +127,61 @@ public final class ClientState {
         return fallback;
     }
 
+        public static class StructurePin {
+        public final String name, type, worldId, dimension;
+        public final int x, z;
+        public final boolean fromSeed;
+        public StructurePin(String name, String type, int x, int z, String dim, String worldId, boolean fromSeed) {
+            this.name = name; this.type = type; this.x = x; this.z = z;
+            this.dimension = dim == null ? "minecraft:overworld" : dim;
+            this.worldId = worldId == null ? "global" : worldId;
+            this.fromSeed = fromSeed;
+        }
+    }
+    private static final List<StructurePin> SEED_STRUCTURES = new ArrayList<StructurePin>();
+    private static final List<StructurePin> SCANNED_STRUCTURES = new ArrayList<StructurePin>();
+    private static volatile String activeSeedMode = "No Seed (Scanned)";
+    private static volatile boolean seedDirty = true;
+
+    public static void markSeedDirty() { seedDirty = true; }
+    public static boolean consumeSeedDirty() { boolean d = seedDirty; seedDirty = false; return d; }
+    private static volatile boolean mapCacheDirty = false;
+    public static void markMapCacheDirty() { mapCacheDirty = true; }
+    public static boolean consumeMapCacheDirty() { boolean d = mapCacheDirty; mapCacheDirty = false; return d; }
+
+    public static String getActiveSeedMode() { return activeSeedMode; }
+    public static void setActiveSeedMode(String m) { if (m != null) activeSeedMode = m; }
+    public static synchronized void setSeedStructures(List<StructurePin> list) { SEED_STRUCTURES.clear(); if (list != null) SEED_STRUCTURES.addAll(list); }
+    public static synchronized void addScannedStructure(String name, String type, int x, int z, String dim, String worldId) {
+        for (int i = 0; i < SCANNED_STRUCTURES.size(); i++) {
+            StructurePin s = SCANNED_STRUCTURES.get(i);
+            if (s.type.equals(type) && s.dimension.equals(dim) && Math.hypot(s.x - x, s.z - z) < 56.0) return;
+        }
+        SCANNED_STRUCTURES.add(new StructurePin(name, type, x, z, dim, worldId, false));
+        if (SCANNED_STRUCTURES.size() > 250) SCANNED_STRUCTURES.remove(0);
+    }
+    public static String structureKey(StructurePin s, String worldKey) {
+        if (s == null) return "";
+        String wk = (worldKey == null || worldKey.isEmpty()) ? s.worldId : worldKey;
+        return wk + "|" + s.dimension + "|" + s.type + "|" + s.x + "|" + s.z;
+    }
+    public static synchronized List<StructurePin> getVisibleStructures(String dim, String worldKey) {
+        ClientConfig cfg = ClientConfig.get();
+        boolean hideLooted = cfg.getBool("minimap_hide_looted", false);
+        List<StructurePin> out = new ArrayList<StructurePin>();
+        for (int pass = 0; pass < 2; pass++) {
+            List<StructurePin> src = (pass == 0) ? SCANNED_STRUCTURES : SEED_STRUCTURES;
+            for (int i = 0; i < src.size(); i++) {
+                StructurePin s = src.get(i);
+                if (dim != null && !dim.equals(s.dimension)) continue;
+                if (!"global".equalsIgnoreCase(s.worldId) && worldKey != null && !worldKey.equalsIgnoreCase(s.worldId)) continue;
+                if (!cfg.getBool("struct_" + s.type, true)) continue;
+                if (hideLooted && cfg.isStructureLooted(structureKey(s, worldKey))) continue;
+                out.add(s);
+            }
+        }
+        return out;
+    }
     private ClientState() {}
 
     public static void updatePlayerPos(int x, int y, int z, String dim) { updatePlayerPos(x, y, z, dim, currentWorldKey); }
@@ -130,6 +251,9 @@ public final class ClientState {
     public static boolean isToggleSneaking() { return toggleSneaking; }
     public static void setToggleSneaking(boolean active) { toggleSneaking = active; }
     public static void toggleSneak() { toggleSneaking = !toggleSneaking; }
+    private static volatile boolean bypassToggleSneak = false;
+    public static boolean isBypassToggleSneak() { return bypassToggleSneak; }
+    public static void setBypassToggleSneak(boolean bypass) { bypassToggleSneak = bypass; }
 
     public static void recordAttack(double distance) { long now = System.currentTimeMillis(); comboCount = (now - lastHitTimeMs < 4000L) ? comboCount + 1 : 1; lastHitTimeMs = now; lastReachBlocks = distance; swingsLanded++; }
     public static void tickComboTimeout() { if (comboCount > 0 && System.currentTimeMillis() - lastHitTimeMs > 4000L) comboCount = 0; }

@@ -17,6 +17,26 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class HudMixin {
     @Unique private boolean aetheria$hotbarPushed = false;
 
+    @Inject(method = "extractVignette", at = @At("HEAD"), cancellable = true, require = 0)
+    private void aetheria$noVignette(GuiGraphicsExtractor g, net.minecraft.world.entity.Entity e, CallbackInfo ci) {
+        if (ClientConfig.get().getBool("vis_no_vignette", false)) ci.cancel();
+    }
+
+    @Inject(method = "extractPortalOverlay", at = @At("HEAD"), cancellable = true, require = 0)
+    private void aetheria$noPortalOverlay(GuiGraphicsExtractor g, float alpha, CallbackInfo ci) {
+        if (ClientConfig.get().getBool("vis_no_portal_overlay", false)) ci.cancel();
+    }
+
+    @Inject(method = "extractSpyglassOverlay", at = @At("HEAD"), cancellable = true, require = 0)
+    private void aetheria$noSpyglass(GuiGraphicsExtractor g, float scopeScale, CallbackInfo ci) {
+        if (ClientConfig.get().getBool("vis_no_spyglass", false)) ci.cancel();
+    }
+
+    @Inject(method = "extractTextureOverlay", at = @At("HEAD"), cancellable = true, require = 0)
+    private void aetheria$noPumpkin(GuiGraphicsExtractor g, net.minecraft.resources.Identifier tex, float alpha, CallbackInfo ci) {
+        if (ClientConfig.get().getBool("vis_no_pumpkin", false) && tex != null && tex.getPath().contains("pumpkin")) ci.cancel();
+    }
+
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void aetheria$renderHud(GuiGraphicsExtractor g, DeltaTracker dt, CallbackInfo ci) { McBridge.renderInGame(g); }
 

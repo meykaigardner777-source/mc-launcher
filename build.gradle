@@ -1,0 +1,40 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}" apply false
+}
+
+def outModsDir = file("${rootDir}/../extensions/aetheria-client/mods")
+
+subprojects {
+    version = rootProject.mod_version
+    group = rootProject.maven_group
+    repositories { mavenCentral() }
+}
+
+tasks.register('buildAllModern') {
+    dependsOn subprojects.collect { "${it.path}:build" }
+    doLast {
+        outModsDir.mkdirs()
+        [
+            ['mc26_3',    '26.3',    false],
+            ['mc26_2',    '26.2',    false],
+            ['mc26_1',    '26.1',    false],
+            ['mc1_21_11', '1.21.11', true],
+            ['mc1_21_1',  '1.21.1',  true]
+        ].each { projName, mcVer, isRemapped ->
+            def libsDir = file("${rootDir}/${projName}/build/libs")
+            def candidates = libsDir.listFiles()?.findAll {
+                it.name.endsWith('.jar') && !it.name.endsWith('-sources.jar') && !it.name.endsWith('-dev.jar')
+            } ?: []
+            def picked = isRemapped ? (candidates.find { !it.name.contains('-dev') } ?: candidates[0]) : candidates[0]
+            if (picked != null && picked.exists()) {
+                copy {
+                    from picked
+                    into outModsDir
+                    rename { "aetheria-client-mod-${mcVer}.jar" }
+                }
+                println "Exported ${outModsDir}/aetheria-client-mod-${mcVer}.jar"
+            }
+        }
+    }
+}
