@@ -23,6 +23,7 @@ public class ModMenuScreen extends Screen {
             if (menu.mouseClicked(McBridge.draw(null, mc), this.width, this.height, event.x(), event.y(), new SharedModMenu.Actions() {
                 @Override public void openHudEditor() { mc.gui.setScreen(new HudEditorScreen()); }
                 @Override public void openTitleEditor() { mc.gui.setScreen(new AetheriaTitleScreen(true)); }
+                @Override public void openWorldMap() { mc.gui.setScreen(new WorldMapScreen()); }
                 @Override public void closeMenu() { mc.gui.setScreen(null); }
             })) return true;
         }

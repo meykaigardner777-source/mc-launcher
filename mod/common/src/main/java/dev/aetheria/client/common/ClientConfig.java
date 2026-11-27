@@ -155,7 +155,7 @@ public class ClientConfig {
         add("day_count", "Day & Time", "world", "hud_day_count", false, 0.985, 0.425, "top-right", "World day count & time");
         add("moon_phase", "Moon Phase", "world", "hud_moon", false, 0.985, 0.475, "top-right", "Current moon phase");
         add("weather", "Weather", "world", "hud_weather", false, 0.985, 0.525, "top-right", "Clear / Rain / Thunder");
-        add("minimap", "Radar Minimap", "world", "hud_minimap", false, 0.985, 0.620, "mid-right", "Live entity & waypoint radar");
+        add("minimap", "Terrain Minimap", "world", "hud_minimap", false, 0.985, 0.620, "mid-right", "High-quality terrain, waypoints & structures minimap");
         add("waypoints", "Waypoints", "world", "hud_waypoints", false, 0.720, 0.025, "top-left", "Per-world Lunar/Dot/Block/Beacon waypoints");
         add("spawn_dist", "Spawn Distance", "world", "hud_spawn_dist", false, 0.720, 0.075, "top-left", "Distance to spawn");
         add("death_loc", "Death Tracker", "world", "hud_death_loc", false, 0.720, 0.125, "top-left", "Last death coordinates");
@@ -221,7 +221,11 @@ public class ClientConfig {
         setDefaultOpt("cam_zoom_scroll", Boolean.TRUE); setDefaultOpt("cam_zoom_reset_scroll", Boolean.TRUE); setDefaultOpt("cam_zoom_key", "C");
         setDefaultOpt("util_fullbright", Boolean.FALSE); setDefaultOpt("util_fullbright_level", Double.valueOf(12.0));
         setDefaultOpt("util_freelook", Boolean.TRUE); setDefaultOpt("util_freelook_key", "LALT");
-        setDefaultOpt("ctl_menu_key", "RSHIFT"); setDefaultOpt("ctl_waypoints_key", "B"); setDefaultOpt("ctl_fullbright_key", "F7"); setDefaultOpt("ctl_profile_key", "F6");
+        setDefaultOpt("ctl_menu_key", "RSHIFT"); setDefaultOpt("ctl_waypoints_key", "B"); setDefaultOpt("ctl_fullbright_key", "F7"); setDefaultOpt("ctl_profile_key", "F6"); setDefaultOpt("ctl_worldmap_key", "M");
+        setDefaultOpt("wp_scale", Double.valueOf(1.0));
+        setDefaultOpt("ping_above_hotbar", Boolean.FALSE); setDefaultOpt("ping_number_only", Boolean.FALSE);
+        setDefaultOpt("minimap_size", Integer.valueOf(96)); setDefaultOpt("minimap_zoom", Double.valueOf(1.0));
+        setDefaultOpt("minimap_shape", "circle"); setDefaultOpt("minimap_structures", Boolean.TRUE); setDefaultOpt("minimap_seed", "");
         setDefaultOpt("pvp_togglesprint", Boolean.TRUE); setDefaultOpt("pvp_togglesneak", Boolean.FALSE);
         setDefaultOpt("fps_show_label", Boolean.TRUE); setDefaultOpt("fps_detailed", Boolean.FALSE);
         setDefaultOpt("coords_facing", Boolean.TRUE); setDefaultOpt("coords_compact", Boolean.FALSE); setDefaultOpt("coords_nether", Boolean.TRUE);
@@ -277,7 +281,7 @@ public class ClientConfig {
         w.name = (name == null || name.trim().isEmpty()) ? ("WP #" + (waypoints.size() + 1)) : name.trim();
         w.x = x; w.y = y; w.z = z; w.dimension = (dim == null || dim.isEmpty()) ? "minecraft:overworld" : dim;
         w.worldId = (worldId == null || worldId.isEmpty()) ? "global" : worldId;
-        w.color = WP_COLORS[waypoints.size() % WP_COLORS.length]; w.style = "global"; w.borderRadius = 6; w.enabled = true; waypoints.add(w); save();
+        w.color = WP_COLORS[waypoints.size() % WP_COLORS.length]; w.style = "global"; w.borderRadius = 6; w.scale = 1.0; w.enabled = true; waypoints.add(w); save();
     }
     public synchronized void removeWaypoint(String id) { for (int i = waypoints.size() - 1; i >= 0; i--) if (id.equals(waypoints.get(i).id)) waypoints.remove(i); save(); }
     public synchronized void cycleWaypointColor(Waypoint w) {
@@ -366,6 +370,7 @@ public class ClientConfig {
                     w.color = o.has("color") ? o.get("color").getAsString() : "#22d3ee";
                     w.style = o.has("style") ? o.get("style").getAsString() : "global";
                     w.borderRadius = o.has("borderRadius") ? Math.max(0, Math.min(20, o.get("borderRadius").getAsInt())) : 6;
+                    w.scale = o.has("scale") ? Math.max(0.4, Math.min(2.5, o.get("scale").getAsDouble())) : 1.0;
                     w.enabled = !o.has("enabled") || o.get("enabled").getAsBoolean();
                     waypoints.add(w);
                 }
@@ -476,7 +481,7 @@ public class ClientConfig {
             wo.addProperty("x", Integer.valueOf(w.x)); wo.addProperty("y", Integer.valueOf(w.y)); wo.addProperty("z", Integer.valueOf(w.z));
             wo.addProperty("dimension", w.dimension); wo.addProperty("worldId", w.worldId == null ? "global" : w.worldId);
             wo.addProperty("color", w.color); wo.addProperty("style", w.style == null ? "global" : w.style);
-            wo.addProperty("borderRadius", Integer.valueOf(w.borderRadius)); wo.addProperty("enabled", Boolean.valueOf(w.enabled)); wpArr.add(wo);
+            wo.addProperty("borderRadius", Integer.valueOf(w.borderRadius)); wo.addProperty("scale", Double.valueOf(Math.round(w.scale * 100.0) / 100.0)); wo.addProperty("enabled", Boolean.valueOf(w.enabled)); wpArr.add(wo);
         }
         root.add("waypoints", wpArr);
 

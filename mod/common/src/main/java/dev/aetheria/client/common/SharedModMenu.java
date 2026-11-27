@@ -5,6 +5,7 @@ import java.util.*;
 public class SharedModMenu {
     public interface Actions {
         void openHudEditor();
+        default void openWorldMap() {}
         default void openTitleEditor() {}
         void closeMenu();
     }
@@ -52,6 +53,7 @@ public class SharedModMenu {
 
     private static final String[] SWATCHES = {"#ffffff","#ff3333","#09090b","#27272a","#a1a1aa","#22d3ee","#10b981","#a855f7","#f43f5e","#f59e0b"};
     private static final String[] WP_STYLES = {"lunar", "block", "dot", "beacon"};
+    private static final String[] MINIMAP_SHAPES = {"circle", "square"};
     private static final String[] WP_EDIT_STYLES = {"global", "lunar", "block", "dot", "beacon"};
     private static final String[] WP_DIMS = {"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"};
     private static final String[] WP_NAME_PRESETS = {"Base", "Home", "Portal", "Farm", "Raid", "End", "Stronghold", "Village"};
@@ -76,7 +78,8 @@ public class SharedModMenu {
     private String editingTitleWidgetId = null, titleTextBuf = "";
     private String accountInput = "", msaInput = "", accTagFilter = "All", accStatusMsg = "", waypointNameInput = "", hoveredTooltip = null;
     private boolean searchFocused = false, accountInputFocused = false, msaInputFocused = false, waypointInputFocused = false, titleTextFocused = false;
-    private boolean onlyEnabledFilter = false, wpShowAllWorlds = false, bgDropdownOpen = false;
+    private boolean onlyEnabledFilter = false, wpShowAllWorlds = false, bgDropdownOpen = false, seedInputFocused = false;
+    private String seedInput = "";
     private boolean foldMods = false, foldPersonalize = false, editingTargetPixels = false, pixelMirrorX = true, pixelMirrorY = false;
     private final Set<String> foldedAccordions = new HashSet<String>();
     private float scrollPx = 0.0F, targetScrollPx = 0.0F;
@@ -145,6 +148,7 @@ public class SharedModMenu {
             ClientConfig.get().setOption(listeningKeyOptId, ClientState.glfwKeyToName(keyCode)); listeningKeyOptId = null; return true;
         }
         if (!editingWpField.isEmpty() && (keyCode == 257 || keyCode == 335)) { commitWpField(); return true; }
+        if (seedInputFocused && (keyCode == 257 || keyCode == 335)) { ClientConfig.get().setOption("minimap_seed", seedInput.trim()); seedInputFocused = false; return true; }
         if (titleTextFocused && (keyCode == 257 || keyCode == 335)) { titleTextFocused = false; ClientConfig.get().save(); return true; }
         if (msaInputFocused && (keyCode == 257 || keyCode == 335)) {
             if (!msaInput.trim().isEmpty()) { MicrosoftAuth.loginAsync(msaInput.trim(), uiHostBridge); msaInput = ""; msaInputFocused = false; }
@@ -516,6 +520,7 @@ public class SharedModMenu {
             }
         });
         rows.add(sliderRow("Corner Roundness", "Individual card roundness for this waypoint (0-20px)", "wp_rad:" + wp.id, 0, 20, 1, true));
+        rows.add(sliderRow("Waypoint Size", "Scale this waypoint in-world (0.40x-2.50x)", "wp_scale:" + wp.id, 0.40, 2.50, 0.05, false));
         rows.add(colorRow("Exact Waypoint Color", "wp:" + wp.id));
         rows.add(wpCoordRow(wp, "X Coordinate", "x"));
         rows.add(wpCoordRow(wp, "Y Coordinate", "y"));
@@ -964,6 +969,7 @@ public class SharedModMenu {
                     ClientConfig.Waypoint w = ClientConfig.get().waypoints.get(i);
                     if (ClientState.isWaypointInWorld(w, ClientState.getCurrentWorldKey())) rows.add(waypointRow(w));
                 }
+                rows.add(sliderRow("Global Waypoint Size", "Multiplier for all waypoints (0.40x-2.50x)", "wp_scale", 0.40, 2.50, 0.05, false));
                 rows.add(cycleRow("Waypoint Style", "Lunar Card, Block Highlighter, Dot, or Tall Beacon", "wp_style", WP_STYLES));
                 rows.add(boolRow("Auto Death Waypoint", "Automatically mark where you died", "wp_auto_death", true));
                 rows.add(boolRow("World Markers", "Show floating markers / block highlights in world", "wp_world_markers", true));
@@ -971,6 +977,17 @@ public class SharedModMenu {
                 rows.add(boolRow("Show Distance (m)", "Display meter distance inside tag", "wp_show_dist", true));
                 rows.add(boolRow("Overworld <-> Nether Sync", "Auto-convert 8:1 coordinates", "wp_nether_sync", true));
                 rows.add(boolRow("Offscreen Edge Pointers", "Show directional arrow when off-screen", "wp_offscreen_arrows", true));
+            }
+        }
+        if ("minimap".equals(m.id) && "geom".equals(inspectorTab)) {
+            rows.add(accordionRow("mm_cfg", "TERRAIN MINIMAP, WORLDMAP & SEED"));
+            if (!foldedAccordions.contains("mm_cfg")) {
+                rows.add(actionRow("Open Interactive Worldmap", "Pan, zoom, structures & right-click waypoints (M)", "open_worldmap"));
+                rows.add(sliderRow("Minimap Size", "Resize minimap from Small (60px) to Big (180px)", "minimap_size", 60, 180, 4, true));
+                rows.add(sliderRow("Minimap Zoom", "Terrain zoom level (0.50x - 3.00x)", "minimap_zoom", 0.50, 3.00, 0.10, false));
+                rows.add(cycleRow("Minimap Shape", "Circle or Rounded Square", "minimap_shape", MINIMAP_SHAPES));
+                rows.add(boolRow("Show Structures", "Display villages, temples, monuments, bastions, etc.", "minimap_structures", true));
+                rows.add(seedInputRow());
             }
         }
         if ("geom".equals(inspectorTab)) {
@@ -1007,6 +1024,10 @@ public class SharedModMenu {
                 rows.add(sliderRow("Chroma Angle", "Wave direction in degrees", "mod_cang:" + m.id, 0, 360, 15, true));
             }
         } else if ("text".equals(inspectorTab)) {
+            if ("ping".equals(m.id)) {
+                rows.add(boolRow("Small Ping Above Hotbar", "Show compact numerical Tab ping centered above hotbar", "ping_above_hotbar", false));
+                rows.add(boolRow("Number Only (e.g. 24ms)", "Hide 'Ping:' label on ping readout", "ping_number_only", false));
+            }
             if ("scoreboard".equals(m.id)) {
                 rows.add(boolRow("Replace Vanilla Scoreboard", "Hide default vanilla sidebar so only Aetheria Scoreboard is shown", "sb_hide_vanilla", true));
                 rows.add(boolRow("Hide Red Score Numbers", "Hide right-side numeric scores", "sb_hide_numbers", false));
@@ -1079,6 +1100,7 @@ public class SharedModMenu {
         if (!foldedAccordions.contains("ui_keys")) {
             rows.add(keybindRow("Menu Keybind", "Click and press ANY key", "ctl_menu_key", "RSHIFT"));
             rows.add(keybindRow("Waypoints Menu Keybind", "Open dedicated Waypoints manager", "ctl_waypoints_key", "B"));
+            rows.add(keybindRow("Worldmap Keybind", "Open full-screen interactive Worldmap", "ctl_worldmap_key", "M"));
             rows.add(keybindRow("Fullbright Toggle Key", "Quick-toggle Fullbright in-game", "ctl_fullbright_key", "F7"));
             rows.add(keybindRow("Profile Cycle Keybind", "Click and press ANY key", "ctl_profile_key", "F6"));
             rows.add(keybindRow("Zoom Keybind", "Click and press ANY key", "cam_zoom_key", "C"));

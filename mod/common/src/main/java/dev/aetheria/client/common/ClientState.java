@@ -61,6 +61,45 @@ public final class ClientState {
         return fallback;
     }
 
+        public static class StructurePin {
+        public final String name, type, worldId, dimension;
+        public final int x, z;
+        public final boolean fromSeed;
+        public StructurePin(String name, String type, int x, int z, String dim, String worldId, boolean fromSeed) {
+            this.name = name; this.type = type; this.x = x; this.z = z;
+            this.dimension = dim == null ? "minecraft:overworld" : dim;
+            this.worldId = worldId == null ? "global" : worldId;
+            this.fromSeed = fromSeed;
+        }
+    }
+    private static final List<StructurePin> SEED_STRUCTURES = new ArrayList<StructurePin>();
+    private static final List<StructurePin> SCANNED_STRUCTURES = new ArrayList<StructurePin>();
+    private static volatile String activeSeedMode = "No Seed (Scanned)";
+
+    public static String getActiveSeedMode() { return activeSeedMode; }
+    public static void setActiveSeedMode(String m) { if (m != null) activeSeedMode = m; }
+    public static synchronized void setSeedStructures(List<StructurePin> list) { SEED_STRUCTURES.clear(); if (list != null) SEED_STRUCTURES.addAll(list); }
+    public static synchronized void addScannedStructure(String name, String type, int x, int z, String dim, String worldId) {
+        for (int i = 0; i < SCANNED_STRUCTURES.size(); i++) {
+            StructurePin s = SCANNED_STRUCTURES.get(i);
+            if (s.type.equals(type) && s.dimension.equals(dim) && Math.hypot(s.x - x, s.z - z) < 56.0) return;
+        }
+        SCANNED_STRUCTURES.add(new StructurePin(name, type, x, z, dim, worldId, false));
+        if (SCANNED_STRUCTURES.size() > 250) SCANNED_STRUCTURES.remove(0);
+    }
+    public static synchronized List<StructurePin> getVisibleStructures(String dim, String worldKey) {
+        List<StructurePin> out = new ArrayList<StructurePin>();
+        for (int pass = 0; pass < 2; pass++) {
+            List<StructurePin> src = (pass == 0) ? SCANNED_STRUCTURES : SEED_STRUCTURES;
+            for (int i = 0; i < src.size(); i++) {
+                StructurePin s = src.get(i);
+                if (dim != null && !dim.equals(s.dimension)) continue;
+                if (!"global".equalsIgnoreCase(s.worldId) && worldKey != null && !worldKey.equalsIgnoreCase(s.worldId)) continue;
+                out.add(s);
+            }
+        }
+        return out;
+    }
     private ClientState() {}
 
     public static void updatePlayerPos(int x, int y, int z, String dim) { updatePlayerPos(x, y, z, dim, currentWorldKey); }

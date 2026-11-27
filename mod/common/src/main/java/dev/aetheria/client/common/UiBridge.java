@@ -20,6 +20,8 @@ public final class UiBridge {
         default String lastServerIp() { return "Singleplayer"; }
         default void openUrl(String url) {}
         default String clipboardText() { return ""; }
+        default void drawMinimapTerrain(int x, int y, int size, boolean circle, double zoom) {}
+        default void drawWorldMapTiles(int x, int y, int w, int h, double centerX, double centerZ, double blocksPerPx) {}
         default void drawEntity(int x, int y, int size, float mouseX, float mouseY) {}
         default void drawPaperdoll(int x1, int y1, int x2, int y2, int size, float mouseX, float mouseY) {
             pushTransform(x1, y1, 1.0F); drawEntity((x2 - x1) / 2, Math.max(12, y2 - y1 - 8), size, mouseX, mouseY); popTransform();

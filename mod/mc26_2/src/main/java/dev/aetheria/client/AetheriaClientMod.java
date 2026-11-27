@@ -3,6 +3,7 @@ package dev.aetheria.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.aetheria.client.common.*;
 import dev.aetheria.client.gui.ModMenuScreen;
+import dev.aetheria.client.gui.WorldMapScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -10,7 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class AetheriaClientMod implements ClientModInitializer {
-    private static boolean prevMenuDown = false, prevWpDown = false, prevFbDown = false, prevProfDown = false, prevSneakDown = false, prevShieldCd = false;
+    private static boolean prevMenuDown = false, prevWpDown = false, prevFbDown = false, prevProfDown = false, prevMapDown = false, prevSneakDown = false, prevShieldCd = false;
     @Override public void onInitializeClient() { ClientConfig.get().init(FabricLoader.getInstance().getConfigDir()); try { MicrosoftAuth.syncFromLauncher(); } catch (Throwable ignored) {} }
 
     private static boolean isKeyHeld(Minecraft mc, String optName, int fallback) {
@@ -27,6 +28,9 @@ public class AetheriaClientMod implements ClientModInitializer {
         boolean wpDown = isKeyHeld(mc, cfg.getString("ctl_waypoints_key", "B"), InputConstants.KEY_B);
         if (wpDown && !prevWpDown && mc.gui.screen() == null) mc.gui.setScreen(new ModMenuScreen(null, "waypoints"));
         prevWpDown = wpDown;
+        boolean mapDown = isKeyHeld(mc, cfg.getString("ctl_worldmap_key", "M"), InputConstants.KEY_M);
+        if (mapDown && !prevMapDown && mc.gui.screen() == null && mc.player != null) mc.gui.setScreen(new WorldMapScreen());
+        prevMapDown = mapDown;
 
         boolean fbDown = isKeyHeld(mc, cfg.getString("ctl_fullbright_key", "F7"), InputConstants.KEY_F7);
         if (fbDown && !prevFbDown && mc.gui.screen() == null) cfg.setOption("util_fullbright", Boolean.valueOf(!cfg.getBool("util_fullbright", false)));
@@ -59,7 +63,7 @@ public class AetheriaClientMod implements ClientModInitializer {
                 prevShieldCd = scd;
             } catch (Throwable ignored) {}
         }
-        if (mc.player != null && mc.level != null && (!cfg.getBool("perf_unfocused_fps", true) || mc.isWindowActive())) McBridge.emitWorldGizmos(mc);
+        if (mc.player != null && mc.level != null) { MapEngine.tick(mc); if (!cfg.getBool("perf_unfocused_fps", true) || mc.isWindowActive()) McBridge.emitWorldGizmos(mc); }
         ClientState.tickComboTimeout();
     }
 }

@@ -216,6 +216,8 @@ public final class McBridge {
                 return "offline";
             }
             @Override public int liveFps() { return mc.getFps(); }
+            @Override public void drawMinimapTerrain(int x, int y, int size, boolean circle, double zoom) { MapEngine.drawMinimap(g, mc, x, y, size, circle, zoom); }
+            @Override public void drawWorldMapTiles(int x, int y, int w, int h, double centerX, double centerZ, double blocksPerPx) { MapEngine.drawWorldMap(g, mc, x, y, w, h, centerX, centerZ, blocksPerPx); }
             @Override public String clipboardText() { try { return mc.keyboardHandler.getClipboard(); } catch (Throwable t) { return ""; } }
             @Override public String lastServerIp() { return mc.getCurrentServer() != null ? mc.getCurrentServer().ip : "Singleplayer"; }
             @Override public void openUrl(String url) {
@@ -329,6 +331,8 @@ public final class McBridge {
                 if (mc.getConnection() == null || mc.player == null) return 0;
                 PlayerInfo pi = mc.getConnection().getPlayerInfo(mc.player.getUUID());
                 if (pi == null && mc.getUser() != null) pi = mc.getConnection().getPlayerInfo(mc.getUser().getProfileId());
+                if (pi == null) pi = mc.getConnection().getPlayerInfo(mc.player.getName().getString());
+                if (pi == null && mc.getUser() != null) pi = mc.getConnection().getPlayerInfo(mc.getUser().getName());
                 return pi != null ? pi.getLatency() : 0;
             }
             @Override public boolean isSprinting() { return mc.player.isSprinting(); }
