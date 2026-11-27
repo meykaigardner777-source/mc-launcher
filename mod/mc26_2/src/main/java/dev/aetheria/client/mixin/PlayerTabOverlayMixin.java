@@ -32,7 +32,7 @@ public class PlayerTabOverlayMixin {
 
         boolean clean = cfg.getBool("ui_clean_font", true);
         int tw = clean ? AetheriaCleanFont.width(mc, txt) : mc.font.width(txt);
-        float sc = tw > 22 ? 0.65F : 0.75F;
+        float sc = Math.max(0.55F, Math.min(0.75F, 14.5F / Math.max(1, tw)));
         float drawX = xo + slotWidth - 1.0F - tw * sc;
         float drawY = yo + 1.5F;
 

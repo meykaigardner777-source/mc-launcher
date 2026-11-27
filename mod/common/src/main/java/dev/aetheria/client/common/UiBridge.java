@@ -17,6 +17,7 @@ public final class UiBridge {
         default boolean switchAccount(String username, String uuid, String accessToken, String accountType) { return switchAccount(username, uuid); }
         default String currentAccountType() { return "offline"; }
         default int liveFps() { return 0; }
+        default String mcVersion() { return "26.2"; }
         default String lastServerIp() { return "Singleplayer"; }
         default void openUrl(String url) {}
         default String clipboardText() { return ""; }

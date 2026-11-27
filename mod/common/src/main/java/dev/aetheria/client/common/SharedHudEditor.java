@@ -48,7 +48,7 @@ public class SharedHudEditor {
             boolean hov = mx >= bx && mx <= bx + bw && my >= by && my <= by + bh;
 
             if (sel) {
-                g.drawRoundedOutline(bx - 2, by - 2, bw + 4, bh + 4, rad + 2, 2, "solid", accent, accent);
+                g.drawRoundedOutline(bx - 2, by - 2, bw + 4, bh + 4, rad + 1, 1, "solid", accent, accent);
                 if (m.id.equals(primaryId)) {
                     g.drawCircleFilled(bx + bw + 1, by + bh + 1, 5, 0xFF09090B);
                     g.drawCircleFilled(bx + bw + 1, by + bh + 1, 4, accent);
@@ -60,7 +60,7 @@ public class SharedHudEditor {
                     g.text("x", closeX - 2, closeY - 4, 0xFFFFFFFF, false);
                 }
             } else if (hov) {
-                g.drawRoundedOutline(bx - 1, by - 1, bw + 2, bh + 2, rad + 1, 2, "solid", ClientState.UI_BORDER_HOV, ClientState.UI_BORDER_HOV);
+                g.drawRoundedOutline(bx - 1, by - 1, bw + 2, bh + 2, rad + 1, 1, "solid", ClientState.UI_BORDER_HOV, ClientState.UI_BORDER_HOV);
             }
         }
 
@@ -223,7 +223,7 @@ public class SharedHudEditor {
         ClientConfig cfg = ClientConfig.get();
         ClientConfig.HudModule sel = primaryId == null ? null : cfg.hudModules.get(primaryId);
         if (!click) {
-            g.drawGlassCard(pillX, pillY, pillW, pillH, 11, 0xD809090B, ClientState.UI_BORDER);
+            g.drawRoundedRect(pillX, pillY, pillW, pillH, 3, 0xD809090B);
             String hint = selectedIds.size() > 1 ? (selectedIds.size() + " sel") : (sel != null && sel.enabled ? (sel.label + " " + String.format("%.1fx", Double.valueOf(sel.scale))) : "Drag | RClick=Cfg");
             g.text(hint, pillX + 9, pillY + 7, ClientState.UI_TEXT_MUTED, false);
         }
@@ -243,7 +243,7 @@ public class SharedHudEditor {
     private boolean btn(UiBridge.UiDraw g, int x, int y, int w, int h, String txt, int bg, int fg, int mx, int my, boolean click) {
         boolean hov = mx >= x && mx <= x + w && my >= y && my <= y + h;
         if (!click) {
-            g.drawGlassCard(x, y, w, h, 8, hov ? ClientState.brightenArgb(bg, 18) : bg, ClientState.UI_BORDER);
+            g.drawRoundedRect(x, y, w, h, 3, hov ? ClientState.brightenArgb(bg, 18) : bg);
             g.text(txt, x + (w - g.textWidth(txt)) / 2, y + (h - 8) / 2, fg, false);
         }
         if (hov && click) { g.playClickSound(); return true; }

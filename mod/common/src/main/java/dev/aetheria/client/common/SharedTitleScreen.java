@@ -257,7 +257,7 @@ public class SharedTitleScreen {
             int bg = ClientState.scaleAlpha(rawBg, tw.opacity);
             int baseTxt = tw.chroma ? ClientState.getChromaColor(1.2, 0.85, 45.0, tw.x, tw.y) : ClientState.parseHexColor(tw.textColor, 0xFFF4F4F5);
             int txt = ClientState.scaleAlpha(baseTxt, tw.textOpacity);
-            int brdBase = tw.chroma ? baseTxt : (hov ? accent : ClientState.parseHexColor(tw.borderColor, ClientState.UI_BORDER));
+            int brdBase = tw.chroma ? baseTxt : ClientState.parseHexColor(tw.borderColor, ClientState.UI_BORDER);
             int bwThick = tw.showBorder ? Math.max(1, Math.min(3, tw.borderWidth)) : 0;
 
             g.drawGlassCard(0, 0, bw, bh, tw.borderRadius, bwThick, "solid", bg, brdBase, brdBase);
@@ -265,7 +265,7 @@ public class SharedTitleScreen {
             if ("logo".equals(tw.id)) {
                 String t = (tw.customText != null && !tw.customText.isEmpty()) ? tw.customText : "AETHERIA CLIENT";
                 g.text(t, (bw - g.textWidth(t)) / 2, 11, txt, tw.shadow);
-                String sub = cfg.activeProfile.toUpperCase() + " \u2022 MC 26.2";
+                String sub = cfg.activeProfile.toUpperCase() + " \u2022 MC " + g.mcVersion();
                 g.text(sub, (bw - g.textWidth(sub)) / 2, 26, tw.chroma ? txt : accent, tw.shadow);
             } else if ("quick_play".equals(tw.id)) {
                 String lbl = (tw.customText != null && !tw.customText.isEmpty()) ? tw.customText : "PLAY MINECRAFT";
@@ -287,7 +287,7 @@ public class SharedTitleScreen {
                 String lbl = "PROFILE: " + cfg.activeProfile.toUpperCase();
                 g.text(lbl, (bw - g.textWidth(lbl)) / 2, (bh - 8) / 2, txt, tw.shadow);
             } else if ("version_badge".equals(tw.id)) {
-                String lbl = "Aetheria 1.1 \u2022 26.2";
+                String lbl = "Aetheria 1.1 \u2022 " + g.mcVersion();
                 g.text(lbl, (bw - g.textWidth(lbl)) / 2, (bh - 8) / 2, txt, tw.shadow);
             } else if ("last_server".equals(tw.id)) {
                 g.text("Quick Multiplayer", 10, 6, txt, tw.shadow);
@@ -322,7 +322,7 @@ public class SharedTitleScreen {
     private boolean drawEditorToolbar(UiBridge.UiDraw g, int sw, int mx, int my, boolean click, HostActions actions, int accent, int accentFg) {
         int barW = 246, bx = sw / 2 - barW / 2, by = 6, bh = 20;
         if (click && (mx < bx || mx > bx + barW || my < by || my > by + bh)) return false;
-        if (!click) g.drawGlassCard(bx, by, barW, bh, 10, 0xCC09090B, ClientState.UI_BORDER);
+        if (!click) g.drawRoundedRect(bx, by, barW, bh, 3, 0xCC09090B);
         int active = 0; for (ClientConfig.TitleWidget tw : ClientConfig.get().titleWidgets.values()) if (tw.enabled) active++;
         if (miniBtn(g, bx + 4, by + 2, 90, 16, "Widgets (" + active + "/20)", 0xFF181822, ClientState.UI_TEXT, mx, my, click)) { catalogOpen = !catalogOpen; return true; }
         if (miniBtn(g, bx + 98, by + 2, 54, 16, "Reset", 0xFF28181B, ClientState.UI_TEXT_MUTED, mx, my, click)) { ClientConfig.get().resetTitleLayout(); ClientConfig.get().save(); return true; }
@@ -335,7 +335,7 @@ public class SharedTitleScreen {
         if (click && (mx < px || mx > px + pw || my < py || my > py + ph)) return false;
         ClientConfig cfg = ClientConfig.get();
         if (!click) {
-            g.drawGlassCard(px, py, pw, ph, 10, 0xEE0D0D14, accent);
+            g.drawRoundedRect(px, py, pw, ph, 3, 0xEE0D0D14);
             g.text("Account Switcher (" + g.currentUsername() + ")", px + 10, py + 9, ClientState.UI_TEXT, false);
         }
         if (miniBtn(g, px + pw - 96, py + 6, 70, 16, "Sync MSA", 0xFF1A2E28, 0xFF6EE7B7, mx, my, click)) {
@@ -358,7 +358,7 @@ public class SharedTitleScreen {
             boolean cur = a.name.equalsIgnoreCase(g.currentUsername());
             boolean isMsa = "msa".equalsIgnoreCase(a.type);
             if (!click) {
-                g.drawGlassCard(px + 10, ry, pw - 20, 20, 5, 0xFF15151E, cur ? accent : ClientState.UI_BORDER);
+                g.drawGlassCard(px + 10, ry, pw - 20, 20, 3, 0xFF15151E, cur ? accent : 0);
                 g.text((isMsa ? "[MSA] " : "[ALT] ") + a.name, px + 16, ry + 6, cur ? accent : (isMsa ? 0xFF6EE7B7 : ClientState.UI_TEXT), false);
             }
             if (miniBtn(g, px + pw - 80, ry + 2, 42, 16, cur ? "Active" : "Use", cur ? accent : 0xFF1E293B, cur ? accentFg : ClientState.UI_TEXT, mx, my, click)) {
@@ -378,7 +378,7 @@ public class SharedTitleScreen {
         int pw = Math.min(410, sw - 20), ph = Math.min(270, sh - 40), px = (sw - pw) / 2, py = Math.max(30, (sh - ph) / 2);
         if (click && (mx < px || mx > px + pw || my < py || my > py + ph)) return false;
         if (!click) {
-            g.drawGlassCard(px, py, pw, ph, 10, 0xEE0D0D14, accent);
+            g.drawRoundedRect(px, py, pw, ph, 3, 0xEE0D0D14);
             g.text("Title Widget Catalog (20 Widgets)", px + 12, py + 9, ClientState.UI_TEXT, false);
         }
         if (miniBtn(g, px + pw - 24, py + 6, 18, 16, "x", 0xFF28181B, 0xFFFFFFFF, mx, my, click)) { catalogOpen = false; return true; }
@@ -390,7 +390,7 @@ public class SharedTitleScreen {
             int wx = px + 10 + col * (colW + 6), wy = py + 28 + row * 23;
             if (wy + 20 > py + ph - 6) break;
             if (!click) {
-                g.drawGlassCard(wx, wy, colW, 20, 5, 0xFF14141D, tw.enabled ? accent : ClientState.UI_BORDER);
+                g.drawGlassCard(wx, wy, colW, 20, 3, 0xFF14141D, tw.enabled ? accent : 0);
                 g.text(tw.label, wx + 6, wy + 6, ClientState.UI_TEXT, false);
             }
             if (miniBtn(g, wx + colW - 36, wy + 2, 32, 16, tw.enabled ? "ON" : "OFF", tw.enabled ? accent : 0xFF23232E, tw.enabled ? accentFg : ClientState.UI_TEXT_MUTED, mx, my, click)) {
@@ -585,7 +585,7 @@ public class SharedTitleScreen {
 
     private boolean miniBtn(UiBridge.UiDraw g, int x, int y, int w, int h, String txt, int bg, int fg, int mx, int my, boolean click) {
         boolean hov = mx >= x && mx <= x + w && my >= y && my <= y + h;
-        if (!click) { g.drawGlassCard(x, y, w, h, 6, hov ? ClientState.brightenArgb(bg, 18) : bg, ClientState.UI_BORDER); g.text(txt, x + (w - g.textWidth(txt)) / 2, y + (h - 7) / 2, fg, false); }
+        if (!click) { g.drawRoundedRect(x, y, w, h, 3, hov ? ClientState.brightenArgb(bg, 18) : bg); g.text(txt, x + (w - g.textWidth(txt)) / 2, y + (h - 7) / 2, fg, false); }
         if (hov && click) { g.playClickSound(); return true; } return false;
     }
 }

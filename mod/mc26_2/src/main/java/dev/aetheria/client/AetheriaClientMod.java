@@ -8,9 +8,11 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.Items;
 
 public class AetheriaClientMod implements ClientModInitializer {
+    private static final ItemStack SHIELD_STACK = new ItemStack(Items.SHIELD);
     private static boolean prevMenuDown = false, prevWpDown = false, prevFbDown = false, prevProfDown = false, prevMapDown = false, prevSneakDown = false, prevShieldCd = false;
     @Override public void onInitializeClient() { ClientConfig.get().init(FabricLoader.getInstance().getConfigDir()); try { MicrosoftAuth.syncFromLauncher(); } catch (Throwable ignored) {} }
 
@@ -47,7 +49,7 @@ public class AetheriaClientMod implements ClientModInitializer {
 
         if (mc.player != null && mc.gui.screen() == null) {
             if (cfg.getBool("pvp_togglesprint", true) && mc.options.keyUp.isDown() && !mc.player.isShiftKeyDown() && !mc.player.horizontalCollision
-                    && !mc.player.isUsingItem() && (mc.player.getFoodData().getFoodLevel() > 6 || mc.player.getAbilities().mayfly)) {
+                    && !mc.player.isUsingItem() && !mc.player.hasEffect(MobEffects.BLINDNESS) && (mc.player.getFoodData().getFoodLevel() > 6 || mc.player.getAbilities().mayfly)) {
                 mc.player.setSprinting(true);
             }
             if (cfg.getBool("pvp_togglesneak", false)) {
@@ -58,7 +60,7 @@ public class AetheriaClientMod implements ClientModInitializer {
             } else { prevSneakDown = false; ClientState.setToggleSneaking(false); }
 
             try {
-                boolean scd = mc.player.getCooldowns().isOnCooldown(new ItemStack(Items.SHIELD));
+                boolean scd = mc.player.getCooldowns().isOnCooldown(SHIELD_STACK);
                 if (scd && !prevShieldCd) ClientState.triggerShieldCooldown();
                 prevShieldCd = scd;
             } catch (Throwable ignored) {}

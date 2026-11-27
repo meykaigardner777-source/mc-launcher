@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.aetheria.client.common.*;
 import dev.aetheria.client.gui.HudEditorScreen;
 import dev.aetheria.client.mixin.MinecraftAccessor;
+import net.minecraft.SharedConstants;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
@@ -39,7 +40,9 @@ public final class McBridge {
     private static final Identifier RING_TEX_2 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_2_512");
     private static final Identifier RING_TEX_3 = Identifier.fromNamespaceAndPath("aetheria", "ring_aa_3_512");
     private static boolean texturesInit = false, debugChecked = false;
-    private static Method debugMethod = null;
+    private static Method debugMethod = null, hitboxEnabledMethod = null;
+    private static Object hitboxEntryObj = null;
+    private static boolean hitboxChecked = false;
     private static Object debugTarget = null;
 
     private McBridge() {}
@@ -96,6 +99,29 @@ public final class McBridge {
         return false;
     }
 
+    private static boolean checkEntityHitboxesEnabled(Minecraft mc) {
+        if (!hitboxChecked && mc != null) {
+            hitboxChecked = true;
+            try {
+                if (debugTarget == null) checkDebugOverlayVisible(mc);
+                if (debugTarget != null) {
+                    Class<?> cls = Class.forName("net.minecraft.client.gui.components.debug.DebugScreenEntries");
+                    hitboxEntryObj = cls.getField("ENTITY_HITBOXES").get(null);
+                    for (Method m : debugTarget.getClass().getMethods()) {
+                        if ("isCurrentlyEnabled".equals(m.getName()) && m.getParameterCount() == 1) {
+                            hitboxEnabledMethod = m;
+                            break;
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
+        }
+        if (debugTarget != null && hitboxEnabledMethod != null && hitboxEntryObj != null) {
+            try { return Boolean.TRUE.equals(hitboxEnabledMethod.invoke(debugTarget, hitboxEntryObj)); } catch (Throwable ignored) {}
+        }
+        return false;
+    }
+
     public static void emitWorldGizmos(Minecraft mc) {
         if (mc.player == null || mc.level == null) return;
         ClientConfig cfg = ClientConfig.get();
@@ -112,7 +138,7 @@ public final class McBridge {
             }
         }
 
-        if (cfg.getBool("hb_enabled", false)) {
+        if (cfg.getBool("hb_enabled", false) && (!cfg.getBool("hb_only_f3b", false) || checkEntityHitboxesEnabled(mc))) {
             int col = cfg.getBool("hb_chroma", false)
                 ? ClientState.getChromaColor(1.5, 0.85, 45.0, 0.5, 0.5)
                 : ClientState.parseHexColor(cfg.getString("hb_color", "#22d3ee"), 0xFF22D3EE);
@@ -217,6 +243,18 @@ public final class McBridge {
                 return "offline";
             }
             @Override public int liveFps() { return mc.getFps(); }
+            @Override public String mcVersion() {
+                try {
+                    Object v = SharedConstants.getCurrentVersion();
+                    for (String m : new String[]{"name", "getName", "id"}) {
+                        try {
+                            Object r = v.getClass().getMethod(m).invoke(v);
+                            if (r != null && !String.valueOf(r).isEmpty()) return String.valueOf(r);
+                        } catch (Throwable ignored) {}
+                    }
+                } catch (Throwable ignored) {}
+                return "26.2";
+            }
             @Override public void drawMinimapTerrain(int x, int y, int size, boolean circle, double zoom) { MapEngine.drawMinimap(g, mc, x, y, size, circle, zoom); }
                         @Override public boolean supportsStructureIcons() { return true; }
             @Override public void drawStructureIcon(String type, int x, int y, float scale, boolean dimmed) {

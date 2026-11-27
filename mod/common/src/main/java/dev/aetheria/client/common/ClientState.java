@@ -79,6 +79,9 @@ public final class ClientState {
 
     public static void markSeedDirty() { seedDirty = true; }
     public static boolean consumeSeedDirty() { boolean d = seedDirty; seedDirty = false; return d; }
+    private static volatile boolean mapCacheDirty = false;
+    public static void markMapCacheDirty() { mapCacheDirty = true; }
+    public static boolean consumeMapCacheDirty() { boolean d = mapCacheDirty; mapCacheDirty = false; return d; }
 
     public static String getActiveSeedMode() { return activeSeedMode; }
     public static void setActiveSeedMode(String m) { if (m != null) activeSeedMode = m; }

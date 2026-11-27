@@ -27,7 +27,7 @@ public class ClientConfig {
 
     public static class Waypoint {
         public String id, name, dimension = "minecraft:overworld", worldId = "global", color = "#22d3ee", style = "global";
-        public int x, y, z, borderRadius = 6;
+        public int x, y, z, borderRadius = 3;
         public double scale = 1.0;
         public boolean enabled = true;
     }
@@ -38,9 +38,9 @@ public class ClientConfig {
     }
     public static class TitleWidget {
         public String id, label, desc = "", bgColor = "#121219", textColor = "#f4f4f5", borderColor = "#27272a", customText = "";
-        public boolean enabled = true, showBorder = true, chroma = false, shadow = false;
+        public boolean enabled = true, showBorder = false, chroma = false, shadow = false;
         public double x, y, scale = 1.0, opacity = 0.88, textOpacity = 1.0;
-        public int borderRadius = 8, borderWidth = 1;
+        public int borderRadius = 3, borderWidth = 1;
     }
     public static class HudModule {
         public String id, label, category = "system", optId, desc = "", anchor = "top-left";
@@ -48,7 +48,7 @@ public class ClientConfig {
         public String borderStyle = "solid", fontFamily = "default", fontWeight = "normal", prefix = "", suffix = "", bracketStyle = "none", displayMode = "icon_text", customText = "Aetheria Client", dropShadowColor = "#000000";
         public boolean enabled, favorite = false, bg = true, border = false, chroma = false, shadow = true, hideInF1 = true, hideInChat = false, hideInInventory = false, hideInF3 = true;
         public double x, y, scale = 1.0, opacity = 0.35, textOpacity = 1.0, chromaSpeed = 1.0, chromaSat = 0.85, chromaAngle = 45.0;
-        public int width = 0, height = 0, borderRadius = 8, borderWidth = 1, paddingX = 6, paddingY = 4, margin = 0, blurRadius = 8, letterSpacing = 0, dropShadowX = 0, dropShadowY = 2, dropShadowBlur = 0;
+        public int width = 0, height = 0, borderRadius = 3, borderWidth = 1, paddingX = 6, paddingY = 4, margin = 0, blurRadius = 8, letterSpacing = 0, dropShadowX = 0, dropShadowY = 2, dropShadowBlur = 0;
     }
 
     public static ClientConfig get() { return INSTANCE; }
@@ -191,7 +191,7 @@ public class ClientConfig {
         setDefaultOpt("ui_menu_layout", "oneclient"); setDefaultOpt("ui_clean_font", Boolean.TRUE);
         setDefaultOpt("ui_custom_title", Boolean.TRUE); setDefaultOpt("title_bg_style", "waves"); setDefaultOpt("title_bg_dim", Double.valueOf(0.35));
         setDefaultOpt("ui_switch_style", "pill"); setDefaultOpt("ui_card_width", Integer.valueOf(138));
-        setDefaultOpt("ui_menu_rounding", Integer.valueOf(10)); setDefaultOpt("ui_menu_opacity", Double.valueOf(0.92));
+        setDefaultOpt("ui_menu_rounding", Integer.valueOf(3)); setDefaultOpt("ui_menu_opacity", Double.valueOf(0.92));
         setDefaultOpt("ui_accent", "white"); setDefaultOpt("ui_accent_custom", "#ff3333");
         setDefaultOpt("ui_animations", Boolean.TRUE); setDefaultOpt("ui_anim_speed", Double.valueOf(1.0)); setDefaultOpt("ui_anim_curve", "smooth");
         setDefaultOpt("ui_click_sound", Boolean.TRUE); setDefaultOpt("ui_tooltips", Boolean.TRUE);
@@ -326,7 +326,7 @@ public class ClientConfig {
         w.name = (name == null || name.trim().isEmpty()) ? ("WP #" + (waypoints.size() + 1)) : name.trim();
         w.x = x; w.y = y; w.z = z; w.dimension = (dim == null || dim.isEmpty()) ? "minecraft:overworld" : dim;
         w.worldId = (worldId == null || worldId.isEmpty()) ? "global" : worldId;
-        w.color = WP_COLORS[waypoints.size() % WP_COLORS.length]; w.style = "global"; w.borderRadius = 6; w.scale = 1.0; w.enabled = true; waypoints.add(w); save();
+        w.color = WP_COLORS[waypoints.size() % WP_COLORS.length]; w.style = "global"; w.borderRadius = 3; w.scale = 1.0; w.enabled = true; waypoints.add(w); save();
     }
     public synchronized void removeWaypoint(String id) { for (int i = waypoints.size() - 1; i >= 0; i--) if (id.equals(waypoints.get(i).id)) waypoints.remove(i); save(); }
     public synchronized void cycleWaypointColor(Waypoint w) {
@@ -414,7 +414,7 @@ public class ClientConfig {
                     w.worldId = o.has("worldId") ? o.get("worldId").getAsString() : "global";
                     w.color = o.has("color") ? o.get("color").getAsString() : "#22d3ee";
                     w.style = o.has("style") ? o.get("style").getAsString() : "global";
-                    w.borderRadius = o.has("borderRadius") ? Math.max(0, Math.min(20, o.get("borderRadius").getAsInt())) : 6;
+                    w.borderRadius = o.has("borderRadius") ? Math.max(0, Math.min(20, o.get("borderRadius").getAsInt())) : 3;
                     w.scale = o.has("scale") ? Math.max(0.4, Math.min(2.5, o.get("scale").getAsDouble())) : 1.0;
                     w.enabled = !o.has("enabled") || o.get("enabled").getAsBoolean();
                     waypoints.add(w);

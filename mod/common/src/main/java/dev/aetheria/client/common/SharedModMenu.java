@@ -720,12 +720,15 @@ public class SharedModMenu {
             if (SharedTitleScreen.BG_PRESETS[i][0].equalsIgnoreCase(curBgId)) { curBgLabel = SharedTitleScreen.BG_PRESETS[i][1]; break; }
         }
 
-        // Handle open dropdown clicks FIRST so it intercepts clicks above the widget list
-        int menuX = cx, menuY = ddY + 24, menuW = ddW, itemH = 19;
-        int menuH = SharedTitleScreen.BG_PRESETS.length * itemH + 6;
+        // Handle open 2-column dropdown clicks FIRST
+        int menuX = cx, menuY = ddY + 24, menuW = Math.min(cw, Math.max(ddW, 336)), colsBg = 2;
+        int rowsBg = (SharedTitleScreen.BG_PRESETS.length + 1) / colsBg, itemH = 20, menuH = rowsBg * itemH + 8;
+        int colBgW = (menuW - 10) / colsBg;
         if (bgDropdownOpen && click) {
             if (mx >= menuX && mx <= menuX + menuW && my >= menuY && my <= menuY + menuH) {
-                int idx = (my - (menuY + 3)) / itemH;
+                int colIdx = (mx >= menuX + 5 + colBgW) ? 1 : 0;
+                int rowIdx = (my - (menuY + 4)) / itemH;
+                int idx = rowIdx * colsBg + colIdx;
                 if (idx >= 0 && idx < SharedTitleScreen.BG_PRESETS.length) {
                     g.playClickSound();
                     cfg.setOption("title_bg_style", SharedTitleScreen.BG_PRESETS[idx][0]);
@@ -737,10 +740,9 @@ public class SharedModMenu {
             return true;
         }
 
-        if (drawBtn(g, "hs_bg_dd", cx, ddY, ddW, 22, 5, "BG: " + trimToWidth(g, curBgLabel, ddW - 34) + (bgDropdownOpen ? "  ^" : "  v"), 0xFF161620, ClientState.UI_TEXT, false, mx, my, click)) {
+        if (drawBtn(g, "hs_bg_dd", cx, ddY, ddW, 22, 3, "BG: " + trimToWidth(g, curBgLabel, ddW - 34) + (bgDropdownOpen ? "  ^" : "  v"), 0xFF161620, ClientState.UI_TEXT, false, mx, my, click)) {
             bgDropdownOpen = !bgDropdownOpen; return true;
         }
-
         // Dim slider inline to the right of dropdown
         int dimX = cx + ddW + 8, dimW = cw - ddW - 78;
         double dimVal = cfg.getDouble("title_bg_dim", 0.35), dimPct = Math.max(0.0, Math.min(1.0, dimVal / 0.85));
@@ -775,7 +777,7 @@ public class SharedModMenu {
             int ry = listY + i * (rowH + gap) - curScroll;
             if (ry < listY || ry + rowH > listY + listH) continue;
             if (!click) {
-                g.drawGlassCard(cx, ry, rw, rowH, Math.max(3, menuRad / 2), 0xFF14141B, tw.enabled ? accent : ClientState.UI_BORDER);
+                g.drawGlassCard(cx, ry, rw, rowH, Math.max(3, menuRad / 2), 0xFF14141B, tw.enabled ? accent : 0);
                 g.text((i + 1) + ". " + tw.label, cx + 10, ry + 7, ClientState.UI_TEXT, false);
                 String meta = String.format("Size %.2fx \u2022 Op %d%% \u2022 Rad %dpx", Double.valueOf(tw.scale), Integer.valueOf((int) Math.round(tw.opacity * 100.0)), Integer.valueOf(tw.borderRadius));
                 g.text(meta, cx + 10, ry + 19, ClientState.UI_TEXT_DIM, false);
@@ -789,21 +791,21 @@ public class SharedModMenu {
         }
         if (!click && maxScrollPx > 0) drawScrollbar(g, cx + cw - 4, listY, listH, totalH, curScroll, accent);
 
-        // Render open Background Dropdown ON TOP of widget list
+        // Render open 2-column Background Dropdown ON TOP of widget list
         if (!click && bgDropdownOpen) {
-            g.drawGlassCard(menuX, menuY, menuW, menuH, 6, 0xF5101016, accent);
+            g.drawGlassCard(menuX, menuY, menuW, menuH, 3, 0xF5101016, accent);
             for (int i = 0; i < SharedTitleScreen.BG_PRESETS.length; i++) {
                 String id = SharedTitleScreen.BG_PRESETS[i][0], lbl = SharedTitleScreen.BG_PRESETS[i][1];
-                int iy = menuY + 3 + i * itemH;
+                int c0 = i % colsBg, r0 = i / colsBg;
+                int ix = menuX + 4 + c0 * (colBgW + 2), iy = menuY + 4 + r0 * itemH;
                 boolean sel = id.equalsIgnoreCase(curBgId);
-                boolean hov = mx >= menuX + 3 && mx <= menuX + menuW - 3 && my >= iy && my <= iy + itemH;
-                if (sel || hov) g.drawRoundedRect(menuX + 3, iy, menuW - 6, itemH - 1, 4, sel ? ClientState.withAlpha(accent, 48) : 0x22FFFFFF);
-                g.text(lbl, menuX + 9, iy + 5, sel ? accent : (i >= 5 ? 0xFF6EE7B7 : ClientState.UI_TEXT), false);
+                boolean hov = mx >= ix && mx <= ix + colBgW && my >= iy && my <= iy + itemH;
+                if (sel || hov) g.drawRoundedRect(ix, iy, colBgW, itemH - 2, 3, sel ? ClientState.withAlpha(accent, 48) : 0x22FFFFFF);
+                g.text(trimToWidth(g, lbl, colBgW - 10), ix + 6, iy + 5, sel ? accent : (i >= 5 ? 0xFF6EE7B7 : ClientState.UI_TEXT), false);
             }
         }
         return false;
     }
-
     private boolean renderTitleWidgetSettingsPage(UiBridge.UiDraw g, int cx, int cy, int cw, int ch, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
         final ClientConfig cfg = ClientConfig.get();
         final ClientConfig.TitleWidget tw = cfg.titleWidgets.get(editingTitleWidgetId);
@@ -863,7 +865,7 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 ClientConfig.TitleWidget tw = ClientConfig.get().titleWidgets.get(twId); if (tw == null) return false;
                 boolean val = "showBorder".equals(field) ? tw.showBorder : ("chroma".equals(field) ? tw.chroma : tw.shadow);
-                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawSwitch(g, "twb_" + twId + "_" + field, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) {
                     if ("showBorder".equals(field)) tw.showBorder = !tw.showBorder; else if ("chroma".equals(field)) tw.chroma = !tw.chroma; else tw.shadow = !tw.shadow;
                     ClientConfig.get().save(); return true;
@@ -900,7 +902,7 @@ public class SharedModMenu {
             for (int i = 0; i < list.size(); i++) {
                 ModEntry m = list.get(i); int ry = cy + i * (rowH + gap) - curScroll; if (ry < cy || ry + rowH > cy + ch) continue;
                 boolean en = isModEnabled(m.id);
-                if (!click) { if (mx >= cx && mx <= cx + rw && my >= ry && my <= ry + rowH) hoveredTooltip = m.desc; g.drawGlassCard(cx, ry, rw, rowH, Math.max(2, menuRad / 2), ClientState.UI_CARD, en ? accent : ClientState.UI_BORDER); g.text(m.name + "  [" + m.category.toUpperCase() + "]", cx + 10, ry + 7, ClientState.UI_TEXT, false); g.text(trimToWidth(g, m.desc, rw - 150), cx + 10, ry + 19, ClientState.UI_TEXT_MUTED, false); }
+                if (!click) { if (mx >= cx && mx <= cx + rw && my >= ry && my <= ry + rowH) hoveredTooltip = m.desc; g.drawGlassCard(cx, ry, rw, rowH, Math.max(2, menuRad / 2), ClientState.UI_CARD, en ? accent : 0); g.text(m.name + "  [" + m.category.toUpperCase() + "]", cx + 10, ry + 7, ClientState.UI_TEXT, false); g.text(trimToWidth(g, m.desc, rw - 150), cx + 10, ry + 19, ClientState.UI_TEXT_MUTED, false); }
                 if (drawBtn(g, "pcfg_" + m.id, cx + rw - 118, ry + 8, 58, 18, Math.max(2, menuRad / 2), "Config", ClientState.UI_INPUT, ClientState.UI_TEXT_MUTED, false, mx, my, click)) { editingModId = m.id; resetScroll(); return true; }
                 if (drawSwitch(g, "ptog_" + m.id, cx + rw - 54, ry + 8, 44, 18, en, accent, accentFg, mx, my, click)) { toggleMod(m.id); return true; }
             }
@@ -919,7 +921,7 @@ public class SharedModMenu {
             ClientConfig.HudModule hm = ClientConfig.get().hudModules.get(m.id); boolean fav = hm != null && hm.favorite;
             if (!click) {
                 if (hov) hoveredTooltip = m.name + " - " + m.desc;
-                g.drawGlassCard(bx, topVis, cardW, botVis - topVis, menuRad, ClientState.lerpColor(0xFF131319, 0xFF191922, animHover("card_" + m.id, hov)), enabled ? accent : ClientState.UI_BORDER);
+                g.drawGlassCard(bx, topVis, cardW, botVis - topVis, menuRad, ClientState.lerpColor(0xFF131319, 0xFF191922, animHover("card_" + m.id, hov)), enabled ? accent : 0);
                 if (by + 8 >= cy && by + 18 <= cy + ch) { g.drawCircleFilled(bx + 9, by + 13, 3, enabled ? accent : ClientState.UI_TEXT_DIM); g.text(m.category.toUpperCase(), bx + 16, by + 9, ClientState.UI_TEXT_DIM, false); }
                 if (by + 22 >= cy && by + 32 <= cy + ch) g.text(trimToWidth(g, m.name, cardW - 14), bx + 8, by + 22, ClientState.UI_TEXT, false);
                 if (by + 35 >= cy && by + 68 <= cy + ch) { List<String> w = wrapText(g, m.desc, cardW - 16, 3); for (int l = 0; l < w.size(); l++) g.text(w.get(l), bx + 8, by + 36 + l * 10, ClientState.UI_TEXT_MUTED, false); }
@@ -999,6 +1001,7 @@ public class SharedModMenu {
                 rows.add(boolRow("Worldmap Chunk Grid", "Show 16x16 chunk borders on Worldmap", "worldmap_chunk_grid", false));
                 rows.add(boolRow("Minimap Coordinates", "Show XYZ pill at bottom of minimap", "minimap_coords", true));
                 rows.add(seedInputRow());
+                rows.add(actionRow("Clear Map Cache", "Wipe saved terrain tiles for this world/dimension", "clear_map_cache"));
             }
             rows.add(accordionRow("mm_filters", "STRUCTURE FILTERS (SHOW / HIDE)"));
             if (!foldedAccordions.contains("mm_filters")) {
@@ -1205,7 +1208,7 @@ public class SharedModMenu {
     private void buildHitColorRows(List<SettingRow> rows) { rows.add(boolRow("Enable Hit Colorizer", "Replace vanilla red damage flash", "pvp_hit_color", false)); rows.add(boolRow("Chroma RGB Hit Flash", "Cycle rainbow colors on damage", "pvp_hit_color_chroma", false)); rows.add(sliderRow("Tint Intensity", "Blend strength (10% - 100%)", "pvp_hit_color_alpha", 0.10, 1.00, 0.05, false)); rows.add(colorRow("Hit Flash Color", "opt:pvp_hit_color_hex")); }
     private void buildHitboxRows(List<SettingRow> rows) {
         rows.add(hitboxPreviewRow()); rows.add(accordionRow("hb_style", "STYLE & COLOR"));
-        if (!foldedAccordions.contains("hb_style")) { rows.add(boolRow("Enable Custom Hitboxes", "Render customized 3D entity hitboxes", "hb_enabled", false)); rows.add(boolRow("Chroma RGB Hitboxes", "Rainbow animated hitbox outlines", "hb_chroma", false)); rows.add(colorRow("Hitbox Color", "opt:hb_color")); rows.add(sliderRow("Line Width", "Stroke thickness (1.0 - 4.0)", "hb_line_width", 1.0, 4.0, 0.5, false)); rows.add(sliderRow("Fill Opacity", "Translucent inner box fill (0% - 50%)", "hb_fill_alpha", 0.0, 0.50, 0.02, false)); }
+        if (!foldedAccordions.contains("hb_style")) { rows.add(boolRow("Enable Custom Hitboxes", "Render customized 3D entity hitboxes", "hb_enabled", false)); rows.add(boolRow("Only When F3+B Active", "Show custom hitboxes only when vanilla F3+B is on", "hb_only_f3b", false)); rows.add(boolRow("Chroma RGB Hitboxes", "Rainbow animated hitbox outlines", "hb_chroma", false)); rows.add(colorRow("Hitbox Color", "opt:hb_color")); rows.add(sliderRow("Line Width", "Stroke thickness (1.0 - 4.0)", "hb_line_width", 1.0, 4.0, 0.5, false)); rows.add(sliderRow("Fill Opacity", "Translucent inner box fill (0% - 50%)", "hb_fill_alpha", 0.0, 0.50, 0.02, false)); }
         rows.add(accordionRow("hb_targets", "TARGETS & LINES"));
         if (!foldedAccordions.contains("hb_targets")) { rows.add(boolRow("Show Eye-Height Line", "Red eye-level bounding ring", "hb_eye_line", true)); rows.add(boolRow("Show Look Vector", "Blue facing sightline", "hb_look_vec", true)); rows.add(boolRow("Players", "Show on other players", "hb_players", true)); rows.add(boolRow("Mobs / Living", "Show on mobs & animals", "hb_mobs", true)); rows.add(boolRow("Projectiles", "Show on arrows, pearls & fireballs", "hb_projectiles", true)); rows.add(boolRow("Dropped Items", "Show on item drops", "hb_items", false)); rows.add(boolRow("Hide Self (3rd Person)", "Hide your own hitbox", "hb_hide_self", true)); }
     }
@@ -1217,7 +1220,7 @@ public class SharedModMenu {
             @Override public int height() { return 22; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 boolean folded = foldedAccordions.contains(key), hov = mx >= x && mx <= x + w && my >= y && my <= y + 22;
-                if (!click) { g.drawGlassCard(x, y, w, 22, 6, hov ? 0xFF1A1B24 : 0xFF121218, ClientState.UI_BORDER); g.text((folded ? "> " : "v ") + title, x + 10, y + 7, accent, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 22, 3, hov ? 0xFF1A1B24 : 0xFF121218); g.text((folded ? "> " : "v ") + title, x + 10, y + 7, accent, false); }
                 else if (hov) { g.playClickSound(); if (folded) foldedAccordions.remove(key); else foldedAccordions.add(key); return true; }
                 return false;
             }
@@ -1360,7 +1363,7 @@ public class SharedModMenu {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 boolean val = ClientConfig.get().getBool(optId, def);
-                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawSwitch(g, "opt_" + optId, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) { ClientConfig.get().setOption(optId, Boolean.valueOf(!val)); return true; }
                 return false;
             }
@@ -1372,7 +1375,7 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 ClientConfig.HudModule m = ClientConfig.get().hudModules.get(modId); if (m == null) return false;
                 boolean val = "bg".equals(field) ? m.bg : "border".equals(field) ? m.border : "chroma".equals(field) ? m.chroma : "hideInF1".equals(field) ? m.hideInF1 : "hideInChat".equals(field) ? m.hideInChat : "hideInInventory".equals(field) ? m.hideInInventory : "hideInF3".equals(field) ? m.hideInF3 : m.shadow;
-                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawSwitch(g, "mb_" + modId + "_" + field, x + w - 48, y + 9, 38, 18, val, accent, accentFg, mx, my, click)) {
                     if ("bg".equals(field)) m.bg = !m.bg; else if ("border".equals(field)) m.border = !m.border; else if ("chroma".equals(field)) m.chroma = !m.chroma;
                     else if ("hideInF1".equals(field)) m.hideInF1 = !m.hideInF1; else if ("hideInChat".equals(field)) m.hideInChat = !m.hideInChat;
@@ -1389,7 +1392,7 @@ public class SharedModMenu {
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 ClientConfig.HudModule m = ClientConfig.get().hudModules.get(modId); if (m == null) return false;
                 String cur = "anchor".equals(field) ? m.anchor : "borderStyle".equals(field) ? m.borderStyle : "bracketStyle".equals(field) ? m.bracketStyle : "displayMode".equals(field) ? m.displayMode : m.fontWeight;
-                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawBtn(g, "mc_" + modId + "_" + field, x + w - 102, y + 8, 92, 20, Math.max(2, menuRad / 2), cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
                     int next = 0; for (int i = 0; i < vals.length; i++) if (vals[i].equalsIgnoreCase(cur)) next = (i + 1) % vals.length;
                     if ("anchor".equals(field)) m.anchor = vals[next]; else if ("borderStyle".equals(field)) m.borderStyle = vals[next]; else if ("bracketStyle".equals(field)) m.bracketStyle = vals[next]; else if ("displayMode".equals(field)) m.displayMode = vals[next]; else m.fontWeight = vals[next];
@@ -1404,7 +1407,7 @@ public class SharedModMenu {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 String cur = ClientConfig.get().getString(optId, values[0]);
-                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { if (mx >= x && mx <= x + w && my >= y && my <= y + 36) hoveredTooltip = desc; g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 if (drawBtn(g, "cyc_" + optId, x + w - 94, y + 8, 84, 20, Math.max(2, menuRad / 2), cur.toUpperCase(), 0xFF1E1E28, ClientState.UI_TEXT, false, mx, my, click)) {
                     int next = 0; for (int i = 0; i < values.length; i++) if (values[i].equalsIgnoreCase(cur)) next = (i + 1) % values.length; ClientConfig.get().setOption(optId, values[next]); return true;
                 }
@@ -1420,7 +1423,7 @@ public class SharedModMenu {
                 int trackX = x + 12, trackY = y + 31, trackW = w - 24;
                 if (!click) {
                     if (mx >= x && mx <= x + w && my >= y && my <= y + 44) hoveredTooltip = desc;
-                    g.drawGlassCard(x, y, w, 44, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
+                    g.drawRoundedRect(x, y, w, 44, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false);
                     boolean isPct = sliderKey.contains("opacity") || sliderKey.contains("alpha") || sliderKey.contains("topac") || sliderKey.contains("opac")
                         || sliderKey.contains("mod_x:") || sliderKey.contains("mod_y:") || sliderKey.contains("tw_x:") || sliderKey.contains("tw_y:")
                         || "pvp_hurtcam_factor".equals(sliderKey) || "title_bg_dim".equals(sliderKey);
@@ -1439,7 +1442,17 @@ public class SharedModMenu {
             @Override public int height() { return 60; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 int curArgb = readColorTarget(target); String hex = ClientState.toHexColor(curArgb);
-                if (!click) { g.drawGlassCard(x, y, w, 60, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label + "  " + hex.toUpperCase(), x + 12, y + 7, ClientState.UI_TEXT, false); g.drawCircleFilled(x + w - 16, y + 11, 5, curArgb); }
+                if (!click) { g.drawRoundedRect(x, y, w, 60, menuRad, 0xFF14141B); g.text(label + "  " + hex.toUpperCase(), x + 12, y + 7, ClientState.UI_TEXT, false); g.drawCircleFilled(x + w - 16, y + 11, 5, curArgb); }
+                if (drawBtn(g, "cpst_" + target, x + w - 66, y + 5, 40, 14, 3, "Paste", 0xFF1E1E28, ClientState.UI_TEXT_MUTED, false, mx, my, click)) {
+                    String clip = g.clipboardText();
+                    if (clip != null) {
+                        String cHex = clip.trim().replace("#", "");
+                        if (cHex.length() == 6) {
+                            try { Integer.parseInt(cHex, 16); writeColorTarget(target, "#" + cHex.toLowerCase()); } catch (Exception ignored) {}
+                        }
+                    }
+                    return true;
+                }
                 int sx = x + 14, sy = y + 26;
                 for (int i = 0; i < SWATCHES.length; i++) {
                     int swCol = ClientState.parseHexColor(SWATCHES[i], 0xFFFFFFFF); boolean sel = SWATCHES[i].equalsIgnoreCase(hex);
@@ -1456,8 +1469,7 @@ public class SharedModMenu {
                 return false;
             }
         };
-    }
-    private SettingRow xhairPreviewRow() {
+    }    private SettingRow xhairPreviewRow() {
         return new SettingRow() {
             @Override public int height() { return 62; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
@@ -1549,7 +1561,7 @@ public class SharedModMenu {
             @Override public int height() { return 46; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
                 String cur = ClientConfig.get().getString("ui_accent", "white");
-                if (!click) { g.drawGlassCard(x, y, w, 46, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 7, ClientState.UI_TEXT, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 46, menuRad, 0xFF14141B); g.text(label, x + 12, y + 7, ClientState.UI_TEXT, false); }
                 int bx = x + 18, by = y + 28;
                 int[] cols = {0xFFFFFFFF, 0xFFFF3333, 0xFF22D3EE, 0xFF10B981, 0xFFA855F7, 0xFFF59E0B, 0xFF84CC16, ClientState.parseHexColor(ClientConfig.get().getString("ui_accent_custom", "#ff3333"), 0xFFFF3333)};
                 for (int i = 0; i < ACCENTS.length; i++) {
@@ -1566,14 +1578,15 @@ public class SharedModMenu {
         return new SettingRow() {
             @Override public int height() { return 36; }
             @Override public boolean renderOrHandle(UiBridge.UiDraw g, int x, int y, int w, int mx, int my, boolean click, int accent, int accentFg, int menuRad) {
-                if (!click) { g.drawGlassCard(x, y, w, 36, menuRad, 0xFF14141B, ClientState.UI_BORDER); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
+                if (!click) { g.drawRoundedRect(x, y, w, 36, menuRad, 0xFF14141B); g.text(label, x + 12, y + 8, ClientState.UI_TEXT, false); g.text(desc, x + 12, y + 20, ClientState.UI_TEXT_DIM, false); }
                 boolean prim = "wp_add".equals(actId) || "homescreen_cfg".equals(actId) || "open_worldmap".equals(actId) || "struct_all_on".equals(actId);
-                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, Math.max(2, menuRad / 2), "wp_add".equals(actId) ? "Add" : (("homescreen_cfg".equals(actId) || "open_worldmap".equals(actId)) ? "Open" : ("struct_all_on".equals(actId) ? "All ON" : ("struct_all_off".equals(actId) ? "All OFF" : "Run"))), prim ? accent : 0xFF3B1A1E, prim ? accentFg : ClientState.UI_TEXT, prim, mx, my, click)) {
+                if (drawBtn(g, "act_" + actId, x + w - 74, y + 8, 64, 20, Math.max(2, menuRad / 2), "wp_add".equals(actId) ? "Add" : (("homescreen_cfg".equals(actId) || "open_worldmap".equals(actId)) ? "Open" : ("struct_all_on".equals(actId) ? "All ON" : ("struct_all_off".equals(actId) ? "All OFF" : ("clear_map_cache".equals(actId) ? "Clear" : "Run")))), prim ? accent : 0xFF3B1A1E, prim ? accentFg : ClientState.UI_TEXT, prim, mx, my, click)) {
                     if ("wp_add".equals(actId)) ClientConfig.get().addWaypointAt("WP #" + (ClientConfig.get().waypoints.size() + 1), ClientState.getPlayerX(), ClientState.getPlayerY(), ClientState.getPlayerZ(), ClientState.getPlayerDim(), ClientState.getCurrentWorldKey());
                     else if ("homescreen_cfg".equals(actId)) { activeMenu = "title_screen"; clearSubEdits(); resetScroll(); }
                     else if ("open_worldmap".equals(actId)) { if (hostActions != null) hostActions.openWorldMap(); }
                     else if ("struct_all_on".equals(actId)) ClientConfig.get().setAllStructureFilters(true);
                     else if ("struct_all_off".equals(actId)) ClientConfig.get().setAllStructureFilters(false);
+                    else if ("clear_map_cache".equals(actId)) ClientState.markMapCacheDirty();
                     else if ("kd_reset".equals(actId)) ClientState.resetKd();
                     else if ("reset_layout".equals(actId)) ClientConfig.get().resetLayout();
                     else if ("reset_all".equals(actId)) ClientConfig.get().resetAll();
@@ -1769,7 +1782,7 @@ public class SharedModMenu {
     }
     private boolean drawBtn(UiBridge.UiDraw g, String id, int x, int y, int w, int h, int rad, String txt, int bg, int fg, boolean solidAccent, int mx, int my, boolean click) {
         boolean hov = mx >= x && mx <= x + w && my >= y && my <= y + h;
-        if (!click) { g.drawGlassCard(x, y, w, h, rad, ClientState.lerpColor(bg, ClientState.brightenArgb(bg, solidAccent ? -20 : 18), animHover(id, hov)), solidAccent ? bg : ClientState.UI_BORDER); g.text(txt, x + (w - g.textWidth(txt)) / 2, y + (h - 7) / 2, fg, false); }
+        if (!click) { g.drawRoundedRect(x, y, w, h, rad, ClientState.lerpColor(bg, ClientState.brightenArgb(bg, solidAccent ? -20 : 18), animHover(id, hov))); g.text(txt, x + (w - g.textWidth(txt)) / 2, y + (h - 7) / 2, fg, false); }
         if (hov && click) { g.playClickSound(); return true; } return false;
     }
     private boolean drawSwitch(UiBridge.UiDraw g, String id, int x, int y, int w, int h, boolean on, int accent, int accentFg, int mx, int my, boolean click) {
