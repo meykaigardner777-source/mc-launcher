@@ -21,7 +21,6 @@ jobs:
         with:
           gradle-version: '9.7.1'
       - name: Build Modern Mod JARs
-        working-directory: mod
         run: gradle buildAllModern --no-daemon
       - uses: actions/upload-artifact@v4
         with:
