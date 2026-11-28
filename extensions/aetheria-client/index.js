@@ -107,8 +107,29 @@ function sha1File(fp) {
 
 function loadMeta(api) {
   const fp = getMetaFile(api);
-  const base = { activePreset: 'custom', autoDeployMod: true, pendingQuickJoin: '', githubRawUrl: DEFAULT_GITHUB_RAW_URL, modJarUrl: DEFAULT_MOD_JAR_URL, servers: DEFAULT_SERVERS.map(s => ({ ...s })), friends: [{ name: 'Notch', note: 'Classic Builder' }], playtime: { totalSeconds: 0, sessions: 0, lastPlayedAt: null, byVersion: {}, history: [] } };
-  if (fs.existsSync(fp)) try { const p = JSON.parse(fs.readFileSync(fp, 'utf8')); return { ...base, ...p, servers: Array.isArray(p.servers) ? p.servers : base.servers, friends: Array.isArray(p.friends) ? p.friends : base.friends, playtime: { ...base.playtime, ...(p.playtime || {}) } }; } catch (e) {}
+  const base = {
+    activePreset: 'custom',
+    autoDeployMod: false,          // Disabled by default (user toggleable)
+    allowRemoteDownloads: false,   // Disabled by default (user toggleable)
+    pendingQuickJoin: '',
+    githubRawUrl: DEFAULT_GITHUB_RAW_URL,
+    modJarUrl: DEFAULT_MOD_JAR_URL,
+    servers: DEFAULT_SERVERS.map(s => ({ ...s })),
+    friends: [{ name: 'Notch', note: 'Classic Builder' }],
+    playtime: { totalSeconds: 0, sessions: 0, lastPlayedAt: null, byVersion: {}, history: [] }
+  };
+  if (fs.existsSync(fp)) try {
+    const p = JSON.parse(fs.readFileSync(fp, 'utf8'));
+    return {
+      ...base,
+      ...p,
+      autoDeployMod: typeof p.autoDeployMod === 'boolean' ? p.autoDeployMod : base.autoDeployMod,
+      allowRemoteDownloads: typeof p.allowRemoteDownloads === 'boolean' ? p.allowRemoteDownloads : base.allowRemoteDownloads,
+      servers: Array.isArray(p.servers) ? p.servers : base.servers,
+      friends: Array.isArray(p.friends) ? p.friends : base.friends,
+      playtime: { ...base.playtime, ...(p.playtime || {}) }
+    };
+  } catch (e) {}
   return base;
 }
 
@@ -206,17 +227,17 @@ function findAvailableBundledJars(api) {
 }
 
 function deployModJarForProfile(api, prof, profileDir, meta) {
+  if (meta.autoDeployMod !== true) return { deployed: false, reason: 'Auto-deploy is turned off.' };
   const mDir = path.join(profileDir, 'mods');
   api.utils.safeMkdirSync(mDir);
   const destActive = path.join(mDir, 'aetheria-client-mod.jar');
   const isFabric = String(prof?.loader || 'vanilla').toLowerCase() === 'fabric' || String(prof?.version || '').toLowerCase().includes('fabric');
-  if (!isFabric || meta.autoDeployMod === false) return { deployed: false, reason: isFabric ? 'Auto-deploy disabled.' : 'Active profile is not Fabric.' };
+  if (!isFabric) return { deployed: false, reason: 'Active profile is not Fabric.' };
   const jars = findAvailableBundledJars(api);
   const targetKey = resolveTargetKeyForMcVersion(prof?.version || '', jars);
   const srcJar = (targetKey && jars[targetKey]) || (targetKey === '26.2' && jars.generic) || null;
   if (!srcJar || !fs.existsSync(srcJar)) return { deployed: false, targetKey, reason: targetKey ? `No prebuilt JAR found for MC ${targetKey}.` : `Unsupported MC version for mod: ${apiExtractVer(prof?.version)}` };
 
-  // Clean up any leftover version-named duplicates so Fabric never loads an old 1.1.0 jar
   try {
     for (const f of fs.readdirSync(mDir)) {
       if (/^aetheria-client-mod-.+\.jar(\.disabled)?$/i.test(f)) {
@@ -281,7 +302,7 @@ const TAB_HTML = `<div class="ac-root">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><button class="btn-secondary" id="ac-refresh-prof" style="padding:8px 12px;">↻ Sync Active Profile</button><button class="btn" id="ac-launch-btn" style="padding:10px 18px;font-weight:800;">▶ LAUNCH PROFILE</button></div>
   </div>
   <div class="chip-group" id="ac-subnav" style="margin-bottom:0;">
-    <button class="chip-btn active" data-sub="mods">Mod Settings</button><button class="chip-btn" data-sub="hud">HUD Positions &amp; Style</button><button class="chip-btn" data-sub="presets">Presets &amp; Preinstalled JARs</button><button class="chip-btn" data-sub="servers">Servers</button><button class="chip-btn" data-sub="social">Friends</button><button class="chip-btn" data-sub="playtime">Playtime &amp; GitHub</button>
+    <button class="chip-btn active" data-sub="mods">Mod Settings</button><button class="chip-btn" data-sub="hud">HUD Positions &amp; Style</button><button class="chip-btn" data-sub="presets">Presets &amp; Mod JARs</button><button class="chip-btn" data-sub="servers">Servers</button><button class="chip-btn" data-sub="social">Friends</button><button class="chip-btn" data-sub="playtime">Playtime &amp; Settings</button>
   </div>
   <div class="ac-sub active" id="ac-sub-mods">
     <div class="card flex-between" style="padding:12px;margin-bottom:0;flex-wrap:wrap;"><input type="text" class="input-field" id="ac-search" placeholder="Search mod options..." style="flex:1;min-width:220px;" /><div style="display:flex;gap:8px;"><button class="btn-secondary" id="ac-reload-cfg">Reload From Disk</button><button class="btn-secondary" id="ac-reset-btn">Reset Mod Config</button></div></div>
@@ -293,9 +314,18 @@ const TAB_HTML = `<div class="ac-root">
   </div>
   <div class="ac-sub" id="ac-sub-presets">
     <div class="card" style="margin-bottom:0;">
-      <div class="flex-between" style="margin-bottom:10px;flex-wrap:wrap;"><div><strong style="font-size:0.9rem;">Preinstalled Multi-Version Mod JARs</strong><span id="ac-jar-status" style="display:block;font-size:0.73rem;color:var(--text-muted);">Checking...</span></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="ac-pill" id="ac-autodeploy-btn">Auto-Deploy: ON</button><button class="btn-secondary" id="ac-deploy-jar">Deploy Matching JAR Now</button></div></div>
+      <div class="flex-between" style="margin-bottom:10px;flex-wrap:wrap;">
+        <div>
+          <strong style="font-size:0.9rem;">Mod JAR Management &amp; Auto-Deploy</strong>
+          <span id="ac-jar-status" style="display:block;font-size:0.73rem;color:var(--text-muted);">Checking...</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="ac-pill" id="ac-autodeploy-btn">Auto-Deploy: OFF</button>
+          <button class="btn-secondary" id="ac-deploy-jar">Deploy Matching JAR Now</button>
+        </div>
+      </div>
       <div id="ac-supported-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px;margin-bottom:10px;"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;"><input type="text" id="ac-mod-url" class="input-field" placeholder="Optional: https://github.com/.../aetheria-client-mod-26.2.jar" style="flex:1;min-width:240px;" /><button class="btn" id="ac-dl-jar">Download Release JAR</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><input type="text" id="ac-mod-url" class="input-field" placeholder="Optional URL: https://.../aetheria-client-mod.jar" style="flex:1;min-width:240px;" /><button class="btn" id="ac-dl-jar">Download Mod JAR</button></div>
     </div>
     <div class="card" style="margin-bottom:0;"><strong style="font-size:0.9rem;display:block;margin-bottom:10px;">1-Click Mod Presets (Mod Config Only)</strong><div class="ac-pgrid" id="ac-presets-grid"></div></div>
     <div class="card" style="margin-bottom:0;"><div class="flex-between" style="margin-bottom:8px;"><span style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">Active Profile /mods</span><button class="btn-secondary" id="ac-ref-mods" style="padding:3px 9px;font-size:0.7rem;">Refresh</button></div><div id="ac-local-mods" style="display:flex;flex-direction:column;gap:6px;"></div></div>
@@ -303,9 +333,18 @@ const TAB_HTML = `<div class="ac-root">
   <div class="ac-sub" id="ac-sub-servers"><div class="card" style="margin-bottom:0;"><div class="flex-between" style="margin-bottom:10px;flex-wrap:wrap;"><strong style="font-size:0.9rem;">Server Browser &amp; Quick-Join</strong><button class="btn-secondary" id="ac-ping-all">Ping All</button></div><div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;"><input type="text" id="ac-srv-name" class="input-field" placeholder="Server Name" style="max-width:190px;" /><input type="text" id="ac-srv-ip" class="input-field" placeholder="IP (e.g. mc.hypixel.net)" style="flex:1;min-width:180px;" /><button class="btn" id="ac-add-srv">+ Add</button></div><div id="ac-srv-list" style="display:flex;flex-direction:column;gap:8px;"></div></div></div>
   <div class="ac-sub" id="ac-sub-social"><div class="card" style="margin-bottom:0;"><div class="flex-between" style="margin-bottom:10px;"><strong style="font-size:0.9rem;">Friends Roster</strong><span class="brand-badge" id="ac-fr-cnt">0</span></div><div style="display:flex;gap:8px;margin-bottom:10px;"><input type="text" id="ac-fr-in" class="input-field" placeholder="Minecraft username..." /><button class="btn" id="ac-fr-add">Add</button></div><div id="ac-fr-list" style="display:flex;flex-direction:column;gap:8px;"></div></div></div>
   <div class="ac-sub" id="ac-sub-playtime">
+    <div class="card" style="margin-bottom:0;">
+      <div class="flex-between" style="margin-bottom:8px;">
+        <strong style="font-size:0.9rem;">Extension &amp; Network Feature Toggles</strong>
+      </div>
+      <p style="font-size:0.74rem;color:var(--text-muted);margin-bottom:10px;">Control whether this extension is allowed to perform automated file deployments or remote downloads.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="ac-pill" id="ac-remotedownload-btn" style="padding:6px 14px;font-size:0.75rem;">Remote Downloads: OFF</button>
+      </div>
+    </div>
     <div class="grid-2" style="margin-bottom:0;"><div class="card" style="margin-bottom:0;"><span class="lbl">Total Playtime</span><strong id="ac-pt-tot" style="font-size:1.5rem;">0m</strong><span id="ac-pt-ses" style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:4px;">0 sessions</span></div><div class="card" style="margin-bottom:0;"><span class="lbl">Last Played</span><strong id="ac-pt-last" style="font-size:1.05rem;">Never</strong><span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:4px;">Recorded via onGameExit</span></div></div>
     <div class="card" style="margin-bottom:0;"><strong style="font-size:0.9rem;display:block;margin-bottom:8px;">Version Playtime</strong><div id="ac-pt-list" style="display:flex;flex-direction:column;gap:6px;"></div></div>
-    <div class="card" style="margin-bottom:0;"><strong style="font-size:0.9rem;display:block;margin-bottom:6px;">GitHub Extension Self-Updater</strong><div style="display:flex;gap:8px;flex-wrap:wrap;"><input type="text" id="ac-gh-url" class="input-field" placeholder="https://raw.githubusercontent.com/USER/REPO/main/extensions/aetheria-client/index.js" style="flex:1;min-width:240px;" /><button class="btn" id="ac-gh-update">Update from GitHub</button></div></div>
+    <div class="card" style="margin-bottom:0;"><strong style="font-size:0.9rem;display:block;margin-bottom:6px;">GitHub Extension Self-Updater (Requires Remote Downloads Enabled)</strong><div style="display:flex;gap:8px;flex-wrap:wrap;"><input type="text" id="ac-gh-url" class="input-field" placeholder="https://raw.githubusercontent.com/.../index.js" style="flex:1;min-width:240px;" /><button class="btn" id="ac-gh-update">Update from GitHub</button></div></div>
   </div>
 </div>`;
 
@@ -328,8 +367,13 @@ const TAB_SCRIPT = `(async function() {
     const jb = q('#ac-jar-badge');
     if (data.matchedJar) { jb.innerText = 'MOD JAR: READY (' + data.matchedJarKey + ')'; q('#ac-jar-status').innerText = 'Preinstalled JAR matched for MC ' + data.matchedJarKey + ': ' + data.matchedJar; }
     else { jb.innerText = data.matchedJarKey ? 'MOD JAR: MISSING (' + data.matchedJarKey + ')' : 'UNSUPPORTED MC VER'; q('#ac-jar-status').innerText = data.matchedJarKey ? 'No JAR found for MC ' + data.matchedJarKey + '.' : 'Profile MC ' + p.mcVersion + ' is outside supported targets.'; }
-    const ad = q('#ac-autodeploy-btn'), on = data.meta.autoDeployMod !== false;
+    
+    const ad = q('#ac-autodeploy-btn'), on = data.meta.autoDeployMod === true;
     ad.className = 'ac-pill ' + (on ? 'on' : ''); ad.innerText = 'Auto-Deploy: ' + (on ? 'ON' : 'OFF');
+    
+    const rd = q('#ac-remotedownload-btn'), rdOn = data.meta.allowRemoteDownloads === true;
+    rd.className = 'ac-pill ' + (rdOn ? 'on' : ''); rd.innerText = 'Remote Downloads: ' + (rdOn ? 'ON' : 'OFF');
+
     q('#ac-mod-url').value = data.meta.modJarUrl || '';
   }
 
@@ -479,7 +523,10 @@ const TAB_SCRIPT = `(async function() {
   q('#ac-hud-pull').onclick = async () => { data = await Aetheria.ipcRenderer.invoke('ac:get-state'); window.__AetheriaClientCache = data; renderAll(); Aetheria.toast('Loaded latest in-game HUD layout!'); };
   q('#ac-hud-reset').onclick = async () => { if (await Aetheria.showConfirmModal('Reset HUD module positions for this profile?', 'Reset HUD Layout')) { data = await Aetheria.ipcRenderer.invoke('ac:reset-hud'); window.__AetheriaClientCache = data; renderAll(); Aetheria.toast('HUD reset.'); } };
   q('#ac-reset-btn').onclick = async () => { if (await Aetheria.showConfirmModal('Reset mod settings for this profile?', 'Reset Mod Settings')) { data = await Aetheria.ipcRenderer.invoke('ac:reset-options'); window.__AetheriaClientCache = data; renderAll(); Aetheria.toast('Mod settings reset.'); } };
-  q('#ac-autodeploy-btn').onclick = async () => { data = await Aetheria.ipcRenderer.invoke('ac:toggle-autodeploy'); window.__AetheriaClientCache = data; renderHeader(); };
+  
+  q('#ac-autodeploy-btn').onclick = async () => { data = await Aetheria.ipcRenderer.invoke('ac:toggle-autodeploy'); window.__AetheriaClientCache = data; renderHeader(); Aetheria.toast('Auto-deploy updated.'); };
+  q('#ac-remotedownload-btn').onclick = async () => { data = await Aetheria.ipcRenderer.invoke('ac:toggle-remotedownload'); window.__AetheriaClientCache = data; renderHeader(); Aetheria.toast('Remote downloads setting updated.'); };
+
   q('#ac-deploy-jar').onclick = async () => { const res = await Aetheria.ipcRenderer.invoke('ac:deploy-jar'); data = res.pack; window.__AetheriaClientCache = data; renderAll(); if (res.deployed) Aetheria.toast('Deployed ' + res.fileName + '!'); else Aetheria.showAlertModal(res.reason || 'Could not deploy JAR.', 'Mod JAR'); };
   q('#ac-dl-jar').onclick = async () => { const url = q('#ac-mod-url').value.trim(); if (!url) return Aetheria.showAlertModal('Paste an https:// URL first.', 'Download Mod JAR'); try { const res = await Aetheria.ipcRenderer.invoke('ac:download-mod-jar', url); data = res.pack; window.__AetheriaClientCache = data; renderAll(); Aetheria.toast('Downloaded ' + res.fileName + '!'); } catch (err) { Aetheria.showAlertModal(err.message, 'Download Failed'); } };
   q('#ac-ref-mods').onclick = async () => { data = await Aetheria.ipcRenderer.invoke('ac:get-state'); window.__AetheriaClientCache = data; renderPresetsAndMods(); };
@@ -531,15 +578,40 @@ async function activate(api) {
   api.registerIpc('ac:reset-hud', () => { const dir = api.getActiveProfileDir(), modCfg = loadModConfig(api, dir); modCfg.hudLayout = cloneDefaultHud(); saveModConfig(api, dir, modCfg); return pack(); });
   api.registerIpc('ac:reset-options', () => { const dir = api.getActiveProfileDir(), modCfg = loadModConfig(api, dir), meta = loadMeta(api); modCfg.options = { ...DEFAULT_OPTIONS_MAP }; saveModConfig(api, dir, modCfg); meta.activePreset = 'custom'; saveMeta(api, meta); return pack(); });
   api.registerIpc('ac:apply-preset', (e, id) => { const p = MOD_PRESETS[id]; if (!p) return { ok: false }; const dir = api.getActiveProfileDir(), modCfg = loadModConfig(api, dir), meta = loadMeta(api); modCfg.options = { ...modCfg.options, ...p.ov }; saveModConfig(api, dir, modCfg); meta.activePreset = id; saveMeta(api, meta); return { ok: true, pack: pack() }; });
-  api.registerIpc('ac:toggle-autodeploy', () => { const meta = loadMeta(api); meta.autoDeployMod = meta.autoDeployMod === false; saveMeta(api, meta); return pack(); });
-  api.registerIpc('ac:deploy-jar', () => { const meta = loadMeta(api); const res = deployModJarForProfile(api, api.getActiveProfile(), api.getActiveProfileDir(), { ...meta, autoDeployMod: true }); return { ...res, pack: pack() }; });
-  api.registerIpc('ac:download-mod-jar', async (e, url) => { const meta = loadMeta(api); meta.modJarUrl = String(url || '').trim(); saveMeta(api, meta); if (!/^https:\/\//i.test(meta.modJarUrl)) throw new Error('Must be an https:// URL.'); const modsDir = path.join(api.extensionDir, 'mods'); api.utils.safeMkdirSync(modsDir); const fileName = path.basename(new URL(meta.modJarUrl).pathname) || 'aetheria-client-mod.jar'; await api.utils.downloadFile(meta.modJarUrl, path.join(modsDir, fileName)); deployModJarForProfile(api, api.getActiveProfile(), api.getActiveProfileDir(), meta); return { ok: true, fileName, pack: pack() }; });
+  
+  api.registerIpc('ac:toggle-autodeploy', () => { const meta = loadMeta(api); meta.autoDeployMod = !meta.autoDeployMod; saveMeta(api, meta); return pack(); });
+  api.registerIpc('ac:toggle-remotedownload', () => { const meta = loadMeta(api); meta.allowRemoteDownloads = !meta.allowRemoteDownloads; saveMeta(api, meta); return pack(); });
+
+  api.registerIpc('ac:deploy-jar', () => { const meta = loadMeta(api); const res = deployModJarForProfile(api, api.getActiveProfile(), api.getActiveProfileDir(), meta); return { ...res, pack: pack() }; });
+  
+  api.registerIpc('ac:download-mod-jar', async (e, url) => {
+    const meta = loadMeta(api);
+    if (meta.allowRemoteDownloads !== true) throw new Error('Remote downloads are disabled. Enable "Remote Downloads" in Playtime & Settings tab first.');
+    meta.modJarUrl = String(url || '').trim(); saveMeta(api, meta);
+    if (!/^https:\/\//i.test(meta.modJarUrl)) throw new Error('Must be an https:// URL.');
+    const modsDir = path.join(api.extensionDir, 'mods'); api.utils.safeMkdirSync(modsDir);
+    const fileName = path.basename(new URL(meta.modJarUrl).pathname) || 'aetheria-client-mod.jar';
+    await api.utils.downloadFile(meta.modJarUrl, path.join(modsDir, fileName));
+    deployModJarForProfile(api, api.getActiveProfile(), api.getActiveProfileDir(), meta);
+    return { ok: true, fileName, pack: pack() };
+  });
+
   api.registerIpc('ac:toggle-local-mod', (e, fn) => { const mDir = path.join(api.getActiveProfileDir(), 'mods'), src = path.join(mDir, fn); if (fs.existsSync(src)) fs.renameSync(src, path.join(mDir, fn.endsWith('.disabled') ? fn.replace(/\.disabled$/, '') : fn + '.disabled')); return listLocalMods(api.getActiveProfileDir()); });
   api.registerIpc('ac:set-quick-join', (e, ip) => { const m = loadMeta(api); m.pendingQuickJoin = String(ip || '').trim(); saveMeta(api, m); return { ok: true }; });
   api.registerIpc('ac:save-servers', (e, servers) => { const m = loadMeta(api); m.servers = Array.isArray(servers) ? servers : []; saveMeta(api, m); return { ok: true }; });
   api.registerIpc('ac:ping-server', (e, addr) => pingServer(addr));
   api.registerIpc('ac:save-friends', (e, friends) => { const m = loadMeta(api); m.friends = Array.isArray(friends) ? friends : []; saveMeta(api, m); return { ok: true }; });
-  api.registerIpc('ac:update-from-github', async (e, url) => { const m = loadMeta(api); m.githubRawUrl = String(url || '').trim(); saveMeta(api, m); if (!/^https:\/\//i.test(m.githubRawUrl)) throw new Error('Must be an https:// URL.'); const code = await api.utils.httpGetText(m.githubRawUrl); if (!code || !code.includes('activate')) throw new Error('Invalid index.js.'); fs.writeFileSync(path.join(api.extensionDir, 'index.js'), code, 'utf8'); return { ok: true, bytes: Buffer.byteLength(code, 'utf8') }; });
+  
+  api.registerIpc('ac:update-from-github', async (e, url) => {
+    const m = loadMeta(api);
+    if (m.allowRemoteDownloads !== true) throw new Error('Remote downloads are disabled. Enable "Remote Downloads" in Playtime & Settings tab first.');
+    m.githubRawUrl = String(url || '').trim(); saveMeta(api, m);
+    if (!/^https:\/\//i.test(m.githubRawUrl)) throw new Error('Must be an https:// URL.');
+    const code = await api.utils.httpGetText(m.githubRawUrl);
+    if (!code || !code.includes('activate')) throw new Error('Invalid index.js.');
+    fs.writeFileSync(path.join(api.extensionDir, 'index.js'), code, 'utf8');
+    return { ok: true, bytes: Buffer.byteLength(code, 'utf8') };
+  });
 
   api.onBeforeLaunch(async (ctx) => {
     const meta = loadMeta(api); sessionStart = Date.now();
