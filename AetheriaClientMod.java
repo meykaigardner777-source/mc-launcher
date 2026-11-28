@@ -12,9 +12,23 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.Items;
 
 public class AetheriaClientMod implements ClientModInitializer {
-    private static final ItemStack SHIELD_STACK = new ItemStack(Items.SHIELD);
+    // ✅ Make it null initially, avoiding static initialization crash
+    private static ItemStack shieldStack = null;
+    
+    private static ItemStack getShieldStack() {
+        if (shieldStack == null) {
+            shieldStack = new ItemStack(Items.SHIELD);
+        }
+        return shieldStack;
+    }
+
     private static boolean prevMenuDown = false, prevWpDown = false, prevFbDown = false, prevProfDown = false, prevMapDown = false, prevSneakDown = false, prevShieldCd = false;
-    @Override public void onInitializeClient() { ClientConfig.get().init(FabricLoader.getInstance().getConfigDir()); try { MicrosoftAuth.syncFromLauncher(); } catch (Throwable ignored) {} }
+    
+    @Override 
+    public void onInitializeClient() { 
+        ClientConfig.get().init(FabricLoader.getInstance().getConfigDir()); 
+        try { MicrosoftAuth.syncFromLauncher(); } catch (Throwable ignored) {} 
+    }
 
     private static boolean isKeyHeld(Minecraft mc, String optName, int fallback) {
         int code = ClientState.nameToGlfwKey(optName, fallback);
@@ -60,7 +74,8 @@ public class AetheriaClientMod implements ClientModInitializer {
             } else { prevSneakDown = false; ClientState.setToggleSneaking(false); }
 
             try {
-                boolean scd = mc.player.getCooldowns().isOnCooldown(SHIELD_STACK);
+                // ✅ Uses the lazy-initialized getter method
+                boolean scd = mc.player.getCooldowns().isOnCooldown(getShieldStack());
                 if (scd && !prevShieldCd) ClientState.triggerShieldCooldown();
                 prevShieldCd = scd;
             } catch (Throwable ignored) {}
