@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
+const crypto = require('crypto');
 
 const DEFAULT_GITHUB_RAW_URL = '';
 const DEFAULT_MOD_JAR_URL = '';
@@ -99,6 +100,11 @@ const cloneDefaultHud = () => JSON.parse(JSON.stringify(DEFAULT_HUD_LAYOUT));
 const getMetaFile = api => path.join(api.paths.appDir, 'aetheria-client-meta.json');
 const getProfileModConfigFile = profileDir => path.join(profileDir, 'config', 'aetheria-client.json');
 
+function sha1File(fp) {
+  try { return crypto.createHash('sha1').update(fs.readFileSync(fp)).digest('hex'); }
+  catch (e) { return ''; }
+}
+
 function loadMeta(api) {
   const fp = getMetaFile(api);
   const base = { activePreset: 'custom', autoDeployMod: true, pendingQuickJoin: '', githubRawUrl: DEFAULT_GITHUB_RAW_URL, modJarUrl: DEFAULT_MOD_JAR_URL, servers: DEFAULT_SERVERS.map(s => ({ ...s })), friends: [{ name: 'Notch', note: 'Classic Builder' }], playtime: { totalSeconds: 0, sessions: 0, lastPlayedAt: null, byVersion: {}, history: [] } };
@@ -123,25 +129,57 @@ function loadModConfig(api, profileDir) {
       }
     }
   } catch (e) {}
-  return { schemaVersion: 1, updatedAt, menuKey: opts.ctl_menu_key || 'RSHIFT', hudLayout: hud, options: opts };
+  return { schemaVersion: 2, updatedAt, menuKey: opts.ctl_menu_key || 'RSHIFT', hudLayout: hud, options: opts };
 }
 
 function saveModConfig(api, profileDir, modCfg) {
   const fp = getProfileModConfigFile(profileDir);
   api.utils.safeMkdirSync(path.dirname(fp));
-  const hudModules = {};
+  let disk = {};
+  if (fs.existsSync(fp)) try { disk = JSON.parse(fs.readFileSync(fp, 'utf8')) || {}; } catch (e) {}
+  const existingHud = (disk.hudModules && typeof disk.hudModules === 'object') ? disk.hudModules : {};
+  const hudModules = { ...existingHud };
   for (const [k, m] of Object.entries(modCfg.hudLayout || {})) {
     const enabled = m.optId ? !!modCfg.options[m.optId] : (m.enabled !== false);
-    hudModules[k] = { label: m.label || k, optId: m.optId || null, enabled, x: Number(m.x ?? 0.02), y: Number(m.y ?? 0.02), scale: Number(m.scale ?? 1.0), opacity: Number(m.opacity ?? 0.85), bg: m.bg !== false, border: m.border !== false, chroma: !!m.chroma, color: m.color || '#ffffff', anchor: m.anchor || 'top-left' };
+    hudModules[k] = {
+      ...(existingHud[k] || {}),
+      label: m.label || k,
+      optId: m.optId || null,
+      enabled,
+      x: Number(m.x ?? 0.02),
+      y: Number(m.y ?? 0.02),
+      scale: Number(m.scale ?? 1.0),
+      opacity: Number(m.opacity ?? 0.85),
+      bg: m.bg !== false,
+      border: m.border !== false,
+      chroma: !!m.chroma,
+      color: m.color || '#ffffff',
+      anchor: m.anchor || 'top-left'
+    };
   }
-  const payload = { schemaVersion: 1, updatedAt: Date.now(), menuKey: modCfg.options.ctl_menu_key || 'RSHIFT', hudModules, options: modCfg.options };
+  const payload = {
+    ...disk,
+    schemaVersion: disk.schemaVersion || 2,
+    updatedAt: Date.now(),
+    menuKey: modCfg.options.ctl_menu_key || 'RSHIFT',
+    hudModules,
+    options: { ...(disk.options || {}), ...(modCfg.options || {}) }
+  };
   fs.writeFileSync(fp, JSON.stringify(payload, null, 2));
   return { ...modCfg, updatedAt: payload.updatedAt, menuKey: payload.menuKey };
 }
 
 const apiExtractVer = str => { const m = String(str || '').match(/(?:fabric-loader-[^-]+-|neoforge-|forge-)?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/); return m ? m[1] : String(str || ''); };
-function resolveTargetKeyForMcVersion(mcVer) {
+
+function resolveTargetKeyForMcVersion(mcVer, jars = {}) {
   const c = apiExtractVer(mcVer);
+  if (c && jars[c]) return c;
+  if (c === '1.21' && jars['1.21.1']) return '1.21.1';
+  const parts = c.split('.');
+  if (parts.length >= 2) {
+    const mm = `${parts[0]}.${parts[1]}`;
+    if (jars[mm]) return mm;
+  }
   if (c === '1.8.9') return '1.8.9';
   if (c === '1.21' || c === '1.21.1') return '1.21.1';
   if (c === '1.21.11') return '1.21.11';
@@ -171,15 +209,27 @@ function deployModJarForProfile(api, prof, profileDir, meta) {
   const mDir = path.join(profileDir, 'mods');
   api.utils.safeMkdirSync(mDir);
   const destActive = path.join(mDir, 'aetheria-client-mod.jar');
-  const isFabric = String(prof?.loader || 'vanilla').toLowerCase() === 'fabric';
+  const isFabric = String(prof?.loader || 'vanilla').toLowerCase() === 'fabric' || String(prof?.version || '').toLowerCase().includes('fabric');
   if (!isFabric || meta.autoDeployMod === false) return { deployed: false, reason: isFabric ? 'Auto-deploy disabled.' : 'Active profile is not Fabric.' };
-  const targetKey = resolveTargetKeyForMcVersion(prof?.version || ''), jars = findAvailableBundledJars(api);
+  const jars = findAvailableBundledJars(api);
+  const targetKey = resolveTargetKeyForMcVersion(prof?.version || '', jars);
   const srcJar = (targetKey && jars[targetKey]) || (targetKey === '26.2' && jars.generic) || null;
   if (!srcJar || !fs.existsSync(srcJar)) return { deployed: false, targetKey, reason: targetKey ? `No prebuilt JAR found for MC ${targetKey}.` : `Unsupported MC version for mod: ${apiExtractVer(prof?.version)}` };
+
+  // Clean up any leftover version-named duplicates so Fabric never loads an old 1.1.0 jar
+  try {
+    for (const f of fs.readdirSync(mDir)) {
+      if (/^aetheria-client-mod-.+\.jar(\.disabled)?$/i.test(f)) {
+        try { fs.unlinkSync(path.join(mDir, f)); } catch (e) {}
+      }
+    }
+  } catch (e) {}
+
   const stampFile = path.join(mDir, '.aetheria-client-version');
   const prevKey = fs.existsSync(stampFile) ? fs.readFileSync(stampFile, 'utf8').trim() : '';
-  const sStat = fs.statSync(srcJar);
-  if (!fs.existsSync(destActive) || prevKey !== targetKey || fs.statSync(destActive).size !== sStat.size) {
+  const srcHash = sha1File(srcJar);
+  const destHash = fs.existsSync(destActive) ? sha1File(destActive) : '';
+  if (!destHash || prevKey !== targetKey || destHash !== srcHash) {
     fs.copyFileSync(srcJar, destActive);
     fs.writeFileSync(stampFile, targetKey || 'generic');
   }
@@ -277,7 +327,7 @@ const TAB_SCRIPT = `(async function() {
     q('#ac-ver-badge').innerText = 'MC ' + p.mcVersion + ' • ' + String(p.loader || 'vanilla').toUpperCase();
     const jb = q('#ac-jar-badge');
     if (data.matchedJar) { jb.innerText = 'MOD JAR: READY (' + data.matchedJarKey + ')'; q('#ac-jar-status').innerText = 'Preinstalled JAR matched for MC ' + data.matchedJarKey + ': ' + data.matchedJar; }
-    else { jb.innerText = data.matchedJarKey ? 'MOD JAR: MISSING (' + data.matchedJarKey + ')' : 'UNSUPPORTED MC VER'; q('#ac-jar-status').innerText = data.matchedJarKey ? 'No JAR found for MC ' + data.matchedJarKey + '.' : 'Profile MC ' + p.mcVersion + ' is outside supported targets (1.8.9, 1.21.1, 1.21.11, 26.1, 26.2, 26.3).'; }
+    else { jb.innerText = data.matchedJarKey ? 'MOD JAR: MISSING (' + data.matchedJarKey + ')' : 'UNSUPPORTED MC VER'; q('#ac-jar-status').innerText = data.matchedJarKey ? 'No JAR found for MC ' + data.matchedJarKey + '.' : 'Profile MC ' + p.mcVersion + ' is outside supported targets.'; }
     const ad = q('#ac-autodeploy-btn'), on = data.meta.autoDeployMod !== false;
     ad.className = 'ac-pill ' + (on ? 'on' : ''); ad.innerText = 'Auto-Deploy: ' + (on ? 'ON' : 'OFF');
     q('#ac-mod-url').value = data.meta.modJarUrl || '';
@@ -466,9 +516,13 @@ async function activate(api) {
   const pack = () => {
     const prof = api.getActiveProfile() || { name: 'Default Profile', version: '1.20.4', loader: 'vanilla' };
     const profileDir = api.getActiveProfileDir(), meta = loadMeta(api), modConfig = loadModConfig(api, profileDir);
-    const mcVersion = apiExtractVer(prof.version), targetKey = resolveTargetKeyForMcVersion(mcVersion), jars = findAvailableBundledJars(api);
+    const mcVersion = apiExtractVer(prof.version), jars = findAvailableBundledJars(api), targetKey = resolveTargetKeyForMcVersion(mcVersion, jars);
     const matchedPath = targetKey ? jars[targetKey] : null;
-    return { profile: { id: prof.id, name: prof.name, mcVersion, loader: prof.loader || 'vanilla' }, meta, modConfig, matchedJarKey: targetKey, matchedJar: matchedPath ? path.basename(matchedPath) : null, availableJars: Object.fromEntries(Object.entries(jars).map(([k, v]) => [k, path.basename(v)])), supportedTargets: SUPPORTED_MOD_TARGETS, catalog: { presets: MOD_PRESETS, categories: MOD_OPTIONS_CATS.map(c => c[0]), options: OPTIONS_CATALOG }, localMods: listLocalMods(profileDir) };
+    const supportedTargets = [...SUPPORTED_MOD_TARGETS];
+    for (const k of Object.keys(jars)) {
+      if (k !== 'generic' && !supportedTargets.some(t => t.key === k)) supportedTargets.unshift({ key: k, label: `MC ${k} (Fabric)` });
+    }
+    return { profile: { id: prof.id, name: prof.name, mcVersion, loader: prof.loader || 'vanilla' }, meta, modConfig, matchedJarKey: targetKey, matchedJar: matchedPath ? path.basename(matchedPath) : null, availableJars: Object.fromEntries(Object.entries(jars).map(([k, v]) => [k, path.basename(v)])), supportedTargets, catalog: { presets: MOD_PRESETS, categories: MOD_OPTIONS_CATS.map(c => c[0]), options: OPTIONS_CATALOG }, localMods: listLocalMods(profileDir) };
   };
 
   api.registerIpc('ac:get-state', () => pack());
